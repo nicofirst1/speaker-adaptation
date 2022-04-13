@@ -47,7 +47,7 @@ class ListenerDataset(Dataset):
         else:
             self.subset_size = subset_size
 
-        print('processing', self.split)
+        #print('processing', self.split)
         for chain in self.chains[:self.subset_size]:
 
             chain_utterances = chain['utterances']

@@ -1,10 +1,13 @@
 import argparse
 import sys
 from os.path import dirname, abspath
+from typing import Tuple
 
 import numpy as np
 import torch
 import torch.utils.data
+import wandb
+from rich.progress import track
 from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader
@@ -63,8 +66,18 @@ def save_model(model, model_type, epoch, accuracy, loss, mrr, optimizer, args, m
         'seed': seed
     }, file_name)
 
+    wandb.save(file_name)
 
-def evaluate(data_loader: DataLoader, breaking, model: torch.nn.Module, in_domain:bool):
+
+def evaluate(data_loader: DataLoader, breaking: bool, model: torch.nn.Module, in_domain: bool):
+    """
+    Evaluate model on either in/out_domain dataloader
+    :param data_loader:
+    :param breaking:
+    :param model:
+    :param in_domain: when out_domain also estimate per domain accuracy
+    :return:
+    """
     losses_eval = []
     accuracies = []
     ranks = []
@@ -72,6 +85,8 @@ def evaluate(data_loader: DataLoader, breaking, model: torch.nn.Module, in_domai
     count = 0
 
     domain_accuracy = {}
+    flag = "eval/"
+    flag += "in_domain" if in_domain else "out_domain"
 
     for ii, data in enumerate(data_loader):
         # print(i)
@@ -117,20 +132,19 @@ def evaluate(data_loader: DataLoader, breaking, model: torch.nn.Module, in_domai
             rank_target = images_ranked.tolist().index(targets.item())
             ranks.append(rank_target + 1)  # no 0
 
-        if in_domain:
-            aux = dict(
-                preds=preds.squeeze(),
-                ranks=ranks,
-                scores_ranked=scores_ranked,
-                images_ranked=images_ranked,
-                correct=correct / preds.shape[0]
+        aux = dict(
+            preds=preds.squeeze(),
+            ranks=ranks,
+            scores_ranked=scores_ranked,
+            images_ranked=images_ranked,
+            correct=correct / preds.shape[0]
 
-            )
+        )
 
-            logger.on_batch_end(loss, data, aux, batch_id=ii, is_train=True)
+        logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
 
-        else:
-
+        if not in_domain:
+            # estimate per domain accuracy
             tmp = logger.log_domain_accuracy(data, preds)
             for k in tmp.keys():
                 if k not in domain_accuracy.keys():
@@ -139,25 +153,22 @@ def evaluate(data_loader: DataLoader, breaking, model: torch.nn.Module, in_domai
                 domain_accuracy[k] += tmp[k]
                 domain_accuracy[k] /= 2
 
-    sum_loss = np.sum(losses_eval)
-    sum_accuracy = np.sum(accuracies)
-
-    current_accuracy = sum_accuracy / ii
+    loss = np.mean(losses_eval)
+    accuracy = np.mean(accuracies)
 
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
 
-    print(int(sum_accuracy), 'Acc', round(current_accuracy, 5), 'Loss', round(sum_loss, 5), 'MRR', round(MRR, 5))
+    print(int(accuracy), 'Acc', round(accuracy, 5), 'Loss', round(loss, 5), 'MRR', round(MRR, 5))
 
     metrics = dict(
         mrr=MRR,
         domain_accuracy=domain_accuracy,
-        loss=sum_loss
+        loss=loss
     )
 
-    if not in_domain:
-        logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain)
+    logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
-    return current_accuracy, sum_loss, MRR
+    return accuracy, loss, MRR
 
 
 def arg_parse():
@@ -185,11 +196,19 @@ def arg_parse():
     parser.add_argument("-metric", type=str, default='accs')  # accs or loss
     parser.add_argument("-dropout_prob", type=float, default=0.0)
     parser.add_argument("-reduction", type=str, default='sum')  # reduction for crossentropy loss
+    parser.add_argument("-wandb_dir", type=str, default='wandb_out')  # reduction for crossentropy loss
 
     return parser
 
 
-def get_data_loaders(args, domain, img_dim):
+def get_data_loaders(args: argparse.Namespace, domain: str, img_dim: int) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    """
+    Prepare the dataset and dataloader
+    :param args: argparse args
+    :param domain:
+    :param img_dim:
+    :return: train, test and eval dataloader
+    """
     trainset = ListenerDataset(
         data_dir=args.data_path,
         domain=domain,
@@ -267,7 +286,7 @@ if __name__ == '__main__':
     # print(f'vocab size {vocab_size}')
 
     logger = ListenerLogger(vocab=vocab, opts=vars(args), group="listener", train_logging_step=20,
-                            val_logging_step=10)
+                            val_logging_step=1)
 
     ###################################
     ##  DATALOADERS
@@ -342,8 +361,7 @@ if __name__ == '__main__':
 
     for epoch in range(epochs):
 
-        print('Epoch', epoch)
-        print('Train')
+        print('Epoch : ', epoch)
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
@@ -360,7 +378,7 @@ if __name__ == '__main__':
         ##  TRAIN LOOP
         ###################################
 
-        for i, data in enumerate(training_loader):
+        for i, data in track(enumerate(training_loader), total=len(training_loader), description="Training"):
 
             if breaking and count == 5:
                 break
@@ -392,14 +410,15 @@ if __name__ == '__main__':
             loss = criterion(out, targets)
 
             preds = torch.argmax(out.squeeze(dim=-1), dim=1)
-            logger.on_batch_end(loss, data, aux={'preds': preds}, batch_id=i, is_train=True)
+            logger.on_batch_end(loss, data, aux={'preds': preds}, batch_id=i, modality="train")
 
             losses.append(loss.item())
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
             optimizer.step()
 
-        print('Train loss sum', round(np.sum(losses), 5))  # sum all the batches for this epoch
+        losses = np.mean(losses)
+        print('Train loss sum', round(losses, 5))  # sum all the batches for this epoch
 
         ###################################
         ##  EVAL LOOP
@@ -410,9 +429,9 @@ if __name__ == '__main__':
 
             isValidation = True
             print(f'\nVal Eval on domain "{domain}"')
-            current_accuracy, current_loss, current_MRR = evaluate(val_loader, breaking, model,in_domain=True)
+            current_accuracy, current_loss, current_MRR = evaluate(val_loader, breaking, model, in_domain=True)
 
-            print(f'\nVal Eval on all domains')
+            # print(f'\nVal Eval on all domains')
             evaluate(val_loader_speaker, breaking, model, in_domain=False)
 
             if metric == 'loss':
@@ -500,3 +519,5 @@ if __name__ == '__main__':
             prev_accuracy = current_accuracy
             prev_loss = current_loss
             prev_mrr = current_MRR
+
+        logger.on_train_end({"loss": losses}, epoch_id=epoch)

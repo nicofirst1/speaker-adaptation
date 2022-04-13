@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Optional, Any
 
+import torch
 import wandb
 
 
@@ -21,9 +22,9 @@ class WandbLogger:
         # what type of data are to be logged.
         self.opts = opts
 
-        if 'WANDB_DIR' not in opts.keys():
-            opts['WANDB_DIR'] = "wandb"
-        out_dir = opts['WANDB_DIR']
+        if 'wandb_dir' not in opts.keys():
+            opts['wandb_dir'] = "wandb_out"
+        out_dir = opts['wandb_dir']
 
         # create wandb dir if not existing
         if not os.path.isdir(out_dir):
@@ -42,11 +43,18 @@ class WandbLogger:
         self.metrics = {}
         self.train_logging_step = train_logging_step
         self.val_logging_step = val_logging_step
+        self.epochs = 0
+        self.steps={}
 
-    def on_batch_end(self, metrics: Dict[str, Any], batch_id: int, commit=True):
+
+
+    def on_batch_end(self, loss: torch.Tensor, data_point: Dict[str, Any],
+                     aux: Dict[str, Any], batch_id: int,
+                     is_train: bool):
         raise NotImplemented()
 
     def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
+        self.epochs=epoch_id
         raise NotImplemented()
 
     def on_eval_end(self, metrics: Dict[str, Any], epoch_id: int):

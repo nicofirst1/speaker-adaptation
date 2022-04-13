@@ -82,9 +82,9 @@ class ListenerLogger(WandbLogger):
 
     def on_batch_end(self, loss: torch.Tensor, data_point: Dict[str, Any],
                      aux: Dict[str, Any], batch_id: int,
-                     is_train: bool):
+                     modality: str):
 
-        logging_step = self.train_logging_step if is_train else self.val_logging_step
+        logging_step = self.train_logging_step if modality == "train" else self.val_logging_step
 
         # do not log
         if batch_id > 0 and logging_step % batch_id != 0:
@@ -95,10 +95,20 @@ class ListenerLogger(WandbLogger):
         logs['loss'] = loss.detach().item()
         logs.update(self.log_datapoint(data_point, aux['preds']))
 
-        if not is_train:
+        if "out_domain" in modality:
             self.log_domain_accuracy(data_point, aux['preds'])
 
-        self.log_to_wandb(logs)
+        # apply correct flag
+        logs = {f"{modality}/{k}": v for k, v in logs.items()}
+
+        if modality not in self.steps.keys():
+            self.steps[modality] = -1
+
+        # update steps for this modality
+        self.steps[modality] += 1
+        logs[f'{modality}/steps'] = self.steps[modality]
+
+        self.log_to_wandb(logs, commit=False)
 
     def log_domain_accuracy(self, data_point: Dict, preds) -> Dict:
         """
@@ -112,15 +122,16 @@ class ListenerLogger(WandbLogger):
         target = data_point['target'].numpy().squeeze()
         preds = preds.detach().numpy().squeeze()
 
-        if target.size==1:
+        if target.size == 1:
             # if target is unidimensional then exapnd dim
-            target=[target]
+            target = [target]
 
         imgs_class = []
         for idx in range(len(imgs)):
             img = imgs[idx][target[idx]]
             imgs_class.append(self.img_id2domain[img])
 
+        # estimate number of correct
         correct = preds == target
 
         domain_accs = {d: 0 for d in self.domains}
@@ -192,19 +203,27 @@ class ListenerLogger(WandbLogger):
 
         return logs
 
-    def on_eval_end(self, metrics: Dict[str, Any], list_domain: int):
+    def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
+        metrics['epochs'] = epoch_id
+        self.log_to_wandb(metrics, commit=True)
 
-        domain_accuracy = metrics['domain_accuracy']
-        domain_accuracy = sorted(domain_accuracy.items(), key=lambda item: item[0])
+    def on_eval_end(self, metrics: Dict[str, Any], list_domain: int, modality: str):
 
-        data = [self.opts['train_domain']]
-        data += [x[1] for x in domain_accuracy]
+        # get and log domain accuracy table
+        logs = {}
+        if "out_domain" in modality:
+            domain_accuracy = metrics['domain_accuracy']
+            domain_accuracy = sorted(domain_accuracy.items(), key=lambda item: item[0])
 
-        self.domain_table.add_data(*data)
+            data = [self.opts['train_domain']]
+            data += [x[1] for x in domain_accuracy]
 
-        logs = dict(
-            domain_acc=self.domain_table,
-            mrr=metrics['mrr'],
-            loss=metrics['loss']
-        )
-        self.log_to_wandb(logs)
+            self.domain_table.add_data(*data)
+            logs["domain_acc"] = self.domain_table
+
+        logs['mrr'] = metrics['mrr']
+        logs['loss'] = metrics['loss']
+
+        logs = {f"{modality}/{k}": v for k, v in logs.items()}
+
+        self.log_to_wandb(logs, commit=False)
