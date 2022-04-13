@@ -1,11 +1,12 @@
-import os
 import json
+import os
 import pickle
-import torch
 from collections import defaultdict
-from torch.utils.data import Dataset
 
 import numpy as np
+import torch
+from torch.utils.data import Dataset
+
 
 class ListenerDataset(Dataset):
     def __init__(self, split, domain, data_dir, chain_file, utterances_file,
@@ -39,7 +40,6 @@ class ListenerDataset(Dataset):
         self.img2chain = defaultdict(dict)
 
         for chain in self.chains:
-
             self.img2chain[chain['target']][chain['game_id']] = chain['utterances']
 
         if subset_size == -1:
@@ -47,7 +47,7 @@ class ListenerDataset(Dataset):
         else:
             self.subset_size = subset_size
 
-        print('processing',self.split)
+        print('processing', self.split)
         for chain in self.chains[:self.subset_size]:
 
             chain_utterances = chain['utterances']
@@ -58,14 +58,14 @@ class ListenerDataset(Dataset):
                 prev_chains = defaultdict(list)
                 prev_lengths = defaultdict(int)
 
-                utterance_id = tuple(chain_utterances[s]) # utterance_id = (game_id, round_nr, messsage_nr, img_id)
+                utterance_id = tuple(chain_utterances[s])  # utterance_id = (game_id, round_nr, messsage_nr, img_id)
                 round_nr = utterance_id[1]
                 message_nr = utterance_id[2]
 
                 cur_utterance_obj = self.utterances[utterance_id]
                 cur_utterance_text = cur_utterance_obj['utterance']
 
-                #cur_utterance_reps = self.representations[(game_id, round_nr, message_nr)].squeeze(dim=0)
+                # cur_utterance_reps = self.representations[(game_id, round_nr, message_nr)].squeeze(dim=0)
 
                 length = cur_utterance_obj['length']
 
@@ -95,7 +95,7 @@ class ListenerDataset(Dataset):
 
                         for t in range(len(temp_chain)):
 
-                            _, t_round, t_message, _ = temp_chain[t] #(game_id, round_nr, messsage_nr, img_id)
+                            _, t_round, t_message, _ = temp_chain[t]  # (game_id, round_nr, messsage_nr, img_id)
 
                             if t_round < round_nr:
                                 hist_utterances.append((game_id, t_round, t_message, im))
@@ -126,11 +126,11 @@ class ListenerDataset(Dataset):
                 context_concat = context_separate.reshape(self.img_count * self.img_dim)
 
                 self.data[len(self.data)] = {'utterance': cur_utterance_text,
-                                             #'representations': cur_utterance_reps,
+                                             # 'representations': cur_utterance_reps,
                                              'image_set': images,
                                              'concat_context': context_concat,
                                              'separate_images': context_separate,
-                                             'target':target,
+                                             'target': target,
                                              'length': length,
                                              'prev_histories': prev_chains,
                                              'prev_history_lengths': prev_lengths
@@ -158,7 +158,7 @@ class ListenerDataset(Dataset):
                     if key == 'utterance':
                         padded = sample[key] + [0] * (max_src_length - sample['length'])
 
-                        print('utt', padded)
+                        # print('utt', padded)
 
                     # elif key == 'representations':
                     #
@@ -179,7 +179,7 @@ class ListenerDataset(Dataset):
                         histories_per_img = []
 
                         for k in range(len(sample['image_set'])):
-                            #keep the order of imgs
+                            # keep the order of imgs
                             img_id = sample['image_set'][k]
                             history = sample[key][img_id]
 
@@ -192,7 +192,7 @@ class ListenerDataset(Dataset):
                         histlens_per_img = []
 
                         for k in range(len(sample['image_set'])):
-                            #keep the order of imgs
+                            # keep the order of imgs
                             img_id = sample['image_set'][k]
                             history_length = sample[key][img_id]
 
@@ -210,13 +210,10 @@ class ListenerDataset(Dataset):
                 if key in ['utterance', 'target']:
                     batch[key] = torch.Tensor(batch[key]).long().to(device)
 
-                elif key in ['separate_images', 'concat_context']: # 'representations',
+                elif key in ['separate_images', 'concat_context']:  # 'representations',
 
                     batch[key] = torch.stack(batch[key]).to(device)  # float
-
-
 
             return batch
 
         return collate_fn
-

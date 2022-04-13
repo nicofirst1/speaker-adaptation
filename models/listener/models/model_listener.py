@@ -109,7 +109,7 @@ class ListenerModel(nn.Module):
 
                 if len(batch_prev_hist[s]) > 0:
 
-                    print(batch_prev_hist[s])
+                    #print(batch_prev_hist[s])
                     hist_rep = self.embeddings(torch.Tensor(batch_prev_hist[s]).long()).to(device)
                     # if there is history for a candidate image
                     #hist_rep = torch.stack(batch_prev_hist[s]).to(device)

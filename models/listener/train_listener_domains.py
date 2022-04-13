@@ -1,17 +1,18 @@
-import torch
-import numpy as np
+import argparse
+import sys
+from os.path import dirname, abspath
 
+import numpy as np
+import torch
+import torch.utils.data
 from torch import nn
 from torch import optim
-import torch.utils.data
+from torch.utils.data import DataLoader
 
 from models.model_listener import ListenerModel
 from utils.Vocab import Vocab
+from wandb_logging.ListenerLogger import ListenerLogger
 
-import argparse
-
-import sys
-from os.path import dirname, abspath
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 from utils.ListenerDataset import ListenerDataset
@@ -20,16 +21,18 @@ import datetime
 
 import os
 
+global logger
+
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
 if not os.path.isdir('saved_models'):
     os.mkdir('saved_models')
 
 
 def mask_attn(actual_num_tokens, max_num_tokens, device):
-
     masks = []
 
     for n in range(len(actual_num_tokens)):
-
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (max_num_tokens - actual_num_tokens[n])
         masks.append(mask)
@@ -40,8 +43,8 @@ def mask_attn(actual_num_tokens, max_num_tokens, device):
 
 
 def save_model(model, model_type, epoch, accuracy, loss, mrr, optimizer, args, metric, timestamp, seed, t):
-
-    file_name = 'saved_models/model_listener_adp_' + model_type + '_' + args.embed_type + '_CE_' + str(seed) + '_' + metric + '_' + timestamp + '.pkl'
+    file_name = 'saved_models/model_listener_adp_' + model_type + '_' + args.embed_type + '_CE_' + str(
+        seed) + '_' + metric + '_' + timestamp + '.pkl'
 
     print(file_name)
 
@@ -52,7 +55,7 @@ def save_model(model, model_type, epoch, accuracy, loss, mrr, optimizer, args, m
     torch.save({
         'accuracy': accuracy,
         'mrr': mrr,
-        'args': args, # more detailed info, metric, model_type etc
+        'args': args,  # more detailed info, metric, model_type etc
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
@@ -61,15 +64,16 @@ def save_model(model, model_type, epoch, accuracy, loss, mrr, optimizer, args, m
     }, file_name)
 
 
-def evaluate(split_data_loader, split_dataset, breaking, model, isValidation, device):
-
+def evaluate(data_loader: DataLoader, breaking, model: torch.nn.Module, in_domain:bool):
     losses_eval = []
     accuracies = []
     ranks = []
 
     count = 0
 
-    for ii, data in enumerate(split_data_loader):
+    domain_accuracy = {}
+
+    for ii, data in enumerate(data_loader):
         # print(i)
 
         if breaking and count == 5:
@@ -77,7 +81,7 @@ def evaluate(split_data_loader, split_dataset, breaking, model, isValidation, de
 
         count += 1
 
-        utterances = data['utterances']
+        utterances = data['utterance']
 
         context_separate = data['separate_images']
         context_concat = data['concat_context']
@@ -92,7 +96,7 @@ def evaluate(split_data_loader, split_dataset, breaking, model, isValidation, de
         prev_hist = data['prev_histories']
 
         out = model(utterances, context_separate, context_concat, prev_hist, masks, device)
-        
+
         loss = criterion(out, targets)
         losses_eval.append(loss.item())
 
@@ -113,34 +117,65 @@ def evaluate(split_data_loader, split_dataset, breaking, model, isValidation, de
             rank_target = images_ranked.tolist().index(targets.item())
             ranks.append(rank_target + 1)  # no 0
 
+        if in_domain:
+            aux = dict(
+                preds=preds.squeeze(),
+                ranks=ranks,
+                scores_ranked=scores_ranked,
+                images_ranked=images_ranked,
+                correct=correct / preds.shape[0]
+
+            )
+
+            logger.on_batch_end(loss, data, aux, batch_id=ii, is_train=True)
+
+        else:
+
+            tmp = logger.log_domain_accuracy(data, preds)
+            for k in tmp.keys():
+                if k not in domain_accuracy.keys():
+                    domain_accuracy[k] = 0
+
+                domain_accuracy[k] += tmp[k]
+                domain_accuracy[k] /= 2
+
     sum_loss = np.sum(losses_eval)
     sum_accuracy = np.sum(accuracies)
 
-    current_accuracy = sum_accuracy/len(split_dataset)
+    current_accuracy = sum_accuracy / ii
 
-    #avg_rank = np.sum(ranks) / len(split_dataset)
-
-    MRR = np.sum([1/r for r in ranks])/len(ranks)
+    MRR = np.sum([1 / r for r in ranks]) / len(ranks)
 
     print(int(sum_accuracy), 'Acc', round(current_accuracy, 5), 'Loss', round(sum_loss, 5), 'MRR', round(MRR, 5))
 
-    if isValidation:
+    metrics = dict(
+        mrr=MRR,
+        domain_accuracy=domain_accuracy,
+        loss=sum_loss
+    )
 
-        return current_accuracy, sum_loss, MRR
+    if not in_domain:
+        logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain)
+
+    return current_accuracy, sum_loss, MRR
 
 
-if __name__ == '__main__':
-
+def arg_parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-train_domain", type=str)  # domain to train the listener on
+    parser.add_argument("-train_domain", type=str, default='food',
+                        choices=['appliances', 'food', 'indoor', 'outdoor', 'speaker',
+                                 'vehicles', "all"])  # domain to train the listener on
     parser.add_argument("-embed_type", type=str, default="scratch")  # type of embeds to use
     parser.add_argument("-embed_dim", type=int, default=768)  # if from scratch, 768 as BERT
     parser.add_argument("-data_path", type=str, default="../../data")
-    parser.add_argument("-vectors_file", type=str, default="vectors.json")  # or clip.json
+    parser.add_argument("-vectors_file", type=str, default="vectors.json",
+                        choices=['vectors.json', 'clip.json'])  # or clip.json
     parser.add_argument("-vocab_file", type=str, default="vocab.csv")
     parser.add_argument("-model_type", type=str, default='scratch_rrr')
-    parser.add_argument("-subset_size", type=int, default=-1) # -1 is the full dataset, if you put 10, it will only use 10 chains
+    parser.add_argument("-subset_size", type=int,
+                        default=-1)  # -1 is the full dataset, if you put 10, it will only use 10 chains
     parser.add_argument("-shuffle", action='store_true')
+    parser.add_argument("-debug", action='store_true')
     parser.add_argument("-breaking", action='store_true')
     parser.add_argument("-batch_size", type=int, default=32)
     parser.add_argument("-learning_rate", type=float, default=0.0001)
@@ -151,56 +186,10 @@ if __name__ == '__main__':
     parser.add_argument("-dropout_prob", type=float, default=0.0)
     parser.add_argument("-reduction", type=str, default='sum')  # reduction for crossentropy loss
 
-    t = datetime.datetime.now()
-    timestamp = str(t.date()) + '-' + str(t.hour) + '-' + str(t.minute) + '-' + str(t.second)
-    print('code starts', timestamp)
+    return parser
 
-    args = parser.parse_args()
 
-    print(args)
-
-    domain = args.train_domain
-
-    model_type = args.model_type
-
-    # for reproducibilty
-    seed = args.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-
-    print("Loading the vocab...")
-    vocab = Vocab('../../data/' + args.vocab_file)
-    vocab_size = len(vocab)
-    print(f'vocab size {vocab_size}')
-
-    embed_type = args.embed_type
-
-    if embed_type == 'scratch':
-        embedding_dim = args.embed_dim  # gave 768, like BERT
-
-    # bert_type = args.bert_type
-
-    # if bert_type == 'base':
-    #
-    #     utterances_file = 'BERTNEW_utterances.pickle'
-    #     representations_file = 'BERTNEW_representations.pickle'
-    #     chains_file = 'BERTNEW_chains.json'
-    #     embedding_dim = 768
-    #
-    # elif bert_type == 'large':
-    #
-    #     utterances_file = 'LARGEBERT_utterances.pickle'
-    #     representations_file = 'LARGEBERT_representations.pickle'
-    #     chains_file = 'LARGEBERT_chains.json'
-    #     embedding_dim = 1024
-
-    if args.vectors_file == 'vectors.json':  # from resnet
-        img_dim = 2048
-    elif args.vectors_file == 'clip.json':
-        img_dim = 512
-
+def get_data_loaders(args, domain, img_dim):
     trainset = ListenerDataset(
         data_dir=args.data_path,
         domain=domain,
@@ -234,38 +223,14 @@ if __name__ == '__main__':
         image_size=img_dim
     )
 
-    print('train len', len(trainset))
-    print('test len', len(testset))
-    print('val len', len(valset))
+    # print('train len', len(trainset))
+    # print('test len', len(testset))
+    # print('val len', len(valset))
 
-    hidden_dim = args.hidden_dim
-    att_dim = args.attention_dim
-
-    dropout_prob = args.dropout_prob
-
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-    metric = args.metric
-    shuffle = args.shuffle
-    breaking = args.breaking
-
-    # depending on the selected model type, we will have a different architecture
-
-    if model_type == 'scratch_rrr': # embeds from scratch, visual context + hist
-        model = ListenerModel(vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob).to(device)
-
-    learning_rate = args.learning_rate
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    reduction_method= args.reduction
-    criterion = nn.CrossEntropyLoss(reduction=reduction_method)
-
-    batch_size = args.batch_size
-
-    load_params = {'batch_size':batch_size, 'shuffle': shuffle,
+    load_params = {'batch_size': args.batch_size, 'shuffle': args.shuffle,
                    'collate_fn': ListenerDataset.get_collate_fn(device)}
 
-    load_params_test = {'batch_size': batch_size, 'shuffle': False,
+    load_params_test = {'batch_size': args.batch_size, 'shuffle': False,
                         'collate_fn': ListenerDataset.get_collate_fn(device)}
 
     training_loader = torch.utils.data.DataLoader(trainset, **load_params)
@@ -274,8 +239,90 @@ if __name__ == '__main__':
 
     val_loader = torch.utils.data.DataLoader(valset, **load_params_test)
 
+    return training_loader, test_loader, val_loader
+
+
+if __name__ == '__main__':
+
+    parser = arg_parse()
+    t = datetime.datetime.now()
+    timestamp = str(t.date()) + '-' + str(t.hour) + '-' + str(t.minute) + '-' + str(t.second)
+    print('code starts', timestamp)
+
+    args = parser.parse_args()
+
+    domain = args.train_domain
+
+    model_type = args.model_type
+
+    # for reproducibilty
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    # print("Loading the vocab...")
+    vocab = Vocab('../../data/' + args.vocab_file)
+    vocab_size = len(vocab)
+    # print(f'vocab size {vocab_size}')
+
+    logger = ListenerLogger(vocab=vocab, opts=vars(args), group="listener", train_logging_step=20,
+                            val_logging_step=10)
+
+    ###################################
+    ##  DATALOADERS
+    ###################################
+
+    if args.vectors_file == 'vectors.json':  # from resnet
+        img_dim = 2048
+    elif args.vectors_file == 'clip.json':
+        img_dim = 512
+    else:
+        raise KeyError(f"No valid image vector for file '{args.vectors_file}'")
+
+    training_loader, test_loader, val_loader = get_data_loaders(args, domain, img_dim)
+    _, _, val_loader_speaker = get_data_loaders(args, 'speaker', img_dim)
+
+    ###################################
+    ##  MODEL
+    ###################################
+
+    if args.embed_type == 'scratch':
+        embedding_dim = args.embed_dim  # gave 768, like BERT
+
+    hidden_dim = args.hidden_dim
+    att_dim = args.attention_dim
+
+    dropout_prob = args.dropout_prob
+
+    # depending on the selected model type, we will have a different architecture
+
+    if model_type == 'scratch_rrr':  # embeds from scratch, visual context + hist
+        model = ListenerModel(vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob).to(device)
+
+    logger.watch_model([model])
+
+    ###################################
+    ##  LOSS AND OPTIMIZER
+    ###################################
+
+    learning_rate = args.learning_rate
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    reduction_method = args.reduction
+    criterion = nn.CrossEntropyLoss(reduction=reduction_method)
+
+    ###################################
+    ##  EPOCHS START
+    ###################################
+
+    batch_size = args.batch_size
+    metric = args.metric
+    shuffle = args.shuffle
+    breaking = args.breaking
+
     epochs = 100
-    patience = 50 # when to stop if there is no improvement
+    patience = 50  # when to stop if there is no improvement
     patience_counter = 0
 
     best_loss = float('inf')
@@ -300,32 +347,7 @@ if __name__ == '__main__':
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
-
-            trainset = ListenerDataset(
-                data_dir=args.data_path,
-                domain=domain,
-                utterances_file='train_ids_utterances.pickle',
-                vectors_file=args.vectors_file,
-                chain_file='train_text_chains.json',
-                split='train',
-                subset_size=args.subset_size,
-                image_size=img_dim
-            )
-
-            valset = ListenerDataset(
-                data_dir=args.data_path,
-                domain=domain,
-                utterances_file='val_ids_utterances.pickle',
-                vectors_file=args.vectors_file,
-                chain_file='val_text_chains.json',
-                split='val',
-                subset_size=args.subset_size,
-                image_size=img_dim
-            )
-
-            training_loader = torch.utils.data.DataLoader(trainset, **load_params)
-
-            val_loader = torch.utils.data.DataLoader(valset, **load_params_test)
+            training_loader, _, val_loader = get_data_loaders(args, domain, img_dim)
 
         losses = []
 
@@ -334,15 +356,16 @@ if __name__ == '__main__':
 
         count = 0
 
-        for i, data in enumerate(training_loader):
+        ###################################
+        ##  TRAIN LOOP
+        ###################################
 
-            if i % 200 == 0:
-                print(i)
+        for i, data in enumerate(training_loader):
 
             if breaking and count == 5:
                 break
 
-            #print(count)
+            # print(count)
             count += 1
 
             utterances = data['utterance']
@@ -368,25 +391,29 @@ if __name__ == '__main__':
 
             loss = criterion(out, targets)
 
+            preds = torch.argmax(out.squeeze(dim=-1), dim=1)
+            logger.on_batch_end(loss, data, aux={'preds': preds}, batch_id=i, is_train=True)
+
             losses.append(loss.item())
             loss.backward()
-            #torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
             optimizer.step()
 
         print('Train loss sum', round(np.sum(losses), 5))  # sum all the batches for this epoch
 
-        #evaluation
+        ###################################
+        ##  EVAL LOOP
+        ###################################
+
         with torch.no_grad():
             model.eval()
 
-            isValidation = False
-            print('\nTrain Eval')
-            evaluate(training_loader, trainset, breaking, model, isValidation, device)
-
             isValidation = True
-            print('\nVal Eval')
+            print(f'\nVal Eval on domain "{domain}"')
+            current_accuracy, current_loss, current_MRR = evaluate(val_loader, breaking, model,in_domain=True)
 
-            current_accuracy, current_loss, current_MRR = evaluate(val_loader, valset, breaking, model, isValidation, device)
+            print(f'\nVal Eval on all domains')
+            evaluate(val_loader_speaker, breaking, model, in_domain=False)
 
             if metric == 'loss':
 
@@ -395,7 +422,6 @@ if __name__ == '__main__':
                     patience_counter += 1
 
                     if patience_counter == patience:
-
                         duration = datetime.datetime.now() - t
 
                         print('training ending duration', duration)
@@ -408,9 +434,9 @@ if __name__ == '__main__':
                     best_loss = current_loss
                     best_epoch = epoch
 
-                    save_model(model, model_type, best_epoch, current_accuracy, current_loss, current_MRR, optimizer, args, 'loss',
-                               timestamp, seed, t)
-
+                    save_model(model, model_type, best_epoch, current_accuracy, current_loss, current_MRR, optimizer,
+                               args, 'loss',
+                               timestamp, args.seed, t)
 
                 print('patience', patience_counter, '\n')
 
@@ -424,7 +450,6 @@ if __name__ == '__main__':
                     patience_counter += 1
 
                     if patience_counter == patience:
-
                         duration = datetime.datetime.now() - t
 
                         print('training ending duration', duration)
@@ -437,8 +462,9 @@ if __name__ == '__main__':
                     best_accuracy = current_accuracy
                     best_epoch = epoch
 
-                    save_model(model, model_type, best_epoch, current_accuracy, current_loss, current_MRR, optimizer, args, 'accs',
-                               timestamp, seed, t)
+                    save_model(model, model_type, best_epoch, current_accuracy, current_loss, current_MRR, optimizer,
+                               args, 'accs',
+                               timestamp, args.seed, t)
 
                 print('patience', patience_counter)
 
@@ -451,7 +477,6 @@ if __name__ == '__main__':
                     patience_counter += 1
 
                     if patience_counter == patience:
-
                         duration = datetime.datetime.now() - t
 
                         print('training ending duration', duration)
@@ -464,8 +489,9 @@ if __name__ == '__main__':
                     best_mrr = current_MRR
                     best_epoch = epoch
 
-                    save_model(model, model_type, best_epoch, current_accuracy, current_loss, current_MRR, optimizer, args, 'mrr',
-                               timestamp, seed, t)
+                    save_model(model, model_type, best_epoch, current_accuracy, current_loss, current_MRR, optimizer,
+                               args, 'mrr',
+                               timestamp, args.seed, t)
 
                 print('patience', patience_counter)
 
