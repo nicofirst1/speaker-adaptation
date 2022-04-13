@@ -214,4 +214,4 @@ cython_debug/
 
 *.pkl
 
-models/listener/wandb/*
+models/listener/wandb_out/*
