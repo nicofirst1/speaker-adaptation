@@ -164,8 +164,8 @@ class ListenerLogger(WandbLogger):
         idx = random.randint(0, batch_size - 1)
 
         imgs = data_point['image_set'][idx]
-        utt = data_point['utterance'][idx].numpy()
-        target = data_point['target'][idx].numpy()
+        utt = data_point['utterance'][idx].cpu().numpy()
+        target = data_point['target'][idx].cpu().numpy()
         hist = data_point['prev_histories'][idx]
         preds = preds[idx].detach().numpy()
 
