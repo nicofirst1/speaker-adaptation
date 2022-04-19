@@ -119,8 +119,8 @@ class ListenerLogger(WandbLogger):
         """
 
         imgs = data_point['image_set']
-        target = data_point['target'].numpy().squeeze()
-        preds = preds.detach().numpy().squeeze()
+        target = data_point['target'].cpu().numpy().squeeze()
+        preds = preds.detach().cpu().numpy().squeeze()
 
         if target.size == 1:
             # if target is unidimensional then exapnd dim
@@ -163,10 +163,10 @@ class ListenerLogger(WandbLogger):
         batch_size = len(data_point['image_set'])
         idx = random.randint(0, batch_size - 1)
 
-        imgs = data_point['image_set'][idx].cpu()
+        imgs = data_point['image_set'][idx]
         utt = data_point['utterance'][idx].cpu().numpy()
         target = data_point['target'][idx].cpu().numpy()
-        hist = data_point['prev_histories'][idx].cpu()
+        hist = data_point['prev_histories'][idx]
         preds = preds[idx].detach().cpu().numpy()
 
         ## convert to int
