@@ -225,5 +225,5 @@ dependencies:
     - widgetsnbextension==3.5.1
     - xdg==4.0.1
     - xxhash==2.0.0
-prefix: /home/ece/anaconda3/envs/uvapb
+prefix: /home/brandizzi/anaconda3/envs/uvapb
 
