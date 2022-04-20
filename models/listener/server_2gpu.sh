@@ -3,7 +3,7 @@
 #SBATCH --job-name=listDM_2
 #SBATCH --cpus-per-task=1
 #SBATCH --time=10:00:00
-#SBATCH --partition=shared-gpu
+#SBATCH --partition=gpu_shared
 #SBATCH --gpus-per-node=2
 
 #activating the virtual environment

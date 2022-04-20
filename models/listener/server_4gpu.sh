@@ -14,7 +14,6 @@ conda activate uvapb
 #create output directory
 echo "Creating output directory..."
 out_dir="${HOME}"/outputs
-rm -rf "${out_dir}"
 mkdir "${out_dir}"
 
 common_args=( -dropout 0.5 -batch_size 32 -model_type scratch_rrr -embed_type scratch -vectors_file clip.json -reduction sum -subset_size -1 -seed 1 -learning_rate 0.0001 -shuffle)
