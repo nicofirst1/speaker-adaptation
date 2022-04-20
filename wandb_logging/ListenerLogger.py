@@ -102,6 +102,9 @@ class ListenerLogger(WandbLogger):
         ]
         self.domain_table = wandb.Table(columns)
 
+        # viz embedding data
+        self.embedding_data = {}
+
     def watch_model(self, models: List[nn.Module]):
         for idx, mod in enumerate(models):
             wandb.watch(mod, log_freq=1000, log_graph=True, idx=idx, log="all")
@@ -208,6 +211,48 @@ class ListenerLogger(WandbLogger):
 
         return logs
 
+    def log_viz_embeddings(self, data_point, modality):
+        """
+        Log image embeddings
+        :param data_point:
+        :param modality:
+        :return:
+        """
+        # get random idx for logging
+        batch_size = len(data_point["image_set"])
+        idx = random.randint(0, batch_size - 1)
+
+        imgs = data_point["image_set"][idx]
+        img_emb = data_point["separate_images"][idx].cpu().numpy()
+        img_emb = [list(x) for x in img_emb]
+
+
+        # get imgs domain
+        imgs_domains = [self.img_id2domain[img] for img in imgs]
+
+        # read images
+        imgs = [self.img_id2path[x] for x in imgs]
+        imgs = [wandb.Image(img, caption=f"Domain: {dom}")
+                for img, dom in zip(imgs, imgs_domains)]
+
+        # transform to matrix
+        data = list(zip(imgs, imgs_domains, img_emb))
+
+        if modality not in self.embedding_data.keys():
+            self.embedding_data[modality] = []
+
+        self.embedding_data[modality] += data
+
+        # create table
+        columns = ['image', 'domain', 'viz_embed']
+        new_table = wandb.Table(columns=columns, data=self.embedding_data[modality])
+
+        logs = {
+            f"viz_embed/{modality}": new_table
+        }
+
+        self.log_to_wandb(logs, commit=False)
+
     def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
         metrics["epochs"] = epoch_id
         self.epochs = epoch_id
@@ -240,12 +285,12 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        modality: str,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            modality: str,
     ):
 
         logging_step = (

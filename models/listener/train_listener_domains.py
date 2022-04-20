@@ -201,6 +201,7 @@ def evaluate(
     metrics = dict(mrr=MRR, domain_accuracy=domain_accuracy, loss=loss)
 
     logger.log_datapoint(data, preds, modality="eval")
+    logger.log_viz_embeddings(data, modality="eval")
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
     return accuracy, loss, MRR
@@ -512,6 +513,7 @@ if __name__ == "__main__":
         losses = np.mean(losses)
         print("Train loss sum", round(losses, 5))  # sum all the batches for this epoch
         logger.log_datapoint(data, preds, modality="train")
+        logger.log_viz_embeddings(data,  modality="train")
 
         ###################################
         ##  EVAL LOOP
@@ -653,3 +655,5 @@ if __name__ == "__main__":
             prev_mrr = current_MRR
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)
+
+    wandb.finish()
