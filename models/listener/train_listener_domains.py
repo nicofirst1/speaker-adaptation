@@ -7,12 +7,12 @@ import numpy as np
 import torch
 import torch.utils.data
 import wandb
-from models.model_listener import ListenerModel
 from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
-from utils.Vocab import Vocab
 
+from models.model_listener import ListenerModel
+from utils.Vocab import Vocab
 from wandb_logging.ListenerLogger import ListenerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
@@ -36,7 +36,7 @@ def mask_attn(actual_num_tokens, max_num_tokens, device):
     for n in range(len(actual_num_tokens)):
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (
-            max_num_tokens - actual_num_tokens[n]
+                max_num_tokens - actual_num_tokens[n]
         )
         masks.append(mask)
 
@@ -46,31 +46,31 @@ def mask_attn(actual_num_tokens, max_num_tokens, device):
 
 
 def save_model(
-    model,
-    model_type,
-    epoch,
-    accuracy,
-    loss,
-    mrr,
-    optimizer,
-    args,
-    metric,
-    timestamp,
-    seed,
-    t,
+        model,
+        model_type,
+        epoch,
+        accuracy,
+        loss,
+        mrr,
+        optimizer,
+        args,
+        metric,
+        timestamp,
+        seed,
+        t,
 ):
     file_name = (
-        "saved_models/model_listener_adp_"
-        + model_type
-        + "_"
-        + args.embed_type
-        + "_CE_"
-        + str(seed)
-        + "_"
-        + metric
-        + "_"
-        + timestamp
-        + ".pkl"
+            "saved_models/model_listener_adp_"
+            + model_type
+            + "_"
+            + args.embed_type
+            + "_CE_"
+            + str(seed)
+            + "_"
+            + metric
+            + "_"
+            + timestamp
+            + ".pkl"
     )
 
     print(file_name)
@@ -97,7 +97,7 @@ def save_model(
 
 
 def evaluate(
-    data_loader: DataLoader, breaking: bool, model: torch.nn.Module, in_domain: bool
+        data_loader: DataLoader, breaking: bool, model: torch.nn.Module, in_domain: bool
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -262,7 +262,7 @@ def arg_parse():
 
 
 def get_data_loaders(
-    args: argparse.Namespace, domain: str, img_dim: int
+        args: argparse.Namespace, domain: str, img_dim: int
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Prepare the dataset and dataloader
@@ -271,6 +271,10 @@ def get_data_loaders(
     :param img_dim:
     :return: train, test and eval dataloader
     """
+
+    if domain == "all":
+        domain = "speaker"
+
     trainset = ListenerDataset(
         data_dir=args.data_path,
         domain=domain,
@@ -334,7 +338,7 @@ if __name__ == "__main__":
     parser = arg_parse()
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -439,7 +443,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
@@ -464,9 +468,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description="Training",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description="Training",
         ):
 
             if breaking and count == 5:
@@ -513,7 +517,7 @@ if __name__ == "__main__":
         losses = np.mean(losses)
         print("Train loss sum", round(losses, 5))  # sum all the batches for this epoch
         logger.log_datapoint(data, preds, modality="train")
-        logger.log_viz_embeddings(data,  modality="train")
+        logger.log_viz_embeddings(data, modality="train")
 
         ###################################
         ##  EVAL LOOP
