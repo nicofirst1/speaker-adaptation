@@ -32,7 +32,8 @@ class WandbLogger:
 
         wandb.init(
             group=group,
-            project="adaptive-speaker",
+            entity="adaptive-speaker",
+            project="listener",
             id=run_id,
             dir=out_dir,
             config=opts,
@@ -44,9 +45,7 @@ class WandbLogger:
         self.train_logging_step = train_logging_step
         self.val_logging_step = val_logging_step
         self.epochs = 0
-        self.steps={}
-
-
+        self.steps = {}
 
     def on_batch_end(self, loss: torch.Tensor, data_point: Dict[str, Any],
                      aux: Dict[str, Any], batch_id: int,
@@ -54,7 +53,7 @@ class WandbLogger:
         raise NotImplemented()
 
     def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
-        self.epochs=epoch_id
+        self.epochs = epoch_id
         raise NotImplemented()
 
     def on_eval_end(self, metrics: Dict[str, Any], epoch_id: int):
