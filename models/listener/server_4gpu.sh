@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=listDM
+#SBATCH --job-name=listDM_4
 #SBATCH --cpus-per-task=1
 #SBATCH --time=10:00:00
 #SBATCH --partition=gpu
