@@ -218,8 +218,11 @@ class ListenerLogger(WandbLogger):
             data = [self.opts['train_domain']]
             data += [x[1] for x in domain_accuracy]
 
-            self.domain_table.add_data(*data)
-            logs["domain_acc"] = self.domain_table
+            #self.domain_table.add_data(*data)
+            new_table = wandb.Table(
+                columns=self.domain_table.columns, data=[data]
+            )
+            logs["domain_acc"] = new_table
 
         logs['mrr'] = metrics['mrr']
         logs['loss'] = metrics['loss']

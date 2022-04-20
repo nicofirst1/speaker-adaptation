@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import random
 from collections import defaultdict
 
 import numpy as np
@@ -44,8 +45,13 @@ class ListenerDataset(Dataset):
 
         if subset_size == -1:
             self.subset_size = len(self.chains)
+            shuffle=False
         else:
             self.subset_size = subset_size
+            shuffle=True
+
+        if shuffle:
+            random.shuffle(self.chains)
 
         #print('processing', self.split)
         for chain in self.chains[:self.subset_size]:
