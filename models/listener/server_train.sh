@@ -7,7 +7,17 @@
 #SBATCH --gpus-per-node=1
 
 # array job can be launched with
-# sbatch -a 1-6 server_train.sh
+# sbatch --array 1-6 server_train.sh
+# or if you want to specify a specific domain use
+# sbatch --array=0,2,3 server_train.sh
+# the number mapping is the following:
+# 1: appliances
+# 2: food
+# 3: indoor
+# 4: outdoor
+# 5: vehicles
+# 6: all
+
 
 #activating the virtual environment
 echo "Activating the virtual environment..."
@@ -28,7 +38,7 @@ if [[ $SLURM_ARRAY_TASK_ID -eq 0 ]]; then
   rm -rf "${out_dir}"
   mkdir "${out_dir}"
 
-if [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
+elif [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
   echo "Launching appliances"
   python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain appliances "${common_args[@]}" \
     &>${out_dir}/appliances.log &
