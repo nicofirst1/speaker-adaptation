@@ -149,7 +149,7 @@ def evaluate(
         preds = torch.argmax(out, dim=1)
 
         correct = torch.eq(preds, targets).sum()
-        accuracies.append(float(correct))
+        accuracies.append(float(correct)/len(preds))
 
         scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
 
