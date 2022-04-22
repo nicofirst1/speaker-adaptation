@@ -181,8 +181,9 @@ def evaluate(
                     domain_accuracy[k] = 0
 
                 domain_accuracy[k] += tmp[k]
-                domain_accuracy[k] /= 2
 
+    # normalize based on batches
+    domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
     loss = np.mean(losses_eval)
     accuracy = np.mean(accuracies)
 

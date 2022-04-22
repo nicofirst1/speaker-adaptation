@@ -305,9 +305,6 @@ class ListenerLogger(WandbLogger):
         logs.update(aux)
         logs["loss"] = loss.detach().item()
 
-        if "out_domain" in modality:
-            self.log_domain_accuracy(data_point, aux["preds"])
-
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}
 
