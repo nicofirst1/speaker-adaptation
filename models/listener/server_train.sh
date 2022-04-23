@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --job-name=listDM
 #SBATCH --cpus-per-task=1
-#SBATCH --time=10:00:00
+#SBATCH --time=2:00:00
 #SBATCH --partition=gpu
 #SBATCH --gpus-per-node=1
 
@@ -28,13 +28,14 @@ conda activate uvapb
 out_dir="${HOME}"/outputs
 common_args=(-dropout 0.5 -batch_size 64 -model_type scratch_rrr -embed_type scratch -vectors_file vectors.json -reduction sum -subset_size -1 -seed 42 -learning_rate 0.0001 -shuffle)
 
+mkdir "${out_dir}"
+
 #running the actual code
 echo "Starting the process..."
 
 if [[ $SLURM_ARRAY_TASK_ID -eq 0 ]]; then
   #create output directory
   echo "Creating output directory..."
-  out_dir="${HOME}"/outputs
   rm -rf "${out_dir}"
   mkdir "${out_dir}"
 
