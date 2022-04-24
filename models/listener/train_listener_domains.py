@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from models.model_listener import ListenerModel
 from utils.Vocab import Vocab
+from wandb_logging.DataLogger import DataLogger
 from wandb_logging.ListenerLogger import ListenerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
@@ -149,7 +150,7 @@ def evaluate(
         preds = torch.argmax(out, dim=1)
 
         correct = torch.eq(preds, targets).sum()
-        accuracies.append(float(correct)/len(preds))
+        accuracies.append(float(correct) / len(preds))
 
         scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
 
@@ -244,20 +245,21 @@ def arg_parse():
     )  # -1 is the full dataset, if you put 10, it will only use 10 chains
     parser.add_argument("-shuffle", action="store_true")
     parser.add_argument("-debug", action="store_true")
+    parser.add_argument("-log_data", action="store_true")
     parser.add_argument("-breaking", action="store_true")
     parser.add_argument("-batch_size", type=int, default=32)
     parser.add_argument("-learning_rate", type=float, default=0.0001)
     parser.add_argument("-attention_dim", type=int, default=512)
     parser.add_argument("-hidden_dim", type=int, default=512)
     parser.add_argument("-seed", type=int, default=42)
-    parser.add_argument("-metric", type=str, default="accs")  # accs or loss
+    parser.add_argument("-metric", type=str, default="accs", choices=["accs", "loss"])  # accs or loss
     parser.add_argument("-dropout_prob", type=float, default=0.0)
     parser.add_argument(
-        "-reduction", type=str, default="sum"
+        "-reduction", type=str, default="sum", choices=['sum']
     )  # reduction for crossentropy loss
     parser.add_argument(
         "-wandb_dir", type=str, default="wandb_out"
-    )  # reduction for crossentropy loss
+    )
 
     return parser
 
@@ -330,6 +332,19 @@ def get_data_loaders(
     test_loader = torch.utils.data.DataLoader(testset, **load_params_test)
 
     val_loader = torch.utils.data.DataLoader(valset, **load_params_test)
+
+    if args.log_data:
+        # log dataset once
+        data_logger =DataLogger(
+            vocab=vocab,
+            opts=vars(args),
+            tags=tags,
+        )
+        data_logger.log_dataset(trainset,"train")
+        data_logger.log_dataset(testset,"test")
+        data_logger.log_dataset(valset,"val")
+        print("Dataset logged")
+
 
     return training_loader, test_loader, val_loader
 

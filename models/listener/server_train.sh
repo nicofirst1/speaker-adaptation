@@ -26,7 +26,7 @@ conda activate uvapb
 
 # define variables
 out_dir="${HOME}"/outputs
-common_args=(-dropout 0.5 -batch_size 64 -model_type scratch_rrr -embed_type scratch -vectors_file vectors.json -reduction sum -subset_size -1 -seed 42 -learning_rate 0.0001 -shuffle)
+common_args=(-dropout 0.5 -batch_size 64 -model_type scratch_rrr -embed_type scratch -vectors_file vectors.json -reduction sum -subset_size -1 -seed 42 -learning_rate 0.0001 -shuffle -log_data)
 
 mkdir "${out_dir}"
 
