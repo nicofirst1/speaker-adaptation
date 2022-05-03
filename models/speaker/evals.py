@@ -1,16 +1,15 @@
-import torch
 import json
-
-import torch.nn as nn
-import torch.nn.functional as F
-
 import os
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from bert_score import score
 
-#beam search
-#topk
-#topp
+
+# beam search
+# topk
+# topp
 
 # built via modifying https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning/blob/master/eval.py
 
@@ -46,7 +45,7 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
     else:
         split = 'train'
 
-    file_name = args.model_type + '_' + args.metric + '_' + split + '_' + timestamp # overwrites previous versions!
+    file_name = args.model_type + '_' + args.metric + '_' + split + '_' + timestamp  # overwrites previous versions!
 
     for i, data in enumerate(split_data_loader):
         # print(i)
@@ -64,11 +63,11 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
         # dataset details
         # only the parts I will use for this type of model
 
-        #utterance = data['utterance']  # to be decoded, we don't use this here in beam search!
-        #target_utterance = utterance[:,1:]
+        # utterance = data['utterance']  # to be decoded, we don't use this here in beam search!
+        # target_utterance = utterance[:,1:]
         # I am using the one below as references for the calculation of metric scores
-        orig_text_reference = data['orig_utterance'] # original reference without unk, eos, sos, pad
-        reference_chain = data['reference_chain'][0] #batch size 1  # full set of references for a single instance
+        orig_text_reference = data['orig_utterance']  # original reference without unk, eos, sos, pad
+        reference_chain = data['reference_chain'][0]  # batch size 1  # full set of references for a single instance
         # obtained from the whole chain
 
         visual_context = data['concat_context']
@@ -116,7 +115,6 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
 
             word_pred = top_scores.expand_as(word_pred) + word_pred
 
-
             if gen_len == 0:
                 # all same
 
@@ -130,8 +128,8 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
                 top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
 
             # vocab - 1 to exclude <NOHS>
-            sentence_index = top_words / (len(vocab)-1)  # which sentence it will be added to
-            word_index = top_words % (len(vocab)-1)  # predicted word
+            sentence_index = top_words / (len(vocab) - 1)  # which sentence it will be added to
+            word_index = top_words % (len(vocab) - 1)  # predicted word
 
             gen_len += 1
 
@@ -165,9 +163,8 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
             decoder_hid = decoder_hid[incomplete_sents_inds]
 
         if len(completed_scores) == 0:
-
             empty_count += 1
-            #print('emptyseq', empty_count)
+            # print('emptyseq', empty_count)
 
             # all incomplete here
 
@@ -190,7 +187,7 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
 
         if print_gen:
             # Reference
-            print('REF:', orig_text_reference) # single one
+            print('REF:', orig_text_reference)  # single one
             print('HYP:', hypothesis_string)
 
     if os.path.isfile('speaker_outputs/refs_' + file_name + '.json'):
@@ -277,7 +274,7 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
     else:
         split = 'train'
 
-    file_name = args.model_type + '_' + args.metric + '_' + split + '_' + timestamp # overwrites previous versions!
+    file_name = args.model_type + '_' + args.metric + '_' + split + '_' + timestamp  # overwrites previous versions!
 
     for i, data in enumerate(split_data_loader):
         # print(i)
@@ -296,10 +293,10 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
         # only the parts I will use for this type of model
 
         utterance = data['utterance']  # to be decoded, we don't use this here in beam search!
-        #target_utterance = utterance[:,1:]
+        # target_utterance = utterance[:,1:]
         # I am using the one below as references for the calculation of metric scores
-        orig_text_reference = data['orig_utterance'] # original reference without unk, eos, sos, pad
-        reference_chain = data['reference_chain'][0] #batch size 1  # full set of references for a single instance
+        orig_text_reference = data['orig_utterance']  # original reference without unk, eos, sos, pad
+        reference_chain = data['reference_chain'][0]  # batch size 1  # full set of references for a single instance
         # obtained from the whole chain
 
         prev_utterance = data['prev_utterance']
@@ -402,7 +399,6 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
 
             word_pred = top_scores.expand_as(word_pred) + word_pred
 
-
             if gen_len == 0:
                 # all same
 
@@ -416,8 +412,8 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
                 top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
 
             # vocab - 1 to exclude <NOHS>
-            sentence_index = top_words // (len(vocab)-1)  # which sentence it will be added to
-            word_index = top_words % (len(vocab)-1)  # predicted word
+            sentence_index = top_words // (len(vocab) - 1)  # which sentence it will be added to
+            word_index = top_words % (len(vocab) - 1)  # predicted word
 
             gen_len += 1
 
@@ -451,9 +447,8 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
             decoder_hid = decoder_hid[incomplete_sents_inds]
 
         if len(completed_scores) == 0:
-
             empty_count += 1
-            #print('emptyseq', empty_count)
+            # print('emptyseq', empty_count)
 
             # all incomplete here
 
@@ -476,7 +471,7 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
 
         if print_gen:
             # Reference
-            print('REF:', orig_text_reference) # single one
+            print('REF:', orig_text_reference)  # single one
             print('HYP:', hypothesis_string)
 
     if os.path.isfile('speaker_outputs/refs_' + file_name + '.json'):
@@ -495,7 +490,7 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
     #         json.dump(references_BERT, f)
 
     # Calculate scores
-    metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
+    metrics_dict = nlgeval_obj.compute_metrics([references], hypotheses)
     print(metrics_dict)
 
     (P, R, Fs), hashname = score(hypotheses, references, lang='en', return_hash=True, model_type="bert-base-uncased")
