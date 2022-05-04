@@ -1,5 +1,6 @@
 import argparse
-from datetime import datetime
+import datetime
+from os.path import join
 
 import torch
 
@@ -8,7 +9,7 @@ from models.speaker.data.SpeakerDataset import SpeakerDataset
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-data_path", type=str, default="../../data/speaker")
+    parser.add_argument("-data_path", type=str, default="../../data")
     parser.add_argument("-utterances_file", type=str, default="ids_utterances.pickle")
     parser.add_argument("-chains_file", type=str, default="text_chains.json")
     parser.add_argument('-orig_ref_file', type=str, default='text_utterances.pickle')
@@ -18,6 +19,7 @@ def get_args():
     parser.add_argument("-subset_size", type=int,
                         default=-1)  # -1 is the full dataset, if you put 10, it will only use 10 chains
     parser.add_argument("-shuffle", action='store_true')
+    parser.add_argument("-debug", action='store_true')
     parser.add_argument("-normalize", action='store_true')
     parser.add_argument("-breaking", action='store_true')
     parser.add_argument("-batch_size", type=int, default=64)
@@ -34,16 +36,15 @@ def get_args():
     parser.add_argument("-device")
     args = parser.parse_args()
 
-    args.device= torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
+    args.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     return args
 
 
-
 def get_dataloaders(args, vocab):
+    speaker_data = join(args.data_path, "speaker")
     trainset = SpeakerDataset(
-        data_dir=args.data_path,
+        data_dir=speaker_data,
         utterances_file='train_' + args.utterances_file,
         vectors_file=args.vectors_file,
         chain_file='train_' + args.chains_file,
@@ -53,7 +54,7 @@ def get_dataloaders(args, vocab):
     )
 
     testset = SpeakerDataset(
-        data_dir=args.data_path,
+        data_dir=speaker_data,
         utterances_file='test_' + args.utterances_file,
         vectors_file=args.vectors_file,
         chain_file='test_' + args.chains_file,
@@ -63,7 +64,7 @@ def get_dataloaders(args, vocab):
     )
 
     valset = SpeakerDataset(
-        data_dir=args.data_path,
+        data_dir=speaker_data,
         utterances_file='val_' + args.utterances_file,
         vectors_file=args.vectors_file,
         chain_file='val_' + args.chains_file,
@@ -78,7 +79,8 @@ def get_dataloaders(args, vocab):
     print('val len', len(valset), 'longest sentence', valset.max_len)
 
     load_params = {'batch_size': args.batch_size, 'shuffle': args.shuffle,
-                   'collate_fn': SpeakerDataset.get_collate_fn(args.device, vocab['<sos>'], vocab['<eos>'], vocab['<nohs>'])}
+                   'collate_fn': SpeakerDataset.get_collate_fn(args.device, vocab['<sos>'], vocab['<eos>'],
+                                                               vocab['<nohs>'])}
 
     load_params_test = {'batch_size': 1, 'shuffle': False,
                         'collate_fn': SpeakerDataset.get_collate_fn(args.device, vocab['<sos>'], vocab['<eos>'],
@@ -94,9 +96,7 @@ def get_dataloaders(args, vocab):
     return training_loader, test_loader, val_loader, training_beam_loader
 
 
-
-
-def print_predictions(predicted, expected, vocab):
+def get_predictions(predicted, expected, vocab, return_str=False):
     selected_tokens = torch.argmax(predicted, dim=2)
 
     for b in range(selected_tokens.shape[0]):
@@ -113,7 +113,7 @@ def print_predictions(predicted, expected, vocab):
             if r < len(reference) - 1:
                 reference_string += ' '
 
-        print('***REF***', reference_string)
+        #print('***REF***', reference_string)
 
         generation = selected_tokens[b].data
 
@@ -126,7 +126,9 @@ def print_predictions(predicted, expected, vocab):
             if g < len(generation) - 1:
                 generation_string += ' '
 
-        print('***GEN***', generation_string)
+        #print('***GEN***', generation_string)
+
+        return reference_string,generation_string
 
 
 def mask_attn(actual_num_tokens, max_num_tokens, device):

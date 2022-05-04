@@ -11,7 +11,8 @@ from torch import optim
 
 from evals import eval_beam_base, eval_beam_histatt
 from models.model_speaker_hist_att import SpeakerModelHistAtt
-from models.speaker.utils import get_args, get_dataloaders, mask_attn, save_model, print_predictions
+from models.speaker.utils import get_args, get_dataloaders, mask_attn, save_model, get_predictions
+from wandb_logging.SpeakerLogger import SpeakerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -72,11 +73,20 @@ if __name__ == '__main__':
 
     print_gen = args.print
 
+    logger = SpeakerLogger(
+        vocab=vocab,
+        opts=vars(args),
+        train_logging_step=20,
+        val_logging_step=1,
+    )
+
     # depending on the selected model type, we will have a different architecture
 
     if model_type == 'hist_att':  # attention over prev utterance
 
         model = SpeakerModelHistAtt(len(vocab), embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim).to(device)
+
+    logger.watch_model([model])
 
     learning_rate = args.learning_rate
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -115,7 +125,7 @@ if __name__ == '__main__':
 
         count = 0
 
-        for i, data in rich.progress.track(enumerate(training_loader),total=len(training_loader)):
+        for i, data in rich.progress.track(enumerate(training_loader), total=len(training_loader)):
 
             if i % 200 == 0:
                 print(i)
@@ -152,8 +162,7 @@ if __name__ == '__main__':
 
             # ignoring 0 index in criterion
             #
-            if print_gen:
-                print_predictions(out, utterances_text_ids, vocab)
+            get_predictions(out, utterances_text_ids, vocab)
 
             ''' https://discuss.pytorch.org/t/pytorch-lstm-target-dimension-in-calculating-cross-entropy-loss/30398/2
             ptrblck Nov '18
@@ -175,6 +184,23 @@ if __name__ == '__main__':
             loss.backward()
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
             optimizer.step()
+
+            ##################
+            # logging
+            ##################
+            aux = dict(
+                out=out,
+                target_utt_ids=utterances_text_ids
+
+            )
+            logger.on_batch_end(
+                loss,
+                data_point=data,
+                modality="train",
+                batch_id=i,
+                aux=aux,
+
+            )
 
         print('Train loss', round(np.sum(losses), 3))  # sum all the batches for this epoch
 
@@ -230,7 +256,7 @@ if __name__ == '__main__':
             elif model_type == 'hist_att':
                 best_score, current_score, metrics_dict, has_best_score = \
                     eval_beam_histatt(val_loader, model, args, best_score, print_gen, device,
-                                      beam_size, max_len, vocab, mask_attn, nlge, isValidation, timestamp, isTest)
+                                      beam_size, max_len, vocab, mask_attn, nlge, isValidation, timestamp, isTest, logger)
                 #
                 # best_score_topk, current_score_topk, metrics_dict_topk, has_best_score_topk = \
                 #     eval_top_k_top_p_histatt(val_loader, model, args, best_score, print_gen, device,
@@ -240,9 +266,9 @@ if __name__ == '__main__':
                 #     eval_top_k_top_p_histatt(val_loader, model, args, best_score, print_gen, device,
                 #                     40, 0.9, 'topp', max_len, vocab, nlge, isValidation, timestamp)  # k_size 10
 
-################################################################
+            ################################################################
             # Early stopping
-################################################################
+            ################################################################
 
             if metric == 'cider':
 

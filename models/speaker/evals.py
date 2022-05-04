@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 
@@ -243,7 +244,7 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
 
 
 def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, device,
-                      beam_size, max_len, vocab, mask_attn, nlgeval_obj, isValidation, timestamp, isTest):
+                      beam_size, max_len, vocab, mask_attn, nlgeval_obj, isValidation, timestamp, isTest, logger):
     """
         Evaluation
 
@@ -490,11 +491,41 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
     #         json.dump(references_BERT, f)
 
     # Calculate scores
-    metrics_dict = nlgeval_obj.compute_metrics([references], hypotheses)
+    metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
     print(metrics_dict)
 
     (P, R, Fs), hashname = score(hypotheses, references, lang='en', return_hash=True, model_type="bert-base-uncased")
     print(f'{hashname}: P={P.mean().item():.6f} R={R.mean().item():.6f} F={Fs.mean().item():.6f}')
+
+
+    ##########################################
+    # Logging objects
+    ##########################################
+
+    # metrics
+    logs=copy.deepcopy(metrics_dict)
+    logs['precision']=P.mean().numpy()
+    logs['recal']=R.mean().numpy()
+    logs['Fscore']=Fs.mean().numpy()
+
+    model_params=dict(
+        att_context_vector=att_context_vector,
+        decoder_embeds=decoder_embeds,
+        embeds_words=embeds_words,
+        target_img_hid=target_img_hid,
+        visual_context_hid=visual_context_hid,
+    )
+
+    model_out=dict(
+        hypotheses=hypothesis_string,
+    )
+
+
+
+    logger.on_eval_end(logs,model_params,model_out, data)
+
+
+
 
     if args.metric == 'cider':
         selected_metric_score = metrics_dict['CIDEr']
