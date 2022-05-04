@@ -1,8 +1,5 @@
-import json
-import os
 import random
 from collections import Counter
-from os import listdir
 from typing import Any, Dict, List
 
 import PIL.Image
@@ -12,6 +9,7 @@ from PIL import ImageOps
 from torch import nn
 
 from wandb_logging.WandbLogger import WandbLogger
+from wandb_logging.utils import imgid2domain, imgid2path
 
 
 class ListenerLogger(WandbLogger):
@@ -21,67 +19,16 @@ class ListenerLogger(WandbLogger):
             models: list of torch.Modules to watch with wandb
             **kwargs:
         """
-        super().__init__(**kwargs)
+        super().__init__(project="listener", **kwargs)
 
         self.vocab = vocab
 
         # create a dict from img_id to path
         data_path = self.opts["data_path"]
-        image_path = os.path.join(data_path, "photobook_coco_images")
-
-        images = [f for f in listdir(image_path) if "jpg" in f]
-        imgs_ids = [int(x.rsplit("_", 1)[1].split(".")[0]) for x in images]
-
-        images = [os.path.join(image_path, x) for x in images]
-
-        self.img_id2path = dict(zip(imgs_ids, images))
+        self.img_id2path = imgid2path(data_path)
 
         # create a dict from img_id to domain
-
-        chains_path = os.path.join(data_path, "chains-domain-specific", "speaker")
-        chain_dict = {}
-        for split in ["train", "test", "val"]:
-            with open(os.path.join(chains_path, f"{split}.json"), "r") as file:
-                chain_dict.update(json.load(file))
-
-        chain_dict = {k.split("/")[1]: k.split("/")[0] for k in chain_dict.keys()}
-        chain_dict = {
-            int(k.split("_")[-1].split(".")[0]): v for k, v in chain_dict.items()
-        }
-
-        domain_dict = {
-            "person_motorcycle": "vehicles",
-            "car_motorcycle": "vehicles",
-            "bus_truck": "vehicles",
-            "car_truck": "vehicles",
-            "person_suitcase": "outdoor",
-            "person_umbrella": "outdoor",
-            "person_surfboard": "outdoor",
-            "person_elephant": "outdoor",
-            "person_bicycle": "outdoor",
-            "person_car": "outdoor",
-            "person_train": "outdoor",
-            "person_bench": "outdoor",
-            "person_truck": "outdoor",
-            "bowl_dining_table": "food",
-            "cup_dining_table": "food",
-            "cake_dining_table": "food",
-            "person_oven": "appliances",
-            "dining_table_refrigerator": "appliances",
-            "person_refrigerator": "appliances",
-            "dining_table_laptop": "indoor",
-            "couch_laptop": "indoor",
-            "person_bed": "indoor",
-            "person_couch": "indoor",
-            "person_tv": "indoor",
-            "couch_dining_table": "indoor",
-            "person_teddy_bear": "indoor",
-            "chair_couch": "indoor",
-        }
-
-        chain_dict = {k: domain_dict[v] for k, v in chain_dict.items()}
-        self.img_id2domain = chain_dict
-        self.domains = list(set(domain_dict.values()))
+        self.img_id2domain, self.domains = imgid2domain(data_path)
 
         ### datapoint table
         table_columns = ["model domain"]
@@ -225,7 +172,6 @@ class ListenerLogger(WandbLogger):
         imgs = data_point["image_set"][idx]
         img_emb = data_point["separate_images"][idx].cpu().numpy()
         img_emb = [list(x) for x in img_emb]
-
 
         # get imgs domain
         imgs_domains = [self.img_id2domain[img] for img in imgs]

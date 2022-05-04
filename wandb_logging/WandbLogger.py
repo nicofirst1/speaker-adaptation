@@ -33,7 +33,6 @@ class WandbLogger:
         wandb.init(
             group=group,
             entity="adaptive-speaker",
-            project="listener",
             id=run_id,
             dir=out_dir,
             config=opts,

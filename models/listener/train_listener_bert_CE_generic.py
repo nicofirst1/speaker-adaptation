@@ -5,7 +5,6 @@ from torch import nn
 from torch import optim
 import torch.utils.data
 
-from models.model_bert_att_ctx import ListenerModelBertAttCtx
 from models.model_bert_att_ctx_hist import ListenerModelBertAttCtxHist
 
 import argparse
