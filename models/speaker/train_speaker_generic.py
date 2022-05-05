@@ -124,11 +124,10 @@ if __name__ == '__main__':
         torch.enable_grad()
 
         count = 0
+        logger.on_train_end({},epoch_id=epoch)
 
-        for i, data in rich.progress.track(enumerate(training_loader), total=len(training_loader)):
-
-            if i % 200 == 0:
-                print(i)
+        for i, data in rich.progress.track(enumerate(training_loader), total=len(training_loader),
+                                           description=f"Train epoch {epoch}"):
 
             if breaking and count == 5:
                 break
@@ -256,7 +255,8 @@ if __name__ == '__main__':
             elif model_type == 'hist_att':
                 best_score, current_score, metrics_dict, has_best_score = \
                     eval_beam_histatt(val_loader, model, args, best_score, print_gen, device,
-                                      beam_size, max_len, vocab, mask_attn, nlge, isValidation, timestamp, isTest, logger)
+                                      beam_size, max_len, vocab, mask_attn, nlge, isValidation, timestamp, isTest,
+                                      logger)
                 #
                 # best_score_topk, current_score_topk, metrics_dict_topk, has_best_score_topk = \
                 #     eval_top_k_top_p_histatt(val_loader, model, args, best_score, print_gen, device,
