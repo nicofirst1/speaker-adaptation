@@ -257,4 +257,4 @@ class SpeakerLogger(WandbLogger):
         self.steps[modality] += 1
         logs[f"{modality}/steps"] = self.steps[modality]
 
-        self.log_to_wandb(logs, commit=True)
+        self.log_to_wandb(logs, commit=False)
