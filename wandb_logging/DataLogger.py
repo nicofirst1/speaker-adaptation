@@ -4,8 +4,8 @@ from typing import Dict
 import wandb
 
 from models.listener.utils.ListenerDataset import ListenerDataset
-from wandb_logging.WandbLogger import WandbLogger
 from wandb_logging.utils import imgid2domain, imgid2path
+from wandb_logging.WandbLogger import WandbLogger
 
 
 class DataLogger(WandbLogger):
@@ -41,11 +41,9 @@ class DataLogger(WandbLogger):
         """
 
         count = Counter(self.img_id2domain.values())
-        columns = ['domain', 'img_num']
+        columns = ["domain", "img_num"]
         new_table = wandb.Table(columns=columns, data=list(count.items()))
-        logs = {
-            f"domain_stats/{modality}": new_table
-        }
+        logs = {f"domain_stats/{modality}": new_table}
 
         return logs
 
@@ -70,12 +68,10 @@ class DataLogger(WandbLogger):
 
         print(f"Skipped {skipped} images")
         # create table
-        columns = ['image', 'domain', 'viz_embed']
+        columns = ["image", "domain", "viz_embed"]
         new_table = wandb.Table(columns=columns, data=data)
 
-        logs = {
-            f"viz_embed/{modality}": new_table
-        }
+        logs = {f"viz_embed/{modality}": new_table}
 
         return logs
 

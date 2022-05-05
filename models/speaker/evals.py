@@ -7,21 +7,34 @@ import torch.nn as nn
 import torch.nn.functional as F
 from bert_score import score
 
-
 # beam search
 # topk
 # topp
 
 # built via modifying https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning/blob/master/eval.py
 
-def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device,
-                   beam_size, max_len, vocab, nlgeval_obj, isValidation, timestamp, isTest):
-    """
-        Evaluation
 
-        :param beam_size: beam size at which to generate captions for evaluation
-        :return: Official MSCOCO evaluator scores - bleu4, cider, rouge, meteor
-        """
+def eval_beam_base(
+    split_data_loader,
+    model,
+    args,
+    best_score,
+    print_gen,
+    device,
+    beam_size,
+    max_len,
+    vocab,
+    nlgeval_obj,
+    isValidation,
+    timestamp,
+    isTest,
+):
+    """
+    Evaluation
+
+    :param beam_size: beam size at which to generate captions for evaluation
+    :return: Official MSCOCO evaluator scores - bleu4, cider, rouge, meteor
+    """
 
     # Lists to store references (true captions), and hypothesis (prediction) for each image
     # If for n images, we have n hypotheses, and references a, b, c... for each image, we need -
@@ -36,17 +49,19 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
 
     breaking = args.breaking
 
-    sos_token = torch.tensor(vocab['<sos>']).to(device)
-    eos_token = torch.tensor(vocab['<eos>']).to(device)
+    sos_token = torch.tensor(vocab["<sos>"]).to(device)
+    eos_token = torch.tensor(vocab["<eos>"]).to(device)
 
     if isValidation:
-        split = 'val'
+        split = "val"
     elif isTest:
-        split = 'test'
+        split = "test"
     else:
-        split = 'train'
+        split = "train"
 
-    file_name = args.model_type + '_' + args.metric + '_' + split + '_' + timestamp  # overwrites previous versions!
+    file_name = (
+        args.model_type + "_" + args.metric + "_" + split + "_" + timestamp
+    )  # overwrites previous versions!
 
     for i, data in enumerate(split_data_loader):
         # print(i)
@@ -67,12 +82,16 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
         # utterance = data['utterance']  # to be decoded, we don't use this here in beam search!
         # target_utterance = utterance[:,1:]
         # I am using the one below as references for the calculation of metric scores
-        orig_text_reference = data['orig_utterance']  # original reference without unk, eos, sos, pad
-        reference_chain = data['reference_chain'][0]  # batch size 1  # full set of references for a single instance
+        orig_text_reference = data[
+            "orig_utterance"
+        ]  # original reference without unk, eos, sos, pad
+        reference_chain = data["reference_chain"][
+            0
+        ]  # batch size 1  # full set of references for a single instance
         # obtained from the whole chain
 
-        visual_context = data['concat_context']
-        target_img_feats = data['target_img_feats']
+        visual_context = data["concat_context"]
+        target_img_feats = data["target_img_feats"]
 
         # this model uses only the visual input to start off the decoder to generate the next utterance
         # no attention, no history
@@ -80,7 +99,9 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
         visual_context_hid = model.relu(model.lin_viscontext(visual_context))
         target_img_hid = model.relu(model.linear_separate(target_img_feats))
 
-        decoder_hid = model.relu(model.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1)))
+        decoder_hid = model.relu(
+            model.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
+        )
 
         decoder_hid = decoder_hid.expand(beam_k, -1)
         # multiple copies of the decoder
@@ -110,7 +131,10 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
 
             decoder_embeds = model.embedding(decoder_input).squeeze(1)
 
-            h1, c1 = model.lstm_decoder(model.lin_mm(torch.cat((decoder_embeds, decoder_hid), dim=1)), hx=(h1, c1))
+            h1, c1 = model.lstm_decoder(
+                model.lin_mm(torch.cat((decoder_embeds, decoder_hid), dim=1)),
+                hx=(h1, c1),
+            )
 
             word_pred = F.log_softmax(model.lin2voc(h1), dim=1)
 
@@ -129,26 +153,39 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
                 top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
 
             # vocab - 1 to exclude <NOHS>
-            sentence_index = top_words / (len(vocab) - 1)  # which sentence it will be added to
+            sentence_index = top_words / (
+                len(vocab) - 1
+            )  # which sentence it will be added to
             word_index = top_words % (len(vocab) - 1)  # predicted word
 
             gen_len += 1
 
             # add the newly generated word to the sentences
-            gen_sentences_k = torch.cat((gen_sentences_k[sentence_index], word_index.unsqueeze(1)), dim=1)
+            gen_sentences_k = torch.cat(
+                (gen_sentences_k[sentence_index], word_index.unsqueeze(1)), dim=1
+            )
 
             # there could be incomplete sentences
-            incomplete_sents_inds = [inc for inc in range(len(gen_sentences_k)) if
-                                     eos_token not in gen_sentences_k[inc]]
+            incomplete_sents_inds = [
+                inc
+                for inc in range(len(gen_sentences_k))
+                if eos_token not in gen_sentences_k[inc]
+            ]
 
-            complete_sents_inds = list(set(range(len(word_index))) - set(incomplete_sents_inds))
+            complete_sents_inds = list(
+                set(range(len(word_index))) - set(incomplete_sents_inds)
+            )
 
             # save the completed sentences
             if len(complete_sents_inds) > 0:
-                completed_sentences.extend(gen_sentences_k[complete_sents_inds].tolist())
+                completed_sentences.extend(
+                    gen_sentences_k[complete_sents_inds].tolist()
+                )
                 completed_scores.extend(top_scores[complete_sents_inds])
 
-                beam_k -= len(complete_sents_inds)  # fewer, because we closed at least 1 beam
+                beam_k -= len(
+                    complete_sents_inds
+                )  # fewer, because we closed at least 1 beam
 
             if beam_k == 0:
                 break
@@ -157,7 +194,10 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
             gen_sentences_k = gen_sentences_k[incomplete_sents_inds]
 
             # use the ongoing hidden states of the incomplete sentences
-            h1, c1 = h1[sentence_index[incomplete_sents_inds]], c1[sentence_index[incomplete_sents_inds]],
+            h1, c1 = (
+                h1[sentence_index[incomplete_sents_inds]],
+                c1[sentence_index[incomplete_sents_inds]],
+            )
 
             top_scores = top_scores[incomplete_sents_inds].unsqueeze(1)
             decoder_input = word_index[incomplete_sents_inds]
@@ -169,33 +209,45 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
 
             # all incomplete here
 
-            completed_sentences.extend((gen_sentences_k[incomplete_sents_inds].tolist()))
+            completed_sentences.extend(
+                (gen_sentences_k[incomplete_sents_inds].tolist())
+            )
             completed_scores.extend(top_scores[incomplete_sents_inds])
 
-        sorted_scores, sorted_indices = torch.sort(torch.tensor(completed_scores), descending=True)
+        sorted_scores, sorted_indices = torch.sort(
+            torch.tensor(completed_scores), descending=True
+        )
 
         best_seq = completed_sentences[sorted_indices[0]]
 
-        hypothesis = [vocab.index2word[w] for w in best_seq if w not in
-                      [vocab.word2index['<sos>'], vocab.word2index['<eos>'], vocab.word2index['<pad>']]]
+        hypothesis = [
+            vocab.index2word[w]
+            for w in best_seq
+            if w
+            not in [
+                vocab.word2index["<sos>"],
+                vocab.word2index["<eos>"],
+                vocab.word2index["<pad>"],
+            ]
+        ]
         # remove sos and pads # I want to check eos
-        hypothesis_string = ' '.join(hypothesis)
+        hypothesis_string = " ".join(hypothesis)
         hypotheses.append(hypothesis_string)
 
-        if not os.path.isfile('speaker_outputs/refs_' + file_name + '.json'):
+        if not os.path.isfile("speaker_outputs/refs_" + file_name + ".json"):
             # Reference
             references.append(reference_chain)
 
         if print_gen:
             # Reference
-            print('REF:', orig_text_reference)  # single one
-            print('HYP:', hypothesis_string)
+            print("REF:", orig_text_reference)  # single one
+            print("HYP:", hypothesis_string)
 
-    if os.path.isfile('speaker_outputs/refs_' + file_name + '.json'):
-        with open('speaker_outputs/refs_' + file_name + '.json', 'r') as f:
+    if os.path.isfile("speaker_outputs/refs_" + file_name + ".json"):
+        with open("speaker_outputs/refs_" + file_name + ".json", "r") as f:
             references = json.load(f)
     else:
-        with open('speaker_outputs/refs_' + file_name + '.json', 'w') as f:
+        with open("speaker_outputs/refs_" + file_name + ".json", "w") as f:
             json.dump(references, f)
     #
     # if os.path.isfile('speaker_outputs/refs_BERT_' + file_name + '.json'):
@@ -210,14 +262,22 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
     metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
     print(metrics_dict)
 
-    (P, R, Fs), hashname = score(hypotheses, references, lang='en', return_hash=True, model_type="bert-base-uncased")
-    print(f'{hashname}: P={P.mean().item():.6f} R={R.mean().item():.6f} F={Fs.mean().item():.6f}')
+    (P, R, Fs), hashname = score(
+        hypotheses,
+        references,
+        lang="en",
+        return_hash=True,
+        model_type="bert-base-uncased",
+    )
+    print(
+        f"{hashname}: P={P.mean().item():.6f} R={R.mean().item():.6f} F={Fs.mean().item():.6f}"
+    )
 
-    if args.metric == 'cider':
-        selected_metric_score = metrics_dict['CIDEr']
+    if args.metric == "cider":
+        selected_metric_score = metrics_dict["CIDEr"]
         print(round(selected_metric_score, 5))
 
-    elif args.metric == 'bert':
+    elif args.metric == "bert":
         selected_metric_score = Fs.mean().item()
         print(round(selected_metric_score, 5))
 
@@ -233,24 +293,39 @@ def eval_beam_base(split_data_loader, model, args, best_score, print_gen, device
             best_score = selected_metric_score
             has_best_score = True
 
-            with open('speaker_outputs/hyps_' + file_name + '.json', 'w') as f:
+            with open("speaker_outputs/hyps_" + file_name + ".json", "w") as f:
                 json.dump(hypotheses, f)
 
         return best_score, selected_metric_score, metrics_dict, has_best_score
 
     if isTest:
-        with open('speaker_outputs/hyps_' + file_name + '.json', 'w') as f:
+        with open("speaker_outputs/hyps_" + file_name + ".json", "w") as f:
             json.dump(hypotheses, f)
 
 
-def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, device,
-                      beam_size, max_len, vocab, mask_attn, nlgeval_obj, isValidation, timestamp, isTest, logger):
+def eval_beam_histatt(
+    split_data_loader,
+    model,
+    args,
+    best_score,
+    print_gen,
+    device,
+    beam_size,
+    max_len,
+    vocab,
+    mask_attn,
+    nlgeval_obj,
+    isValidation,
+    timestamp,
+    isTest,
+    logger,
+):
     """
-        Evaluation
+    Evaluation
 
-        :param beam_size: beam size at which to generate captions for evaluation
-        :return: Official MSCOCO evaluator scores - bleu4, cider, rouge, meteor
-        """
+    :param beam_size: beam size at which to generate captions for evaluation
+    :return: Official MSCOCO evaluator scores - bleu4, cider, rouge, meteor
+    """
 
     # Lists to store references (true captions), and hypothesis (prediction) for each image
     # If for n images, we have n hypotheses, and references a, b, c... for each image, we need -
@@ -265,17 +340,19 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
 
     breaking = args.breaking
 
-    sos_token = torch.tensor(vocab['<sos>']).to(device)
-    eos_token = torch.tensor(vocab['<eos>']).to(device)
+    sos_token = torch.tensor(vocab["<sos>"]).to(device)
+    eos_token = torch.tensor(vocab["<eos>"]).to(device)
 
     if isValidation:
-        split = 'val'
+        split = "val"
     elif isTest:
-        split = 'test'
+        split = "test"
     else:
-        split = 'train'
+        split = "train"
 
-    file_name = args.model_type + '_' + args.metric + '_' + split + '_' + timestamp  # overwrites previous versions!
+    file_name = (
+        args.model_type + "_" + args.metric + "_" + split + "_" + timestamp
+    )  # overwrites previous versions!
 
     for i, data in enumerate(split_data_loader):
         # print(i)
@@ -293,18 +370,24 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
         # dataset details
         # only the parts I will use for this type of model
 
-        utterance = data['utterance']  # to be decoded, we don't use this here in beam search!
+        utterance = data[
+            "utterance"
+        ]  # to be decoded, we don't use this here in beam search!
         # target_utterance = utterance[:,1:]
         # I am using the one below as references for the calculation of metric scores
-        orig_text_reference = data['orig_utterance']  # original reference without unk, eos, sos, pad
-        reference_chain = data['reference_chain'][0]  # batch size 1  # full set of references for a single instance
+        orig_text_reference = data[
+            "orig_utterance"
+        ]  # original reference without unk, eos, sos, pad
+        reference_chain = data["reference_chain"][
+            0
+        ]  # batch size 1  # full set of references for a single instance
         # obtained from the whole chain
 
-        prev_utterance = data['prev_utterance']
-        prev_utt_lengths = data['prev_length']
+        prev_utterance = data["prev_utterance"]
+        prev_utt_lengths = data["prev_length"]
 
-        visual_context = data['concat_context']
-        target_img_feats = data['target_img_feats']
+        visual_context = data["concat_context"]
+        target_img_feats = data["target_img_feats"]
 
         max_length_tensor = prev_utterance.shape[1]
 
@@ -313,7 +396,9 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
         visual_context_hid = model.relu(model.lin_viscontext(visual_context))
         target_img_hid = model.relu(model.linear_separate(target_img_feats))
 
-        concat_visual_input = model.relu(model.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1)))
+        concat_visual_input = model.relu(
+            model.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
+        )
 
         embeds_words = model.embedding(prev_utterance)  # b, l, d
 
@@ -325,15 +410,21 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
         concat_visual_input = concat_visual_input[sorted_idx]
 
         # RuntimeError: Cannot pack empty tensors.
-        packed_input = nn.utils.rnn.pack_padded_sequence(embeds_words, sorted_prev_utt_lens, batch_first=True)
+        packed_input = nn.utils.rnn.pack_padded_sequence(
+            embeds_words, sorted_prev_utt_lens, batch_first=True
+        )
 
         # start lstm with average visual context:
         # conditioned on the visual context
 
         # he, ce = self.init_hidden(batch_size, device)
-        concat_visual_input = torch.stack((concat_visual_input, concat_visual_input), dim=0)
+        concat_visual_input = torch.stack(
+            (concat_visual_input, concat_visual_input), dim=0
+        )
 
-        packed_outputs, hidden = model.lstm_encoder(packed_input, hx=(concat_visual_input, concat_visual_input))
+        packed_outputs, hidden = model.lstm_encoder(
+            packed_input, hx=(concat_visual_input, concat_visual_input)
+        )
 
         # re-pad sequence
         outputs, _ = nn.utils.rnn.pad_packed_sequence(packed_outputs, batch_first=True)
@@ -351,7 +442,9 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
 
         # teacher forcing
 
-        decoder_hid = model.linear_dec(torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1))
+        decoder_hid = model.linear_dec(
+            torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
+        )
 
         history_att = model.lin2att_hist(outputs)
 
@@ -388,15 +481,19 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
 
             h1_att = model.lin2att_hid(h1)
 
-            attention_out = model.attention(model.tanh(history_att + h1_att.unsqueeze(1)))
+            attention_out = model.attention(
+                model.tanh(history_att + h1_att.unsqueeze(1))
+            )
 
-            attention_out = attention_out.masked_fill_(masks, float('-inf'))
+            attention_out = attention_out.masked_fill_(masks, float("-inf"))
 
             att_weights = model.softmax(attention_out)
 
             att_context_vector = (history_att * att_weights).sum(dim=1)
 
-            word_pred = F.log_softmax(model.lin2voc(torch.cat((h1, att_context_vector), dim=1)), dim=1)
+            word_pred = F.log_softmax(
+                model.lin2voc(torch.cat((h1, att_context_vector), dim=1)), dim=1
+            )
 
             word_pred = top_scores.expand_as(word_pred) + word_pred
 
@@ -413,26 +510,39 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
                 top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
 
             # vocab - 1 to exclude <NOHS>
-            sentence_index = top_words // (len(vocab) - 1)  # which sentence it will be added to
+            sentence_index = top_words // (
+                len(vocab) - 1
+            )  # which sentence it will be added to
             word_index = top_words % (len(vocab) - 1)  # predicted word
 
             gen_len += 1
 
             # add the newly generated word to the sentences
-            gen_sentences_k = torch.cat((gen_sentences_k[sentence_index], word_index.unsqueeze(1)), dim=1)
+            gen_sentences_k = torch.cat(
+                (gen_sentences_k[sentence_index], word_index.unsqueeze(1)), dim=1
+            )
 
             # there could be incomplete sentences
-            incomplete_sents_inds = [inc for inc in range(len(gen_sentences_k)) if
-                                     eos_token not in gen_sentences_k[inc]]
+            incomplete_sents_inds = [
+                inc
+                for inc in range(len(gen_sentences_k))
+                if eos_token not in gen_sentences_k[inc]
+            ]
 
-            complete_sents_inds = list(set(range(len(word_index))) - set(incomplete_sents_inds))
+            complete_sents_inds = list(
+                set(range(len(word_index))) - set(incomplete_sents_inds)
+            )
 
             # save the completed sentences
             if len(complete_sents_inds) > 0:
-                completed_sentences.extend(gen_sentences_k[complete_sents_inds].tolist())
+                completed_sentences.extend(
+                    gen_sentences_k[complete_sents_inds].tolist()
+                )
                 completed_scores.extend(top_scores[complete_sents_inds])
 
-                beam_k -= len(complete_sents_inds)  # fewer, because we closed at least 1 beam
+                beam_k -= len(
+                    complete_sents_inds
+                )  # fewer, because we closed at least 1 beam
 
             if beam_k == 0:
                 break
@@ -441,7 +551,10 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
             gen_sentences_k = gen_sentences_k[incomplete_sents_inds]
 
             # use the ongoing hidden states of the incomplete sentences
-            h1, c1 = h1[sentence_index[incomplete_sents_inds]], c1[sentence_index[incomplete_sents_inds]],
+            h1, c1 = (
+                h1[sentence_index[incomplete_sents_inds]],
+                c1[sentence_index[incomplete_sents_inds]],
+            )
 
             top_scores = top_scores[incomplete_sents_inds].unsqueeze(1)
             decoder_input = word_index[incomplete_sents_inds]
@@ -453,33 +566,45 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
 
             # all incomplete here
 
-            completed_sentences.extend((gen_sentences_k[incomplete_sents_inds].tolist()))
+            completed_sentences.extend(
+                (gen_sentences_k[incomplete_sents_inds].tolist())
+            )
             completed_scores.extend(top_scores[incomplete_sents_inds])
 
-        sorted_scores, sorted_indices = torch.sort(torch.tensor(completed_scores), descending=True)
+        sorted_scores, sorted_indices = torch.sort(
+            torch.tensor(completed_scores), descending=True
+        )
 
         best_seq = completed_sentences[sorted_indices[0]]
 
-        hypothesis = [vocab.index2word[w] for w in best_seq if w not in
-                      [vocab.word2index['<sos>'], vocab.word2index['<eos>'], vocab.word2index['<pad>']]]
+        hypothesis = [
+            vocab.index2word[w]
+            for w in best_seq
+            if w
+            not in [
+                vocab.word2index["<sos>"],
+                vocab.word2index["<eos>"],
+                vocab.word2index["<pad>"],
+            ]
+        ]
         # remove sos and pads # I want to check eos
-        hypothesis_string = ' '.join(hypothesis)
+        hypothesis_string = " ".join(hypothesis)
         hypotheses.append(hypothesis_string)
 
-        if not os.path.isfile('speaker_outputs/refs_' + file_name + '.json'):
+        if not os.path.isfile("speaker_outputs/refs_" + file_name + ".json"):
             # Reference
             references.append(reference_chain)
 
         if print_gen:
             # Reference
-            print('REF:', orig_text_reference)  # single one
-            print('HYP:', hypothesis_string)
+            print("REF:", orig_text_reference)  # single one
+            print("HYP:", hypothesis_string)
 
-    if os.path.isfile('speaker_outputs/refs_' + file_name + '.json'):
-        with open('speaker_outputs/refs_' + file_name + '.json', 'r') as f:
+    if os.path.isfile("speaker_outputs/refs_" + file_name + ".json"):
+        with open("speaker_outputs/refs_" + file_name + ".json", "r") as f:
             references = json.load(f)
     else:
-        with open('speaker_outputs/refs_' + file_name + '.json', 'w') as f:
+        with open("speaker_outputs/refs_" + file_name + ".json", "w") as f:
             json.dump(references, f)
     #
     # if os.path.isfile('speaker_outputs/refs_BERT_' + file_name + '.json'):
@@ -494,21 +619,28 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
     metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
     print(metrics_dict)
 
-    (P, R, Fs), hashname = score(hypotheses, references, lang='en', return_hash=True, model_type="bert-base-uncased")
-    print(f'{hashname}: P={P.mean().item():.6f} R={R.mean().item():.6f} F={Fs.mean().item():.6f}')
-
+    (P, R, Fs), hashname = score(
+        hypotheses,
+        references,
+        lang="en",
+        return_hash=True,
+        model_type="bert-base-uncased",
+    )
+    print(
+        f"{hashname}: P={P.mean().item():.6f} R={R.mean().item():.6f} F={Fs.mean().item():.6f}"
+    )
 
     ##########################################
     # Logging objects
     ##########################################
 
     # metrics
-    logs=copy.deepcopy(metrics_dict)
-    logs['precision']=P.mean().numpy()
-    logs['recal']=R.mean().numpy()
-    logs['Fscore']=Fs.mean().numpy()
+    logs = copy.deepcopy(metrics_dict)
+    logs["precision"] = P.mean().numpy()
+    logs["recal"] = R.mean().numpy()
+    logs["Fscore"] = Fs.mean().numpy()
 
-    model_params=dict(
+    model_params = dict(
         att_context_vector=att_context_vector,
         decoder_embeds=decoder_embeds,
         embeds_words=embeds_words,
@@ -516,22 +648,17 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
         visual_context_hid=visual_context_hid,
     )
 
-    model_out=dict(
+    model_out = dict(
         hypotheses=hypothesis_string,
     )
 
+    logger.on_eval_end(logs, model_params, model_out, data)
 
-
-    logger.on_eval_end(logs,model_params,model_out, data)
-
-
-
-
-    if args.metric == 'cider':
-        selected_metric_score = metrics_dict['CIDEr']
+    if args.metric == "cider":
+        selected_metric_score = metrics_dict["CIDEr"]
         print(round(selected_metric_score, 5))
 
-    elif args.metric == 'bert':
+    elif args.metric == "bert":
         selected_metric_score = Fs.mean().item()
         print(round(selected_metric_score, 5))
 
@@ -547,11 +674,11 @@ def eval_beam_histatt(split_data_loader, model, args, best_score, print_gen, dev
             best_score = selected_metric_score
             has_best_score = True
 
-            with open('speaker_outputs/hyps_' + file_name + '.json', 'w') as f:
+            with open("speaker_outputs/hyps_" + file_name + ".json", "w") as f:
                 json.dump(hypotheses, f)
 
         return best_score, selected_metric_score, metrics_dict, has_best_score
 
     if isTest:
-        with open('speaker_outputs/hyps_' + file_name + '.json', 'w') as f:
+        with open("speaker_outputs/hyps_" + file_name + ".json", "w") as f:
             json.dump(hypotheses, f)

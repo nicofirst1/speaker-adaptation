@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 import torch
 import wandb
@@ -7,13 +7,13 @@ import wandb
 
 class WandbLogger:
     def __init__(
-            self,
-            opts: Dict = {},
-            group: Optional[str] = None,
-            run_id: Optional[str] = None,
-            train_logging_step: int = 1,
-            val_logging_step: int = 1,
-            **kwargs,
+        self,
+        opts: Dict = {},
+        group: Optional[str] = None,
+        run_id: Optional[str] = None,
+        train_logging_step: int = 1,
+        val_logging_step: int = 1,
+        **kwargs,
     ):
         # This callback logs to wandb the interaction as they are stored in the leader process.
         # When interactions are not aggregated in a multigpu run, each process will store
@@ -22,9 +22,9 @@ class WandbLogger:
         # what type of data are to be logged.
         self.opts = opts
 
-        if 'wandb_dir' not in opts.keys():
-            opts['wandb_dir'] = "wandb_out"
-        out_dir = opts['wandb_dir']
+        if "wandb_dir" not in opts.keys():
+            opts["wandb_dir"] = "wandb_out"
+        out_dir = opts["wandb_dir"]
 
         # create wandb dir if not existing
         if not os.path.isdir(out_dir):
@@ -36,7 +36,7 @@ class WandbLogger:
             id=run_id,
             dir=out_dir,
             config=opts,
-            mode="disabled" if opts['debug'] else "online",
+            mode="disabled" if opts["debug"] else "online",
             **kwargs,
         )
         wandb.config.update(opts)
@@ -46,9 +46,14 @@ class WandbLogger:
         self.epochs = 0
         self.steps = {}
 
-    def on_batch_end(self, loss: torch.Tensor, data_point: Dict[str, Any],
-                     aux: Dict[str, Any], batch_id: int,
-                     is_train: bool):
+    def on_batch_end(
+        self,
+        loss: torch.Tensor,
+        data_point: Dict[str, Any],
+        aux: Dict[str, Any],
+        batch_id: int,
+        is_train: bool,
+    ):
         raise NotImplemented()
 
     def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):

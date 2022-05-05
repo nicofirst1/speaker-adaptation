@@ -9,8 +9,8 @@ from PIL import ImageOps
 from torch import nn
 
 from models.speaker.utils import get_predictions
-from wandb_logging.WandbLogger import WandbLogger
 from wandb_logging.utils import imgid2domain, imgid2path
+from wandb_logging.WandbLogger import WandbLogger
 
 
 class SpeakerLogger(WandbLogger):
@@ -33,7 +33,7 @@ class SpeakerLogger(WandbLogger):
 
         ### datapoint table
         table_columns = [f"img_{i}" for i in range(6)]
-        table_columns += ["utt", "target_ids","preds"]
+        table_columns += ["utt", "target_ids", "preds"]
         self.dt_table = wandb.Table(columns=table_columns)
 
         ### domain table
@@ -112,7 +112,7 @@ class SpeakerLogger(WandbLogger):
         imgs = data_point["image_set"][idx]
         utt = data_point["orig_utterance"][idx]
         target = data_point["target"][idx].cpu().numpy()
-        target_ids=data_point['target_utt_ids'][idx].cpu().numpy()
+        target_ids = data_point["target_utt_ids"][idx].cpu().numpy()
         hist = data_point["prev_histories"][idx]
         preds = preds[idx].detach().cpu()
 
@@ -120,15 +120,13 @@ class SpeakerLogger(WandbLogger):
         preds = torch.argmax(preds, dim=0).numpy()
         target = int(target)
 
-
-
         # convert to words
         translate_list = lambda lst: " ".join([self.vocab.index2word[x] for x in lst])
-        #hist = translate_list([int(x) for x in hist])
+        # hist = translate_list([int(x) for x in hist])
 
-        preds=translate_list(preds)
-        target_ids=translate_list(target_ids)
-        target_ids=target_ids.replace("<pad>","")
+        preds = translate_list(preds)
+        target_ids = translate_list(target_ids)
+        target_ids = target_ids.replace("<pad>", "")
 
         # get imgs domain
         imgs_domains = [self.img_id2domain[img] for img in imgs]
@@ -175,8 +173,10 @@ class SpeakerLogger(WandbLogger):
 
         # read images
         imgs = [self.img_id2path[x] for x in imgs]
-        imgs = [wandb.Image(img, caption=f"Domain: {dom}")
-                for img, dom in zip(imgs, imgs_domains)]
+        imgs = [
+            wandb.Image(img, caption=f"Domain: {dom}")
+            for img, dom in zip(imgs, imgs_domains)
+        ]
 
         # transform to matrix
         data = list(zip(imgs, imgs_domains, img_emb))
@@ -187,12 +187,10 @@ class SpeakerLogger(WandbLogger):
         self.embedding_data[modality] += data
 
         # create table
-        columns = ['image', 'domain', 'viz_embed']
+        columns = ["image", "domain", "viz_embed"]
         new_table = wandb.Table(columns=columns, data=self.embedding_data[modality])
 
-        logs = {
-            f"viz_embed/{modality}": new_table
-        }
+        logs = {f"viz_embed/{modality}": new_table}
 
         self.log_to_wandb(logs, commit=False)
 
@@ -202,7 +200,13 @@ class SpeakerLogger(WandbLogger):
 
         self.log_to_wandb(metrics, commit=True)
 
-    def on_eval_end(self, metrics: Dict[str, Any], model_params:  Dict[str, Any], model_out:  Dict[str, Any], data_point:  Dict[str, Any]):
+    def on_eval_end(
+        self,
+        metrics: Dict[str, Any],
+        model_params: Dict[str, Any],
+        model_out: Dict[str, Any],
+        data_point: Dict[str, Any],
+    ):
 
         # get and log domain accuracy table
 
@@ -211,12 +215,12 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-            self,
-            loss: torch.Tensor,
-            data_point: Dict[str, Any],
-            aux: Dict[str, Any],
-            batch_id: int,
-            modality: str,
+        self,
+        loss: torch.Tensor,
+        data_point: Dict[str, Any],
+        aux: Dict[str, Any],
+        batch_id: int,
+        modality: str,
     ):
 
         logging_step = (
@@ -231,8 +235,8 @@ class SpeakerLogger(WandbLogger):
         logs.update(aux)
         logs["loss"] = loss.detach().item()
 
-        data_point['target_utt_ids']=aux['target_utt_ids']
-        self.log_datapoint(data_point,preds=aux['out'],modality=modality)
+        data_point["target_utt_ids"] = aux["target_utt_ids"]
+        self.log_datapoint(data_point, preds=aux["out"], modality=modality)
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}

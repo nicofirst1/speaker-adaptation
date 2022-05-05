@@ -8,8 +8,8 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from wandb_logging.WandbLogger import WandbLogger
 from wandb_logging.utils import imgid2domain, imgid2path
+from wandb_logging.WandbLogger import WandbLogger
 
 
 class ListenerLogger(WandbLogger):
@@ -178,8 +178,10 @@ class ListenerLogger(WandbLogger):
 
         # read images
         imgs = [self.img_id2path[x] for x in imgs]
-        imgs = [wandb.Image(img, caption=f"Domain: {dom}")
-                for img, dom in zip(imgs, imgs_domains)]
+        imgs = [
+            wandb.Image(img, caption=f"Domain: {dom}")
+            for img, dom in zip(imgs, imgs_domains)
+        ]
 
         # transform to matrix
         data = list(zip(imgs, imgs_domains, img_emb))
@@ -190,12 +192,10 @@ class ListenerLogger(WandbLogger):
         self.embedding_data[modality] += data
 
         # create table
-        columns = ['image', 'domain', 'viz_embed']
+        columns = ["image", "domain", "viz_embed"]
         new_table = wandb.Table(columns=columns, data=self.embedding_data[modality])
 
-        logs = {
-            f"viz_embed/{modality}": new_table
-        }
+        logs = {f"viz_embed/{modality}": new_table}
 
         self.log_to_wandb(logs, commit=False)
 
@@ -231,12 +231,12 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-            self,
-            loss: torch.Tensor,
-            data_point: Dict[str, Any],
-            aux: Dict[str, Any],
-            batch_id: int,
-            modality: str,
+        self,
+        loss: torch.Tensor,
+        data_point: Dict[str, Any],
+        aux: Dict[str, Any],
+        batch_id: int,
+        modality: str,
     ):
 
         logging_step = (

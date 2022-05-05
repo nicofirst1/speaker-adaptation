@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Tuple, List
+from typing import Dict, List, Tuple
 
 
 def imgid2path(data_path: str) -> Dict[str, str]:
@@ -32,9 +32,7 @@ def imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
             chain_dict.update(json.load(file))
 
     chain_dict = {k.split("/")[1]: k.split("/")[0] for k in chain_dict.keys()}
-    chain_dict = {
-        int(k.split("_")[-1].split(".")[0]): v for k, v in chain_dict.items()
-    }
+    chain_dict = {int(k.split("_")[-1].split(".")[0]): v for k, v in chain_dict.items()}
 
     domain_dict = {
         "person_motorcycle": "vehicles",
