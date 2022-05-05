@@ -217,3 +217,5 @@ cython_debug/
 models/listener/wandb_out/*
 
 models/speaker/speaker_outputs/
+
+models/speaker/wandb_out/wandb/

@@ -129,7 +129,16 @@ class SpeakerLogger(WandbLogger):
         target_ids = target_ids.replace("<pad>", "")
 
         # get imgs domain
-        imgs_domains = [self.img_id2domain[img] for img in imgs]
+        #imgs_domains = [self.img_id2domain[img] for img in imgs]
+        imgs_domains=[]
+        for img in imgs:
+            try:
+                k=self.img_id2domain[img]
+            except KeyError:
+                k="Error"
+                print(f"Error for img '{img}'")
+
+            imgs_domains.append(k)
 
         # read image
         imgs = [self.img_id2path[x] for x in imgs]
