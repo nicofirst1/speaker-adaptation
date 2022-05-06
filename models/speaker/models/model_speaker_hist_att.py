@@ -151,7 +151,7 @@ class SpeakerModelHistAtt(nn.Module):
         concat_visual_input = concat_visual_input[sorted_idx]
 
         packed_input = nn.utils.rnn.pack_padded_sequence(
-            embeds_words, sorted_prev_utt_lens, batch_first=True
+            embeds_words.cpu(), sorted_prev_utt_lens.cpu(), batch_first=True
         )
 
         # start LSTM encoder conditioned on the visual input
