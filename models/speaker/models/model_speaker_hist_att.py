@@ -153,6 +153,7 @@ class SpeakerModelHistAtt(nn.Module):
         packed_input = nn.utils.rnn.pack_padded_sequence(
             embeds_words.cpu(), sorted_prev_utt_lens.cpu(), batch_first=True
         )
+        packed_input=packed_input.to(device)
 
         # start LSTM encoder conditioned on the visual input
         concat_visual_input = torch.stack(

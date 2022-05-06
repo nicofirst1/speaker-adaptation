@@ -78,6 +78,11 @@ if __name__ == "__main__":
 
     print_gen = args.print
 
+    # add debug label
+    tags = []
+    if args.debug or args.subset_size != -1:
+        tags = ["debug"]
+
     logger = SpeakerLogger(
         vocab=vocab,
         opts=vars(args),
