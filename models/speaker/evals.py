@@ -411,8 +411,9 @@ def eval_beam_histatt(
 
         # RuntimeError: Cannot pack empty tensors.
         packed_input = nn.utils.rnn.pack_padded_sequence(
-            embeds_words, sorted_prev_utt_lens, batch_first=True
+            embeds_words.cpu(), sorted_prev_utt_lens.cpu(), batch_first=True
         )
+        packed_input=packed_input.to(device)
 
         # start lstm with average visual context:
         # conditioned on the visual context
