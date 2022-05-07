@@ -48,7 +48,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     print("Loading the vocab...")
-    vocab = Vocab(os.path.join(args.data_path, args.vocab_file))
+    vocab = Vocab(os.path.join(args.speaker_data, args.vocab_file))
     vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
     vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
 
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
             # ignoring 0 index in criterion
             #
-            get_predictions(out, utterances_text_ids, vocab)
+            #get_predictions(out, utterances_text_ids, vocab)
 
             """ https://discuss.pytorch.org/t/pytorch-lstm-target-dimension-in-calculating-cross-entropy-loss/30398/2
             ptrblck Nov '18

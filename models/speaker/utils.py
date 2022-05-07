@@ -42,14 +42,15 @@ def get_args():
     args.device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )
+    args.speaker_data = join(args.data_path, "speaker")
+
 
     return args
 
 
 def get_dataloaders(args, vocab):
-    speaker_data = join(args.data_path, "speaker")
     trainset = SpeakerDataset(
-        data_dir=speaker_data,
+        data_dir=args.speaker_data,
         utterances_file="train_" + args.utterances_file,
         vectors_file=args.vectors_file,
         chain_file="train_" + args.chains_file,
@@ -59,7 +60,7 @@ def get_dataloaders(args, vocab):
     )
 
     testset = SpeakerDataset(
-        data_dir=speaker_data,
+        data_dir=args.speaker_data,
         utterances_file="test_" + args.utterances_file,
         vectors_file=args.vectors_file,
         chain_file="test_" + args.chains_file,
@@ -69,7 +70,7 @@ def get_dataloaders(args, vocab):
     )
 
     valset = SpeakerDataset(
-        data_dir=speaker_data,
+        data_dir=args.speaker_data,
         utterances_file="val_" + args.utterances_file,
         vectors_file=args.vectors_file,
         chain_file="val_" + args.chains_file,
