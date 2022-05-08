@@ -162,7 +162,7 @@ def mask_attn(actual_num_tokens, max_num_tokens, device):
 
 
 def save_model(
-    model, model_type, epoch, accuracy, optimizer, args, metric, timestamp, seed, t
+    model, model_type, epoch, accuracy, optimizer, args, metric, timestamp, seed, t, logger
 ):
     file_name = (
         "saved_models/model_speaker_"
@@ -192,3 +192,4 @@ def save_model(
         },
         file_name,
     )
+    logger.save_model(file_name, "speaker", epoch, description="")

@@ -351,6 +351,7 @@ if __name__ == "__main__":
                         timestamp,
                         seed,
                         t,
+                        logger,
                     )
 
                 else:
@@ -383,6 +384,7 @@ if __name__ == "__main__":
                         timestamp,
                         seed,
                         t,
+                        logger,
                     )
 
                 else:

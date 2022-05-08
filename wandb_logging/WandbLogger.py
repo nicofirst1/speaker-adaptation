@@ -74,6 +74,14 @@ class WandbLogger:
         """
         wandb.finish()
 
+    def save_model(self, path2model, model_name, epoch, description=""):
+        model_name = f"epoch_{epoch}_{model_name}"
+        artifact = wandb.Artifact(model_name, type='model', description=description)
+        artifact.add_file(path2model)
+        wandb.log_artifact(artifact)
+
+
+
 
 def delete_run(run_to_remove: str):
     """delete_run method.
