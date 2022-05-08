@@ -601,6 +601,7 @@ def eval_beam_histatt(
             print("REF:", orig_text_reference)  # single one
             print("HYP:", hypothesis_string)
 
+    logger.log_datapoint( data, [best_seq], modality="eval")
     if os.path.isfile("speaker_outputs/refs_" + file_name + ".json"):
         with open("speaker_outputs/refs_" + file_name + ".json", "r") as f:
             references = json.load(f)

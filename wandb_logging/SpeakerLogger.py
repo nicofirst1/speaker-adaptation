@@ -32,9 +32,8 @@ class SpeakerLogger(WandbLogger):
         self.img_id2domain, self.domains = imgid2domain(data_path)
 
         ### datapoint table
-        table_columns = [f"img_{i}" for i in range(6)]
-        table_columns += ["utt", "target_ids", "preds"]
-        self.dt_table = wandb.Table(columns=table_columns)
+
+        self.dt_table ={}
 
         ### domain table
 
@@ -112,12 +111,14 @@ class SpeakerLogger(WandbLogger):
         imgs = data_point["image_set"][idx]
         utt = data_point["orig_utterance"][idx]
         target = data_point["target"][idx].cpu().numpy()
-        target_ids = data_point["target_utt_ids"][idx].cpu().numpy()
+        target_ids = data_point["target_utt_ids"]
+        if len(target_ids)>0: target_ids=target_ids[idx].cpu().numpy()
         hist = data_point["prev_histories"][idx]
-        preds = preds[idx].detach().cpu()
+        preds = preds[idx]
 
         ## convert to int
-        preds = torch.argmax(preds, dim=0).numpy()
+        if isinstance(preds,torch.Tensor):
+            preds = torch.argmax(preds.detach().cpu(), dim=0).numpy()
         target = int(target)
 
         # convert to words
@@ -147,12 +148,23 @@ class SpeakerLogger(WandbLogger):
         ## add red border to pred if wrong
         imgs[target] = ImageOps.expand(imgs[target], border=10, fill="green")
 
-        data = [
+        data=[imgs_domains[target]]
+        data += [
             wandb.Image(img, caption=f"Domain: {dom}")
             for img, dom in zip(imgs, imgs_domains)
         ]
         data += [utt, target_ids, preds]
-        new_table = wandb.Table(columns=self.dt_table.columns, data=[data])
+
+        if modality not in self.dt_table.keys():
+            self.dt_table[modality]=[]
+
+        self.dt_table[modality].append(data)
+
+        table_columns = ["img domain"]
+        table_columns += [f"img_{i}" for i in range(6)]
+        table_columns += ["utt", "target_ids", "preds"]
+
+        new_table = wandb.Table(columns=table_columns, data=self.dt_table[modality])
 
         logs = dict(data_table=new_table)
 
@@ -245,7 +257,6 @@ class SpeakerLogger(WandbLogger):
         logs["loss"] = loss.detach().item()
 
         data_point["target_utt_ids"] = aux["target_utt_ids"]
-        self.log_datapoint(data_point, preds=aux["out"], modality=modality)
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}

@@ -231,6 +231,8 @@ if __name__ == "__main__":
             "Train loss", round(np.sum(losses), 3)
         )  # sum all the batches for this epoch
 
+        logger.log_datapoint(data, preds=out, modality="train")
+
         # evaluation
         with torch.no_grad():
             model.eval()
