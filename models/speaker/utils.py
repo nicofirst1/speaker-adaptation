@@ -18,7 +18,8 @@ def get_args():
     parser.add_argument("-model_type", type=str, default="hist_att")
     parser.add_argument(
         "-subset_size", type=int, default=-1
-    )  # -1 is the full dataset, if you put 10, it will only use 10 chains
+    ) # -1 is the full dataset, if you put 10, it will only use 10 chains
+    parser.add_argument( "-epochs", type=int, default=100)
     parser.add_argument("-shuffle", action="store_true")
     parser.add_argument("-debug", action="store_true")
     parser.add_argument("-normalize", action="store_true")

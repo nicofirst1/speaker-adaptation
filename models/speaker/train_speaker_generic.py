@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
     batch_size = args.batch_size
 
-    epochs = 100
+    epochs = args.epochs
     patience = 50  # when to stop if there is no improvement
     patience_counter = 0
 
