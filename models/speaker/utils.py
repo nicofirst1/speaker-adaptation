@@ -161,36 +161,3 @@ def mask_attn(actual_num_tokens, max_num_tokens, device):
 
     return masks
 
-
-def save_model(
-    model, model_type, epoch, accuracy, optimizer, args, metric, timestamp, seed, t, logger
-):
-    file_name = (
-        "saved_models/model_speaker_"
-        + model_type
-        + "_"
-        + str(seed)
-        + "_"
-        + metric
-        + "_"
-        + timestamp
-        + ".pkl"
-    )
-
-    print(file_name)
-
-    duration = datetime.datetime.now() - t
-
-    print("model saving duration", duration)
-
-    torch.save(
-        {
-            "accuracy": accuracy,
-            "args": args,  # more detailed info, metric, model_type etc
-            "epoch": epoch,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-        },
-        file_name,
-    )
-    logger.save_model(file_name, "speaker", epoch, description="")

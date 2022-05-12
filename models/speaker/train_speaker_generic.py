@@ -11,8 +11,9 @@ from torch import nn, optim
 
 from models.model_speaker_hist_att import SpeakerModelHistAtt
 from models.speaker.utils import (get_args, get_dataloaders, get_predictions,
-                                  mask_attn, save_model)
+                                  mask_attn)
 from wandb_logging.SpeakerLogger import SpeakerLogger
+from wandb_logging.utils import save_model
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -341,20 +342,18 @@ if __name__ == "__main__":
                     # current_score > best_score
                     best_epoch = epoch
                     patience_counter = 0
-
                     save_model(
-                        model,
-                        model_type,
-                        epoch,
-                        current_score,
-                        optimizer,
-                        args,
-                        metric,
-                        timestamp,
-                        seed,
-                        t,
-                        logger,
+                        model=model,
+                        model_type=model_type,
+                        epoch=best_epoch,
+                        accuracy=current_score,
+                        optimizer=optimizer,
+                        args=args,
+                        timestamp=timestamp,
+                        logger=logger,
+
                     )
+
 
                 else:
                     # best_score >= current_score:
@@ -376,18 +375,17 @@ if __name__ == "__main__":
                     patience_counter = 0
 
                     save_model(
-                        model,
-                        model_type,
-                        epoch,
-                        current_score,
-                        optimizer,
-                        args,
-                        metric,
-                        timestamp,
-                        seed,
-                        t,
-                        logger,
+                        model=model,
+                        model_type=model_type,
+                        epoch=best_epoch,
+                        accuracy=current_score,
+                        optimizer=optimizer,
+                        args=args,
+                        timestamp=timestamp,
+                        logger=logger,
+
                     )
+
 
                 else:
                     # best_score >= current_score:

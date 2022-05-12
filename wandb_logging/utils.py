@@ -2,6 +2,8 @@ import json
 import os
 from typing import Dict, List, Tuple
 
+import torch
+
 
 def imgid2path(data_path: str) -> Dict[str, str]:
     """
@@ -68,3 +70,29 @@ def imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
 
     domains = list(set(domain_dict.values()))
     return chain_dict, domains
+
+
+def save_model(
+        model, model_type, epoch, accuracy, optimizer, args, timestamp, logger, **kwargs
+):
+    seed = args.seed
+    file_name = (
+            "saved_models/"
+            + model_type
+            + "_"
+            + str(seed)
+            + "_"
+            + timestamp
+            + ".pkl"
+    )
+
+    save_dict = {
+        "accuracy": accuracy,
+        "args": args,  # more detailed info, metric, model_type etc
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+    }
+    save_dict.update(kwargs)
+    torch.save(save_dict,file_name)
+    logger.save_model(file_name, "speaker", epoch, description="")

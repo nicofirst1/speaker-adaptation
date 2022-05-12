@@ -15,6 +15,7 @@ from models.model_listener import ListenerModel
 from utils.Vocab import Vocab
 from wandb_logging.DataLogger import DataLogger
 from wandb_logging.ListenerLogger import ListenerLogger
+from wandb_logging.utils import save_model
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -44,57 +45,6 @@ def mask_attn(actual_num_tokens, max_num_tokens, device):
     masks = torch.tensor(masks).unsqueeze(2).to(device)
 
     return masks
-
-
-def save_model(
-        model,
-        model_type,
-        epoch,
-        accuracy,
-        loss,
-        mrr,
-        optimizer,
-        args,
-        metric,
-        timestamp,
-        seed,
-        t,
-):
-    file_name = (
-            "saved_models/model_listener_adp_"
-            + model_type
-            + "_"
-            + args.embed_type
-            + "_CE_"
-            + str(seed)
-            + "_"
-            + metric
-            + "_"
-            + timestamp
-            + ".pkl"
-    )
-
-    print(file_name)
-
-    duration = datetime.datetime.now() - t
-
-    print("model saving duration", duration)
-
-    torch.save(
-        {
-            "accuracy": accuracy,
-            "mrr": mrr,
-            "args": args,  # more detailed info, metric, model_type etc
-            "epoch": epoch,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "loss": loss,
-            "seed": seed,
-        },
-        file_name,
-    )
-
-    wandb.save(file_name)
 
 
 def evaluate(
@@ -610,18 +560,16 @@ if __name__ == "__main__":
                     best_epoch = epoch
 
                     save_model(
-                        model,
-                        model_type,
-                        best_epoch,
-                        current_accuracy,
-                        current_loss,
-                        current_MRR,
-                        optimizer,
-                        args,
-                        "accs",
-                        timestamp,
-                        args.seed,
-                        t,
+                        model=model,
+                        model_type=model_type,
+                        epoch=best_epoch,
+                        accuracy=current_accuracy,
+                        optimizer=optimizer,
+                        args=args,
+                        timestamp=timestamp,
+                        logger=logger,
+                        loss=current_loss,
+                        mrr=current_MRR,
                     )
 
                 print("patience", patience_counter)
