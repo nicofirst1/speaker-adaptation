@@ -154,24 +154,8 @@ if __name__ == "__main__":
                 + str(t.second)
             )
 
-            if model_type == "base":
-                eval_beam_base(
-                    test_loader,
-                    model,
-                    args,
-                    best_score,
-                    print_gen,
-                    device,
-                    beam_size,
-                    max_len,
-                    vocab,
-                    nlge,
-                    isValidation,
-                    timestamp,
-                    isTest,
-                )
 
-            elif model_type == "hist_att":
+            if model_type == "hist_att":
                 eval_beam_histatt(
                     test_loader,
                     model,

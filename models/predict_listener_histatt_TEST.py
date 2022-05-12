@@ -198,15 +198,15 @@ if __name__ == '__main__':
 
             if model_type == 'bert_att_ctx_hist': # BERT as embeds, vis context given with BERT embeds together, history added to the target side?
 
-                model = ListenerModelBertAttCtxHist(embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob) #.to(device)
+                list_model = ListenerModelBertAttCtxHist(embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob) #.to(device)
 
-            model.load_state_dict(checkpoint['model_state_dict'])
-            model = model.to(device)
+            list_model.load_state_dict(checkpoint['model_state_dict'])
+            list_model = list_model.to(device)
 
             with torch.no_grad():
 
-                model.eval()
+                list_model.eval()
 
                 print('test')
-                current_accuracy, MRR = evaluate_trained_model(test_loader, testset, model, device, hyps, model_bert, tokenizer)
+                current_accuracy, MRR = evaluate_trained_model(test_loader, testset, list_model, device, hyps, model_bert, tokenizer)
                 print('Accuracy', current_accuracy, 'MRR', MRR)

@@ -7,13 +7,13 @@ import wandb
 
 class WandbLogger:
     def __init__(
-        self,
-        opts: Dict = {},
-        group: Optional[str] = None,
-        run_id: Optional[str] = None,
-        train_logging_step: int = 1,
-        val_logging_step: int = 1,
-        **kwargs,
+            self,
+            opts: Dict = {},
+            group: Optional[str] = None,
+            run_id: Optional[str] = None,
+            train_logging_step: int = 1,
+            val_logging_step: int = 1,
+            **kwargs,
     ):
         # This callback logs to wandb the interaction as they are stored in the leader process.
         # When interactions are not aggregated in a multigpu run, each process will store
@@ -47,12 +47,12 @@ class WandbLogger:
         self.steps = {}
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        is_train: bool,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            is_train: bool,
     ):
         raise NotImplemented()
 
@@ -75,12 +75,17 @@ class WandbLogger:
         wandb.finish()
 
     def save_model(self, path2model, model_name, epoch, description=""):
-        model_name = f"epoch_{epoch}_{model_name}"
-        artifact = wandb.Artifact(model_name, type='model', description=description)
-        artifact.add_file(path2model)
+
+        self.log_artifact(path2model, model_name, artifact_type="model", epoch=epoch, description=description)
+
+    def log_artifact(self,path2artifact, artifact_name, artifact_type, epoch=None, description=""):
+        if epoch is None:
+            epoch=self.epochs
+
+        model_name = f"epoch_{epoch}_{artifact_name}"
+        artifact = wandb.Artifact(model_name, type=artifact_type, description=description)
+        artifact.add_file(path2artifact)
         wandb.log_artifact(artifact)
-
-
 
 
 def delete_run(run_to_remove: str):

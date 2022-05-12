@@ -5,7 +5,7 @@ from os.path import abspath, dirname
 import numpy as np
 import rich.progress
 import torch.utils.data
-from evals import eval_beam_base, eval_beam_histatt
+from evals import  eval_beam_histatt
 from nlgeval import NLGEval
 from torch import nn, optim
 
@@ -270,37 +270,8 @@ if __name__ == "__main__":
             # THIS IS val EVAL_BEAM
             print("beam")
 
-            if model_type == "base":
-                (
-                    best_score,
-                    current_score,
-                    metrics_dict,
-                    has_best_score,
-                ) = eval_beam_base(
-                    val_loader,
-                    model,
-                    args,
-                    best_score,
-                    print_gen,
-                    device,
-                    beam_size,
-                    max_len,
-                    vocab,
-                    nlge,
-                    isValidation,
-                    timestamp,
-                    isTest,
-                )
-                #
-                # best_score_topk, current_score_topk, metrics_dict_topk, has_best_score_topk = \
-                #     eval_top_k_top_p_base(val_loader, model, args, best_score, print_gen, device,
-                #                     40, 0.9, 'topk', max_len, vocab, nlge, isValidation, timestamp)  # k_size 40
-                #
-                # best_score_topp, current_score_topp, metrics_dict_topp, has_best_score_topp =\
-                #     eval_top_k_top_p_base(val_loader, model, args, best_score, print_gen, device,
-                #                     40, 0.9, 'topp', max_len, vocab, nlge, isValidation, timestamp)  # k_size 40
 
-            elif model_type == "hist_att":
+            if model_type == "hist_att":
                 (
                     best_score,
                     current_score,
@@ -323,14 +294,6 @@ if __name__ == "__main__":
                     isTest,
                     logger,
                 )
-                #
-                # best_score_topk, current_score_topk, metrics_dict_topk, has_best_score_topk = \
-                #     eval_top_k_top_p_histatt(val_loader, model, args, best_score, print_gen, device,
-                #                     40, 0.9, 'topk', max_len, vocab, nlge, isValidation, timestamp)  # k_size 10
-                #
-                # best_score_topp, current_score_topp, metrics_dict_topp, has_best_score_topp =\
-                #     eval_top_k_top_p_histatt(val_loader, model, args, best_score, print_gen, device,
-                #                     40, 0.9, 'topp', max_len, vocab, nlge, isValidation, timestamp)  # k_size 10
 
             ################################################################
             # Early stopping
