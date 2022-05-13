@@ -8,20 +8,7 @@ from listener.utils.ListenerDatasetBert import ListenerDataset
 
 from transformers import BertTokenizer, BertModel
 
-
-def mask_attn(actual_num_tokens, max_num_tokens, device):
-
-    masks = []
-
-    for n in range(len(actual_num_tokens)):
-
-        # items to be masked are TRUE
-        mask = [False] * actual_num_tokens[n] + [True] * (max_num_tokens - actual_num_tokens[n])
-        masks.append(mask)
-
-    masks = torch.tensor(masks).unsqueeze(2).to(device)
-
-    return masks
+from models.speaker.utils import mask_attn
 
 
 def get_bert_outputs(text, model, tokenizer):
@@ -172,6 +159,8 @@ if __name__ == '__main__':
                 split='test',
                 subset_size=-1
             )
+
+
 
             load_params_test = {'batch_size': 1, 'shuffle': False,
                                 'collate_fn': ListenerDataset.get_collate_fn(device)}
