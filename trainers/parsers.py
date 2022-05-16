@@ -112,6 +112,13 @@ class ListenerArguments(AbstractDataclass):
         default=False,
     )
 
+    batch_size: Optional[int] = field(
+        default=32,
+    )
+    learning_rate: Optional[float] = field(
+        default=0.0001,
+    )
+
     def __post_init__(self):
         self.data_path = get_dataset_path()
 
@@ -186,6 +193,13 @@ class SpeakerArguments(AbstractDataclass):
         default=5,
     )
 
+    batch_size: Optional[int] = field(
+        default=64,
+    )
+    learning_rate: Optional[float] = field(
+        default=0.001,
+    )
+
     def __post_init__(self):
         self.data_path = get_dataset_path()
 
@@ -222,12 +236,7 @@ class DataTrainingArguments:
             "help": "Set to true for debugging"
         },
     )
-    batch_size: Optional[int] = field(
-        default=64,
-    )
-    learning_rate: Optional[float] = field(
-        default=0.001,
-    )
+
     seed: Optional[int] = field(
         default=42,
     )
