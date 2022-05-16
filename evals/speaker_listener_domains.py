@@ -1,181 +1,194 @@
-import datetime
-import os
+import json
+from os import listdir
+from os.path import isfile, join
 
 import numpy as np
 import torch
-from speaker_eval import eval_beam_base, eval_beam_histatt
-from nlgeval import NLGEval
-from utils.SpeakerDataset import SpeakerDataset
-from utils.Vocab import Vocab
+import wandb
 
-from models.model_speaker_base import SpeakerModelBase
-from models.model_speaker_hist_att import SpeakerModelHistAtt
+from transformers import BertTokenizer, BertModel
 
-
-def mask_attn(actual_num_tokens, max_num_tokens, device):
-
-    masks = []
-
-    for n in range(len(actual_num_tokens)):
-
-        # items to be masked are TRUE
-        mask = [False] * actual_num_tokens[n] + [True] * (
-            max_num_tokens - actual_num_tokens[n]
-        )
-
-        masks.append(mask)
-
-    masks = torch.tensor(masks).unsqueeze(2).to(device)
-
-    return masks
+from data.dataloaders.ListenerDataset import get_data_loaders
+from data.dataloaders.Vocab import Vocab
+from models.listener.model_listener import ListenerModel
+from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
+from trainers.utils import mask_attn
 
 
-if __name__ == "__main__":
+def get_bert_outputs(text, model, tokenizer):
+    input_tensors = torch.tensor([tokenizer.encode(text, add_special_tokens=True)])
+    # Add special tokens takes care of adding [CLS], [SEP], <s>... tokens in the right way for each model.
+    # same as adding special tokens then tokenize + convert_tokens_to_ids
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    tokenized_text = tokenizer.tokenize('[CLS]' + text + '[SEP]')
+    # input tensors the same as tokenizer.convert_tokens_to_ids(tokenized_text)
 
-    nlge = NLGEval(no_skipthoughts=True, no_glove=True)
+    # print(input_tensors)
 
-    speaker_files = [
-        "saved_models/model_speaker_hist_att_42_bert_2020-05-21-15-13-22.pkl",
-        "saved_models/model_speaker_hist_att_1_bert_2020-05-22-16-40-11.pkl",
-        "saved_models/model_speaker_hist_att_2_bert_2020-05-22-16-41-12.pkl",
-        "saved_models/model_speaker_hist_att_3_bert_2020-05-22-16-42-13.pkl",
-        "saved_models/model_speaker_hist_att_4_bert_2020-05-22-16-43-13.pkl",
-    ]
+    # just one segment
+    segments_ids = [0] * input_tensors.shape[1]
+    segments_tensors = torch.tensor([segments_ids])
 
-    listener_urls=dict(
-        all='adaptive-speaker/listener/epoch_20_speaker:v4',
-        vehicles="adaptive-speaker/listener/epoch_20_speaker:v4"
+    input_tensors = input_tensors.to(device)
+    segments_tensors = segments_tensors.to(device)
 
+    # Predict hidden states features for each layer
+    with torch.no_grad():
+        # See the models docstrings for the detail of the inputs
+        outputs = model(input_tensors, token_type_ids=segments_tensors)
+
+        # Transformers models always output tuples.
+        # See the models docstrings for the detail of all the outputs
+        # In our case, the first element is the hidden state of the last layer of the Bert model
+
+        encoded_layers = outputs[0]
+    # We have encoded our input sequence in a FloatTensor of shape (batch size, sequence length, model hidden dimension)
+    assert tuple(encoded_layers.shape) == (1, input_tensors.shape[1], model.config.hidden_size)
+    assert len(tokenized_text) == input_tensors.shape[1]
+
+    return encoded_layers, tokenized_text
+
+
+def evaluate_trained_model(dataloader, speak_model, list_model, device, model_bert, tokenizer):
+    accuracies = []
+    ranks = []
+    beam_k=5
+    max_len=30
+
+    for ii, data in enumerate(dataloader):
+
+
+        hypo, _= speak_model.generate_hypothesis(data,beam_k,max_len,device)
+
+        utterances_BERT = get_bert_outputs(hypo, model_bert, tokenizer)[0]
+
+        context_separate = data['separate_images']
+        context_concat = data['concat_context']
+
+        lengths = [utterances_BERT.shape[1]]
+        targets = data['target']
+
+        max_length_tensor = utterances_BERT.shape[1]
+
+        masks = mask_attn(lengths, max_length_tensor, device)
+
+        prev_hist = data['prev_histories']
+
+        out = list_model(utterances_BERT, lengths, context_separate, context_concat, prev_hist, masks, device)
+
+        preds = torch.argmax(out, dim=1)
+
+        correct = torch.eq(preds, targets).sum()
+        accuracies.append(float(correct))
+
+        scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
+
+        if out.shape[0] > 1:
+            for s in range(out.shape[0]):
+                # WARNING - assumes batch size > 1
+                rank_target = images_ranked[s].tolist().index(targets[s].item())
+                ranks.append(rank_target + 1)  # no 0
+
+        else:
+            rank_target = images_ranked.tolist().index(targets.item())
+            ranks.append(rank_target + 1)  # no 0
+
+    sum_accuracy = np.sum(accuracies)
+
+    current_accuracy = sum_accuracy / len(0)
+
+    MRR = np.sum([1 / r for r in ranks]) / len(ranks)
+
+    print(int(sum_accuracy), round(current_accuracy, 5), 'MRR', round(MRR, 5))
+
+    return current_accuracy, MRR
+
+
+def load_wandb_checkpoint(url):
+    api = wandb.Api()
+    artifact = api.artifact(url)
+
+    datadir = artifact.download()
+
+    files=[f for f in listdir(datadir) if isfile(join(datadir, f))]
+
+    if len(files)>1:
+        raise FileExistsError(f"More than one checkpoint found in {datadir}!")
+
+    checkpoint = torch.load(join(datadir,files[0]), map_location=device)
+
+    return checkpoint
+
+
+if __name__ == '__main__':
+
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')  # ALREADY do_lower_case=True
+
+    # Load pre-trained model (weights)
+    model_bert = BertModel.from_pretrained('bert-base-uncased')
+
+    # Set the model in evaluation mode to deactivate the DropOut modules
+    # This is IMPORTANT to have reproducible results during evaluation!
+    model_bert.eval()
+    model_bert.to(device)
+
+    speaker_url = 'adaptive-speaker/speaker/epoch_9_speaker:v0'
+
+    speak_check = load_wandb_checkpoint(speaker_url)
+
+    speak_p = speak_check['args']
+    print(speak_p)
+
+    # for reproducibility
+    seed = speak_p.seed
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    print("Loading the vocab...")
+    vocab = Vocab(speak_p.vocab_file)
+    #vocab = Vocab("/Users/giulia/Desktop/pb_speaker_adaptation/dataset/vocab.csv")
+    vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
+    vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
+
+    img_dim = 2048
+
+    speaker_model = SpeakerModelHistAtt(
+        vocab, speak_p.embedding_dim, speak_p.hidden_dim, img_dim, speak_p.dropout_prob, speak_p.att_dim
+    ).to(speak_p.device)
+
+    speaker_model.load_state_dict(speak_check['model_state_dict'])
+    speaker_model = speaker_model.to(device)
+
+    speaker_model = speaker_model.eval()
+
+    listener_dict = dict(
+        indoor="adaptive-speaker/listener/epoch_4_speaker:v1"
     )
 
+    for dom,url in listener_dict.items():
 
-    for speaker_file in speaker_files:
+        list_checkpoint=load_wandb_checkpoint(url)
 
-        seed = 28
+        list_args=list_checkpoint['args']
 
-        # for reproducibility
-        print(seed)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
+        model = ListenerModel(
+            len(vocab), list_args.embedding_dim, list_args.hidden_dim, img_dim, list_args.att_dim, list_args.dropout_prob
+        ).to(device)
 
-        print(speaker_file)
+        training_loader, test_loader, val_loader = get_data_loaders(list_args, list_args['train_domain'], img_dim)
 
-        checkpoint = torch.load(speaker_file, map_location=device)
 
-        args = checkpoint["args"]
-
-        model_type = args.model_type
-
-        print("Loading the vocab...")
-        vocab = Vocab(os.path.join(args.data_path, args.vocab_file))
-        vocab.index2word[
-            len(vocab)
-        ] = "<nohs>"  # special token placeholder for no prev utt
-        vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
-
-        testset = SpeakerDataset(
-            data_dir=args.data_path,
-            utterances_file="test_" + args.utterances_file,
-            vectors_file=args.vectors_file,
-            chain_file="test_" + args.chains_file,
-            orig_ref_file="test_" + args.orig_ref_file,
-            split="test",
-            subset_size=args.subset_size,
-        )
-
-        print("vocab len", len(vocab))
-        print("test len", len(testset), "longest sentence", testset.max_len)
-
-        max_len = 30  # for beam search
-
-        img_dim = 2048
-
-        embedding_dim = args.embedding_dim
-        hidden_dim = args.hidden_dim
-        att_dim = args.attention_dim
-
-        dropout_prob = args.dropout_prob
-        beam_size = args.beam_size
-
-        metric = args.metric
-
-        shuffle = args.shuffle
-        normalize = args.normalize
-        breaking = args.breaking
-
-        print_gen = args.print
-
-        # depending on the selected model type, we will have a different architecture
-
-        if model_type == "base":  # base speaker
-
-            model = SpeakerModelBase(
-                len(vocab), embedding_dim, hidden_dim, img_dim, dropout_prob
-            ).to(device)
-
-        elif model_type == "hist_att":  # base speaker + vis context
-
-            model = SpeakerModelHistAtt(
-                len(vocab), embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim
-            ).to(device)
-
-        batch_size = 1
-
-        load_params_test = {
-            "batch_size": 1,
-            "shuffle": False,
-            "collate_fn": SpeakerDataset.get_collate_fn(
-                device, vocab["<sos>"], vocab["<eos>"], vocab["<nohs>"]
-            ),
-        }
-
-        test_loader = torch.utils.data.DataLoader(testset, **load_params_test)
-
-        model.load_state_dict(checkpoint["model_state_dict"])
-        model = model.to(device)
+        list_model.load_state_dict(list_checkpoint['model_state_dict'])
+        list_model = list_model.to(device)
 
         with torch.no_grad():
-            model.eval()
 
-            isValidation = False
-            isTest = True
-            print("\nTest Eval")
+            list_model.eval()
 
-            # THIS IS test EVAL_BEAM
-            print("beam")
-
-            # best_score and timestamp not so necessary here
-            best_score = checkpoint["accuracy"]  # cider or bert
-            t = datetime.datetime.now()
-            timestamp = (
-                str(t.date())
-                + "-"
-                + str(t.hour)
-                + "-"
-                + str(t.minute)
-                + "-"
-                + str(t.second)
-            )
-
-
-            if model_type == "hist_att":
-                eval_beam_histatt(
-                    test_loader,
-                    model,
-                    args,
-                    best_score,
-                    print_gen,
-                    device,
-                    beam_size,
-                    max_len,
-                    vocab,
-                    mask_attn,
-                    nlge,
-                    isValidation,
-                    timestamp,
-                    isTest,
-                )
+            print('test')
+            current_accuracy, MRR = evaluate_trained_model(test_loader, speaker_model, list_model, device, model_bert, tokenizer)
+            print('Accuracy', current_accuracy, 'MRR', MRR)
