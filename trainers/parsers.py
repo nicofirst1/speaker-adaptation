@@ -193,7 +193,7 @@ class DataTrainingArguments:
     """
 
     shuffle: Optional[bool] = field(
-        default=True,
+        default=False,
         metadata={
             "help": "Shuffle dataloader"
         },
