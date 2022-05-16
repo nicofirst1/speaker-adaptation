@@ -2,22 +2,22 @@ name: uvapb
 channels:
   - defaults
 dependencies:
-  - ca-certificates=2022.4.26=hecd8cb5_0
-  - certifi=2021.10.8=py39hecd8cb5_2
-  - libcxx=12.0.0=h2f01273_0
-  - libffi=3.3=hb1e8313_2
-  - ncurses=6.3=hca72f7f_2
-  - openssl=1.1.1o=hca72f7f_0
-  - pip=21.2.4=py39hecd8cb5_0
-  - python=3.9.0=h88f2d9e_2
-  - readline=8.1.2=hca72f7f_1
-  - setuptools=61.2.0=py39hecd8cb5_0
-  - sqlite=3.38.3=h707629a_0
-  - tk=8.6.11=h3fd3227_1
-  - tzdata=2022a=hda174b7_0
-  - wheel=0.37.1=pyhd3eb1b0_0
-  - xz=5.2.5=hca72f7f_1
-  - zlib=1.2.12=h4dc903c_2
+  - ca-certificates=2022.4.26
+  - certifi=2021.10.8
+  - libcxx=12.0.0
+  - libffi=3.3
+  - ncurses=6.3
+  - openssl=1.1.1o
+  - pip=21.2.4
+  - python=3.9.0
+  - readline=8.1.2
+  - setuptools=61.2.0
+  - sqlite=3.38.3
+  - tk=8.6.11
+  - tzdata=2022a
+  - wheel=0.37.1
+  - xz=5.2.5
+  - zlib=1.2.12
   - pip:
     - bert-score==0.3.11
     - charset-normalizer==2.0.12
