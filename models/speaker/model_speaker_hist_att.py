@@ -8,7 +8,7 @@ from trainers.utils import mask_attn
 class SpeakerModelHistAtt(nn.Module):
     def __init__(
             self,
-            vocab_size,
+            vocab,
             embedding_dim,
             hidden_dim,
             img_dim,
@@ -16,8 +16,9 @@ class SpeakerModelHistAtt(nn.Module):
             attention_dim,
     ):
         super().__init__()
+        self.vocab=vocab
         self.vocab_size = (
-                vocab_size - 1
+                len(vocab) - 1
         )  # to exclude <nohs> from the decoder (but add for embed and encoder)
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -223,7 +224,7 @@ class SpeakerModelHistAtt(nn.Module):
 
         return predictions
 
-    def generate_hypothesis(self, data, vocab, beam_k, max_len, device):
+    def generate_hypothesis(self, data, beam_k, max_len, device):
         # dataset details
         # only the parts I will use for this type of self
 
@@ -232,8 +233,8 @@ class SpeakerModelHistAtt(nn.Module):
         completed_scores = []
         empty_count = 0
 
-        sos_token = torch.tensor(vocab["<sos>"]).to(device)
-        eos_token = torch.tensor(vocab["<eos>"]).to(device)
+        sos_token = torch.tensor(self.vocab["<sos>"]).to(device)
+        eos_token = torch.tensor(self.vocab["<eos>"]).to(device)
 
         # obtained from the whole chain
 
@@ -367,9 +368,9 @@ class SpeakerModelHistAtt(nn.Module):
                 # unrolled
                 top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
 
-            # vocab - 1 to exclude <NOHS>
-            sentence_index = top_words // (len(vocab) - 1)  # which sentence it will be added to
-            word_index = top_words % (len(vocab) - 1)  # predicted word
+            # self.vocab - 1 to exclude <NOHS>
+            sentence_index = top_words // (len(self.vocab) - 1)  # which sentence it will be added to
+            word_index = top_words % (len(self.vocab) - 1)  # predicted word
 
             gen_len += 1
 
@@ -434,13 +435,13 @@ class SpeakerModelHistAtt(nn.Module):
         best_seq = completed_sentences[sorted_indices[0]]
 
         hypothesis = [
-            vocab.index2word[w]
+            self.vocab.index2word[w]
             for w in best_seq
             if w
                not in [
-                   vocab.word2index["<sos>"],
-                   vocab.word2index["<eos>"],
-                   vocab.word2index["<pad>"],
+                   self.vocab.word2index["<sos>"],
+                   self.vocab.word2index["<eos>"],
+                   self.vocab.word2index["<pad>"],
                ]
         ]
         # remove sos and pads # I want to check eos

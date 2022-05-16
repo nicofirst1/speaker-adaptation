@@ -63,7 +63,7 @@ def eval_beam_histatt(
         count += 1
         ref = data["reference_chain"][0]  # batch size 1  # full set of references for a single instance
 
-        hypo, model_params= model.generate_hypothesis(data,vocab,beam_k,max_len,device)
+        hypo, model_params= model.generate_hypothesis(data,beam_k,max_len,device)
         references.append(ref)
         hypotheses.append(hypo)
 

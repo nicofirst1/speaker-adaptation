@@ -94,7 +94,7 @@ if __name__ == "__main__":
     if model_type == "hist_att":  # attention over prev utterance
 
         model = SpeakerModelHistAtt(
-            len(vocab), embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim
+            vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim
         ).to(speak_p.device)
 
     logger.watch_model([model])
