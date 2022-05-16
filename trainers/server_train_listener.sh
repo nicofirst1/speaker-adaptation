@@ -7,9 +7,9 @@
 #SBATCH --gpus-per-node=1
 
 # array job can be launched with
-# sbatch --array 1-6 server_train.sh
+# sbatch --array 1-6  server_train_listener.sh
 # or if you want to specify a specific domain use
-# sbatch --array=0,2,3 server_train.sh
+# sbatch --array=0,2,3 server_train_listener.sh
 # the number mapping is the following:
 # 1: appliances
 # 2: food
