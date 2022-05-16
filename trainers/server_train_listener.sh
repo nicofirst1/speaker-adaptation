@@ -21,8 +21,9 @@
 
 #activating the virtual environment
 echo "Activating the virtual environment..."
-source /sw/arch/Debian10/EB_production/2021/software/Anaconda3/2021.05/etc/profile.d/conda.sh
-conda activate uvapb
+module load 2021
+module load Anaconda3/2021.05
+source activate uvapb
 
 # define variables
 out_dir="${HOME}"/outputs
