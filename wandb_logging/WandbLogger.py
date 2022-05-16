@@ -30,7 +30,7 @@ class WandbLogger:
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
-        wandb.init(
+        self.run=wandb.init(
             group=group,
             entity="adaptive-speaker",
             id=run_id,

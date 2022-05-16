@@ -236,30 +236,6 @@ if __name__ == "__main__":
         with torch.no_grad():
             model.eval()
 
-            # TRAINSET TAKES TOO LONG WITH BEAM
-            # isValidation = False
-            # print('\nTrain Eval')
-            #
-            # if model_type == 'base':
-            #     eval_beam_base(training_beam_loader, model, args, best_score, print_gen, device,
-            #                    beam_size, max_len, vocab, nlge, isValidation, timestamp)
-            #     #
-            #     # eval_top_k_top_p_base(training_beam_loader, model, args, best_score, print_gen, device,
-            #     #                 40, 0.9, 'topk', max_len, vocab, nlge, isValidation, timestamp)  # k_size 40
-            #     #
-            #     #
-            #     # eval_top_k_top_p_base(training_beam_loader, model, args, best_score, print_gen, device,
-            #     #                 40, 0.9, 'topp', max_len, vocab, nlge, isValidation, timestamp)  # k_size 40
-            #
-            # elif model_type == 'hist_att':
-            #     eval_beam_histatt(training_beam_loader, model, args, best_score, print_gen, device,
-            #                       beam_size, max_len, vocab, mask_attn, nlge, isValidation, timestamp)
-            #     #
-            #     # eval_top_k_top_p_histatt(training_beam_loader, model, args, best_score, print_gen, device,
-            #     #                       40, 0.9, 'topk', max_len, vocab, nlge, isValidation, timestamp)  # k_size 40
-            #     #
-            #     # eval_top_k_top_p_histatt(training_beam_loader, model, args, best_score, print_gen, device,
-            #     #                       40, 0.9, 'topp', max_len, vocab, nlge, isValidation, timestamp)  # k_size 40
 
             isValidation = True
             isTest = False
