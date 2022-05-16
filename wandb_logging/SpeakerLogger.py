@@ -8,7 +8,6 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from models.speaker.utils import get_predictions
 from wandb_logging.utils import imgid2domain, imgid2path
 from wandb_logging.WandbLogger import WandbLogger
 
