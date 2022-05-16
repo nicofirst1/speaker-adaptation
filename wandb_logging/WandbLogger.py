@@ -74,16 +74,19 @@ class WandbLogger:
         """
         wandb.finish()
 
-    def save_model(self, path2model, model_name, epoch, description=""):
+    def save_model(self, path2model, model_name, epoch, args):
 
-        self.log_artifact(path2model, model_name, artifact_type="model", epoch=epoch, description=description)
+        if "Listener" in model_name:
+            model_name += f"_{args.train_domain}"
 
-    def log_artifact(self,path2artifact, artifact_name, artifact_type, epoch=None, description=""):
+        self.log_artifact(path2model, model_name, artifact_type="model", epoch=epoch, description="", metadata=args)
+
+    def log_artifact(self, path2artifact, artifact_name, artifact_type, epoch=None, metadata={}, description=""):
         if epoch is None:
-            epoch=self.epochs
+            epoch = self.epochs
 
         model_name = f"epoch_{epoch}_{artifact_name}"
-        artifact = wandb.Artifact(model_name, type=artifact_type, description=description)
+        artifact = wandb.Artifact(model_name, type=artifact_type, description=description, metadata=metadata)
         artifact.add_file(path2artifact)
         wandb.log_artifact(artifact)
 

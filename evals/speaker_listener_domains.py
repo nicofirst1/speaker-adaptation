@@ -44,6 +44,13 @@ if __name__ == "__main__":
         "saved_models/model_speaker_hist_att_4_bert_2020-05-22-16-43-13.pkl",
     ]
 
+    listener_urls=dict(
+        all='adaptive-speaker/listener/epoch_20_speaker:v4',
+        vehicles="adaptive-speaker/listener/epoch_20_speaker:v4"
+
+    )
+
+
     for speaker_file in speaker_files:
 
         seed = 28
