@@ -150,6 +150,9 @@ def evaluate(
 if __name__ == "__main__":
 
     args = parse_args("list")
+
+    print(args)
+
     t = datetime.datetime.now()
     timestamp = (
             str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)

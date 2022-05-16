@@ -34,6 +34,18 @@ class AbstractDataclass:
 
             self.__setattr__(k, v)
 
+    def __str__(self):
+        """
+        Used for printing class attributes
+        :return:
+        """
+        to_print = f"{self.__class__}:\n"
+
+        for k, v in self.__dict__.items():
+            to_print += f"{k}: '{v}'\n"
+
+        return to_print
+
 
 def get_dataset_path():
     pwd = os.getcwd()
