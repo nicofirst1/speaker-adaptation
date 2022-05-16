@@ -53,7 +53,7 @@ class ListenerDataset(Dataset):
             shuffle=True
 
         if shuffle:
-            random.shuffle(self.chains)
+            np.random.shuffle(self.chains)
 
         #print('processing', self.split)
         for chain in self.chains[:self.subset_size]:
