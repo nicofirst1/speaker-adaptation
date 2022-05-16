@@ -41,36 +41,36 @@ if [[ $SLURM_ARRAY_TASK_ID -eq 0 ]]; then
 
 elif [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
   echo "Launching appliances"
-  python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain appliances "${common_args[@]}" 
+  python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py -train_domain appliances "${common_args[@]}" 
 
 elif [[ $SLURM_ARRAY_TASK_ID -eq 2 ]]; then
 
   echo "Launching food"
 
-  python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain food "${common_args[@]}" 
+  python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py -train_domain food "${common_args[@]}" 
 
 elif [[ $SLURM_ARRAY_TASK_ID -eq 3 ]]; then
 
   echo "Launching indoor"
 
-  python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain indoor "${common_args[@]}" 
+  python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py -train_domain indoor "${common_args[@]}" 
 
 elif [[ $SLURM_ARRAY_TASK_ID -eq 4 ]]; then
 
   echo "Launching outdoor"
 
-  python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain outdoor "${common_args[@]}" 
+  python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py -train_domain outdoor "${common_args[@]}" 
 
 elif [[ $SLURM_ARRAY_TASK_ID -eq 5 ]]; then
 
   echo "Launching vehicles"
 
-  python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain vehicles "${common_args[@]}" 
+  python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py -train_domain vehicles "${common_args[@]}" 
 
 elif [[ $SLURM_ARRAY_TASK_ID -eq 6 ]]; then
   echo "Launching all"
 
-  python -u ${HOME}/pb_speaker_adaptation/models/listener/train_listener_domains.py -train_domain all "${common_args[@]}" 
+  python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py -train_domain all "${common_args[@]}" 
 
 else
   echo "No domain specified for id $SLURM_ARRAY_TASK_ID"

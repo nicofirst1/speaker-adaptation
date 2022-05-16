@@ -22,4 +22,4 @@ out_file="${out_dir}"/speaker_hist_att_"${SLURM_ARRAY_TASK_ID}".log
 
 #running the actual code
 echo "Starting the process..."
-python -u ${HOME}/pb_speaker_adaptation/models/speaker/train_speaker_generic.py  "${common_args[@]}" #&> "${out_file}"
+python -u ${HOME}/pb_speaker_adaptation/trainers/speaker_train.py  "${common_args[@]}" #&> "${out_file}"
