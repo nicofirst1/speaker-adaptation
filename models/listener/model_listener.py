@@ -55,7 +55,7 @@ class ListenerModel(nn.Module):
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
 
-    def forward(self, text, separate_images, visual_context, prev_hist, masks, device):
+    def forward(self, text:torch.Tensor, separate_images:torch.Tensor, visual_context:torch.Tensor, prev_hist:torch.Tensor, masks:torch.Tensor, device):
 
         """
         @param text: utterances to be converted into embeddings
@@ -65,6 +65,13 @@ class ListenerModel(nn.Module):
         @param masks: attention mask for pad tokens
         @param device: device to which the tensors are moved
         """
+
+
+        text=text.to(device)
+        separate_images=separate_images.to(device)
+        visual_context=visual_context.to(device)
+        prev_hist=prev_hist.to(device)
+        masks=masks.to(device)
 
         representations = self.embeddings(text)
 
