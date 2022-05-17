@@ -329,7 +329,7 @@ if __name__ == "__main__":
 
             # targets = torch.tensor([[torch.argmax(tg)] for tg in targets]).to(device)
             # TARGETS SUITABLE FOR CROSS-ENTROPY LOSS
-
+            targets=targets.to(device)
             loss = criterion(out, targets)
 
             preds = torch.argmax(out.squeeze(dim=-1), dim=1)
