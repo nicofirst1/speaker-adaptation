@@ -79,7 +79,8 @@ def evaluate(
         out = model(
             utterances, context_separate, context_concat, prev_hist, masks, device
         )
-
+        
+        targets=targets.to(device)
         loss = criterion(out, targets)
         losses_eval.append(loss.item())
 
