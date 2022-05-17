@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=2:00:00
 #SBATCH --partition=gpu_shared_jupyter
-#SBATCH --gpus-per-node=4
+#SBATCH --gpus-per-node=1
 
 # array job can be launched with
 # sbatch --array 1-6  server_train_listener.sh
