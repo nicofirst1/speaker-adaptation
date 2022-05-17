@@ -96,3 +96,5 @@ def save_model(
     save_dict.update(kwargs)
     torch.save(save_dict,file_name)
     logger.save_model(file_name, type(model).__name__, epoch, args)
+
+    print("Model saved and logged to wandb")
