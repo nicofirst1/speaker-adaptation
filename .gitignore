@@ -221,3 +221,5 @@ models/speaker/speaker_outputs/
 models/speaker/wandb_out/wandb/
 
 .idea/
+
+*/wandb_out/*
