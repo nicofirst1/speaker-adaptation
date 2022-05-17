@@ -1,10 +1,13 @@
 #!/bin/bash
+#SBATCH --reservation=condo_2204047_01
 #SBATCH --nodes=1
 #SBATCH --job-name=sppb
 #SBATCH --cpus-per-task=1
 #SBATCH --time=2:00:00
-#SBATCH --partition=gpu
-#SBATCH --gpus-per-node=1
+#SBATCH --partition=gpu_shared_jupyter
+#SBATCH --gpus-per-node=4
+
+
 
 #activating the virtual environment
 echo "Activating the virtual environment..."
