@@ -113,7 +113,7 @@ def evaluate(
 
         if not in_domain:
             # estimate per domain accuracy
-            tmp = logger.log_domain_accuracy(data, preds)
+            tmp = logger.get_domain_accuracy(data, preds)
             for k in tmp.keys():
                 if k not in domain_accuracy.keys():
                     domain_accuracy[k] = 0

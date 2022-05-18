@@ -37,6 +37,7 @@ class WandbLogger:
             dir=out_dir,
             config=opts,
             mode="disabled" if opts["debug"] else "online",
+            #settings=wandb.Settings(start_method='fork'),
             **kwargs,
         )
         wandb.config.update(opts)
@@ -85,10 +86,14 @@ class WandbLogger:
         if epoch is None:
             epoch = self.epochs
 
+        # cast everything in metadata to str
+        metadata={k:str(v) for k,v in vars(metadata).items()}
+
+        # refine model name
         model_name = f"epoch_{epoch}_{artifact_name}"
-        artifact = wandb.Artifact(model_name, type=artifact_type, description=description, metadata=metadata)
+        artifact = wandb.Artifact(model_name, type=artifact_type,description=description, metadata=metadata)
         artifact.add_file(path2artifact)
-        wandb.log_artifact(artifact)
+        self.run.log_artifact(artifact)
 
 
 def delete_run(run_to_remove: str):

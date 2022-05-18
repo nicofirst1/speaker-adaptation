@@ -56,7 +56,7 @@ class ListenerLogger(WandbLogger):
         for idx, mod in enumerate(models):
             wandb.watch(mod, log_freq=1000, log_graph=True, idx=idx, log="all")
 
-    def log_domain_accuracy(self, data_point: Dict, preds) -> Dict:
+    def get_domain_accuracy(self, data_point: Dict, preds) -> Dict:
         """
         Log a datapoint into a wandb table
         :param data_point: datapoint as it comes from the dataloader
@@ -154,7 +154,7 @@ class ListenerLogger(WandbLogger):
 
         logs = {f"{k}/{modality}": v for k, v in logs.items()}
 
-        self.log_to_wandb(logs)
+        self.log_to_wandb(logs )
 
         return logs
 

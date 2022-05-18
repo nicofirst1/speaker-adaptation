@@ -47,11 +47,16 @@ class AbstractDataclass:
         return to_print
 
 
-def get_dataset_path():
+
+def get_working_dir():
     pwd = os.getcwd()
     pwd = pwd.split("pb_speaker_adaptation")[0]
     pwd = join(pwd, "pb_speaker_adaptation")
-    return join(pwd, "dataset")
+    return pwd
+
+
+def get_dataset_path():
+    return join(get_working_dir(), "dataset")
 
 
 @dataclass
@@ -254,6 +259,8 @@ class DataTrainingArguments:
     wandb_dir: Optional[str] = field(
         default="wandb_out",
     )
+
+    working_dir:str=get_working_dir()
 
     def __post_init__(self):
         self.device = torch.device(self.device)
