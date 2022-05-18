@@ -27,21 +27,13 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # define variables
-out_dir="${HOME}"/outputs
 common_args=( --dropout 0.5 --batch_size 64 --model_type scratch_rrr --embed_type scratch --vectors_file vectors.json --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 --shuffle)
 
-mkdir "${out_dir}"
 
 #running the actual code
 echo "Starting the process..."
 
-if [[ $SLURM_ARRAY_TASK_ID -eq 0 ]]; then
-  #create output directory
-  echo "Creating output directory..."
-  rm -rf "${out_dir}"
-  mkdir "${out_dir}"
-
-elif [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
+if [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
   echo "Launching appliances"
   python -u ${HOME}/pb_speaker_adaptation/trainers/listener_train.py --train_domain appliances "${common_args[@]}"
 
