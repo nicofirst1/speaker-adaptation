@@ -46,6 +46,9 @@ class AbstractDataclass:
 
         return to_print
 
+    def __post_init__(self):
+        raise NotImplementedError()
+
 
 
 def get_working_dir():
@@ -260,7 +263,7 @@ class DataTrainingArguments:
         default="wandb_out",
     )
 
-    working_dir:str=get_working_dir()
+    working_dir: str = get_working_dir()
 
     def __post_init__(self):
         self.device = torch.device(self.device)

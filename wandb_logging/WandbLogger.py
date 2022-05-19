@@ -30,14 +30,14 @@ class WandbLogger:
         if not os.path.isdir(out_dir):
             os.mkdir(out_dir)
 
-        self.run=wandb.init(
+        self.run = wandb.init(
             group=group,
             entity="adaptive-speaker",
             id=run_id,
             dir=out_dir,
             config=opts,
             mode="disabled" if opts["debug"] else "online",
-            #settings=wandb.Settings(start_method='fork'),
+            # settings=wandb.Settings(start_method='fork'),
             **kwargs,
         )
         wandb.config.update(opts)
@@ -86,12 +86,13 @@ class WandbLogger:
         if epoch is None:
             epoch = self.epochs
 
+        metadata['curr_epoch'] = epoch
+
         # cast everything in metadata to str
-        metadata={k:str(v) for k,v in vars(metadata).items()}
+        metadata = {k: str(v) for k, v in vars(metadata).items()}
 
         # refine model name
-        model_name = f"epoch_{epoch}_{artifact_name}"
-        artifact = wandb.Artifact(model_name, type=artifact_type,description=description, metadata=metadata)
+        artifact = wandb.Artifact(artifact_name, type=artifact_type, description=description, metadata=metadata)
         artifact.add_file(path2artifact)
         self.run.log_artifact(artifact)
 

@@ -134,11 +134,13 @@ if __name__ == '__main__':
     model_bert.eval()
     model_bert.to(device)
 
-    speaker_url = 'adaptive-speaker/speaker/epoch_9_speaker:v0'
+    speaker_url = 'adaptive-speaker/speaker/epoch_0_SpeakerModelHistAtt:v0'
 
     speak_check = load_wandb_checkpoint(speaker_url)
 
     speak_p = speak_check['args']
+    speak_p.__post_init__()
+
     print(speak_p)
 
     # for reproducibility
@@ -149,16 +151,16 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
 
     print("Loading the vocab...")
-    vocab = Vocab(speak_p.vocab_file)
-    #vocab = Vocab("/Users/giulia/Desktop/pb_speaker_adaptation/dataset/vocab.csv")
+    #vocab = Vocab(speak_p.vocab_file)
+    vocab = Vocab("/Users/giulia/Desktop/pb_speaker_adaptation/dataset/speaker/vocab.csv")
     vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
     vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
 
     img_dim = 2048
 
     speaker_model = SpeakerModelHistAtt(
-        vocab, speak_p.embedding_dim, speak_p.hidden_dim, img_dim, speak_p.dropout_prob, speak_p.att_dim
-    ).to(speak_p.device)
+        vocab, speak_p.embedding_dim, speak_p.hidden_dim, img_dim, speak_p.dropout_prob, speak_p.attention_dim
+    ).to(device)
 
     speaker_model.load_state_dict(speak_check['model_state_dict'])
     speaker_model = speaker_model.to(device)
@@ -166,20 +168,27 @@ if __name__ == '__main__':
     speaker_model = speaker_model.eval()
 
     listener_dict = dict(
-        indoor="adaptive-speaker/listener/epoch_4_speaker:v1"
+        all="adaptive-speaker/listener/epoch_26_ListenerModel_all:v0",
+        appliances="adaptive-speaker/listener/epoch_26_ListenerModel_appliances:v0",
+        food="adaptive-speaker/listener/epoch_26_ListenerModel_food:v0",
+        indoor="adaptive-speaker/listener/epoch_26_ListenerModel_indoor:v0",
+        outdoor="adaptive-speaker/listener/epoch_26_ListenerModel_outdoor:v0",
+        vehicles="adaptive-speaker/listener/epoch_26_ListenerModel_vehicles:v0",
     )
 
     for dom,url in listener_dict.items():
 
         list_checkpoint=load_wandb_checkpoint(url)
-
         list_args=list_checkpoint['args']
+        list_args.vocab_file="vocab.csv"
+        list_args.__post_init__()
+        vocab = Vocab(list_args.vocab_file)
 
-        model = ListenerModel(
-            len(vocab), list_args.embedding_dim, list_args.hidden_dim, img_dim, list_args.att_dim, list_args.dropout_prob
+        list_model = ListenerModel(
+            len(vocab), list_args.embed_dim, list_args.hidden_dim, img_dim, list_args.attention_dim, list_args.dropout_prob
         ).to(device)
 
-        training_loader, test_loader, val_loader = get_data_loaders(list_args, list_args['train_domain'], img_dim)
+        training_loader, test_loader, val_loader = get_data_loaders(list_args, list_args.train_domain, img_dim)
 
 
         list_model.load_state_dict(list_checkpoint['model_state_dict'])
