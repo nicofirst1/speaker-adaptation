@@ -8,6 +8,14 @@
 #SBATCH --gpus-per-node=4
 
 
+
+# array job can be launched with
+# sbatch --array=0,1 server_train_listener.sh
+# the number mapping is the following:
+# 0: appliances, food,  indoor,  outdoor
+# 1: vehicles, all
+
+
 #activating the virtual environment
 echo "Activating the virtual environment..."
 module load 2021
@@ -21,7 +29,6 @@ common_args=( --dropout 0.5 --batch_size 64 --model_type scratch_rrr --embed_typ
 
 #running the actual code
 echo "Starting the process..."
-echo "Launching appliances"
 
 if [[ $SLURM_ARRAY_TASK_ID -eq 0 ]]; then
   echo "Launching appliances"

@@ -136,6 +136,7 @@ class ListenerArguments(AbstractDataclass):
                                      "speaker", "vehicles", "all", ], "Invalid train domain"
 
         self.vocab_file = join(self.data_path, self.vocab_file)
+        self.vectors_file = join(self.data_path, self.vectors_file)
 
         if self.embed_type == "sratch":
             assert self.embed_dim == 768, f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"

@@ -1,4 +1,3 @@
-import json
 import os
 import pickle
 from collections import defaultdict
@@ -7,57 +6,24 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from data.dataloaders.AbstractDataset import AbstractDataset
 
-class SpeakerDataset(Dataset):
+
+class SpeakerDataset(AbstractDataset):
     def __init__(
-        self,
-        split,
-        data_dir,
-        chain_file,
-        utterances_file,
-        orig_ref_file,
-        vectors_file,
-        subset_size,
+            self,
+            orig_ref_file,
+            **kwargs
+
     ):
 
-        self.data_dir = data_dir
-        self.split = split
+        super(SpeakerDataset, self).__init__(**kwargs)
 
         self.max_len = 0
-
-        # Load a PhotoBook utterance chain dataset
-        with open(os.path.join(self.data_dir, chain_file), "r") as file:
-            self.chains = json.load(file)
-
-        # Load an underlying PhotoBook dialogue utterance dataset
-        with open(os.path.join(self.data_dir, utterances_file), "rb") as file:
-            self.utterances = pickle.load(file)
 
         # Original reference sentences without unks
         with open(os.path.join(self.data_dir, orig_ref_file), "rb") as file:
             self.text_refs = pickle.load(file)
-
-        # Load pre-defined image features
-        with open( vectors_file, "r" ) as file:
-            self.image_features = json.load(file)
-
-        self.img_dim = 2048
-        self.img_count = 6  # images in the context
-
-        self.data = dict()
-
-        self.img2chain = defaultdict(dict)
-
-        for chain in self.chains:
-
-            self.img2chain[chain["target"]][chain["game_id"]] = chain["utterances"]
-
-        if subset_size == -1:
-            self.subset_size = len(self.chains)
-        else:
-            self.subset_size = subset_size
-
-        print("processing", self.split)
 
         # every utterance in every chain, along with the relevant history
         for chain in self.chains[: self.subset_size]:
@@ -138,7 +104,7 @@ class SpeakerDataset(Dataset):
                     im_counter += 1
 
                     if (
-                        game_id in self.img2chain[im]
+                            game_id in self.img2chain[im]
                     ):  # was there a linguistic chain for this image in this game
                         temp_chain = self.img2chain[im][game_id]
 
@@ -199,11 +165,9 @@ class SpeakerDataset(Dataset):
                     "reference_chain": reference_chain,
                 }
 
-    def __len__(self):
-        return len(self.data)
 
-    def __getitem__(self, index):
-        return self.data[index]
+
+
 
     @staticmethod
     def get_collate_fn(device, SOS, EOS, NOHS):
@@ -229,12 +193,12 @@ class SpeakerDataset(Dataset):
                         if len(sample[key]) == 0:
                             # OTHERWISE pack_padded wouldn't work
                             padded = [NOHS] + [0] * (
-                                max_prevutt_length - 1
+                                    max_prevutt_length - 1
                             )  # SPECIAL TOKEN FOR NO HIST
 
                         else:
                             padded = sample[key] + [0] * (
-                                max_prevutt_length - len(sample[key])
+                                    max_prevutt_length - len(sample[key])
                             )
 
                         # print('prevutt', padded)
@@ -283,8 +247,6 @@ class SpeakerDataset(Dataset):
             return batch
 
         return collate_fn
-
-
 
 
 def get_dataloaders(args, vocab):

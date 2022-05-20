@@ -1,8 +1,4 @@
 import argparse
-import json
-import os
-import pickle
-import random
 from collections import defaultdict
 from typing import Tuple
 
@@ -10,52 +6,19 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
+from data.dataloaders.AbstractDataset import AbstractDataset
 
-class ListenerDataset(Dataset):
-    def __init__(self, split, domain, data_dir, chain_file, utterances_file,
-                 vectors_file, subset_size, image_size):
 
-        self.data_dir = data_dir + '/chains-domain-specific/' + domain
-        self.split = split
+class ListenerDataset(AbstractDataset):
+    def __init__(self, domain, **kwargs):
+
+        kwargs['data_dir'] =  kwargs['data_dir'] + '/chains-domain-specific/' + domain
+
+        super(ListenerDataset, self).__init__(**kwargs)
+
         self.domain = domain
 
-        # Load a PhotoBook utterance chain dataset
-        with open(os.path.join(self.data_dir, chain_file), 'r') as file:
-            self.chains = json.load(file)
-
-        # Load an underlying PhotoBook dialogue utterance dataset
-        with open(os.path.join(self.data_dir, utterances_file), 'rb') as file:
-            self.utterances = pickle.load(file)
-
-        # # Load BERT representations for the tokens in the utterances
-        # with open(os.path.join(self.data_dir, representations_file), 'rb') as file:
-        #     self.representations = pickle.load(file)
-
-        # Load pre-defined image features
-        with open(os.path.join(data_dir, vectors_file), 'r') as file:
-            self.image_features = json.load(file)
-
-        self.img_dim = image_size
-        self.img_count = 6  # images in the context
-
-        self.data = dict()
-
-        self.img2chain = defaultdict(dict)
-
-        for chain in self.chains:
-            self.img2chain[chain['target']][chain['game_id']] = chain['utterances']
-
-        if subset_size == -1:
-            self.subset_size = len(self.chains)
-            shuffle=False
-        else:
-            self.subset_size = subset_size
-            shuffle=True
-
-        if shuffle:
-            np.random.shuffle(self.chains)
-
-        #print('processing', self.split)
+        # print('processing', self.split)
         for chain in self.chains[:self.subset_size]:
 
             chain_utterances = chain['utterances']
@@ -143,12 +106,6 @@ class ListenerDataset(Dataset):
                                              'prev_histories': prev_chains,
                                              'prev_history_lengths': prev_lengths
                                              }
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, index):
-        return self.data[index]
 
     @staticmethod
     def get_collate_fn(device):
@@ -295,8 +252,5 @@ def get_data_loaders(
     test_loader = torch.utils.data.DataLoader(testset, **load_params_test)
 
     val_loader = torch.utils.data.DataLoader(valset, **load_params_test)
-
-
-
 
     return training_loader, test_loader, val_loader
