@@ -9,8 +9,7 @@ from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from data.dataloaders.Vocab import Vocab
-from data.dataloaders.utils import get_dataloaders
+from data.dataloaders import Vocab,get_dataloaders
 from models.listener.model_listener import ListenerModel
 from trainers.parsers import parse_args
 from trainers.utils import mask_attn

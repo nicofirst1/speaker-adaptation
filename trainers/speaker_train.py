@@ -8,8 +8,7 @@ import torch.utils.data
 from nlgeval import NLGEval
 from torch import nn, optim
 
-from data.dataloaders.Vocab import Vocab
-from data.dataloaders.utils import get_dataloaders
+from data.dataloaders import Vocab, get_dataloaders
 from evals.speaker_eval import eval_beam_histatt
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
 from trainers.utils import mask_attn

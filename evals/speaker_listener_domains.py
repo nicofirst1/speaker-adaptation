@@ -1,15 +1,15 @@
-import json
 from os import listdir
 from os.path import isfile, join
 
 import numpy as np
+import rich.progress
 import torch
 import wandb
-
+from torch.utils.data import Dataset
 from transformers import BertTokenizer, BertModel
 
-from data.dataloaders.ListenerDataset import get_listener_dataloader
 from data.dataloaders.Vocab import Vocab
+from data.dataloaders.utils import get_dataloaders
 from models.listener.model_listener import ListenerModel
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
 from trainers.utils import mask_attn
@@ -20,7 +20,7 @@ def get_bert_outputs(text, model, tokenizer):
     # Add special tokens takes care of adding [CLS], [SEP], <s>... tokens in the right way for each model.
     # same as adding special tokens then tokenize + convert_tokens_to_ids
 
-    tokenized_text = tokenizer.tokenize('[CLS]' + text + '[SEP]')
+    tokenized_text = tokenizer.tokenize("[CLS]" + text + "[SEP]")
     # input tensors the same as tokenizer.convert_tokens_to_ids(tokenized_text)
 
     # print(input_tensors)
@@ -43,38 +43,60 @@ def get_bert_outputs(text, model, tokenizer):
 
         encoded_layers = outputs[0]
     # We have encoded our input sequence in a FloatTensor of shape (batch size, sequence length, model hidden dimension)
-    assert tuple(encoded_layers.shape) == (1, input_tensors.shape[1], model.config.hidden_size)
+    assert tuple(encoded_layers.shape) == (
+        1,
+        input_tensors.shape[1],
+        model.config.hidden_size,
+    )
     assert len(tokenized_text) == input_tensors.shape[1]
 
     return encoded_layers, tokenized_text
 
 
-def evaluate_trained_model(dataloader, speak_model, list_model, device, model_bert, tokenizer):
+def evaluate_trained_model(
+        dataloader: Dataset,
+        speak_model: torch.nn.Module,
+        list_model: torch.nn.Module,
+        device, vocab, tokenizer, domain: str
+):
     accuracies = []
     ranks = []
-    beam_k=5
-    max_len=30
+    beam_k = 5
+    max_len = 30
 
-    for ii, data in enumerate(dataloader):
+    for ii, data in rich.progress.track(
+            enumerate(dataloader),
+            total=len(dataloader),
+            description=f"Eval on domain '{domain}'",
+    ):
 
+        # generate hypo with speaker
+        hypo, _ = speak_model.generate_hypothesis(data, beam_k, max_len, device)
 
-        hypo, _= speak_model.generate_hypothesis(data,beam_k,max_len,device)
+        # encode with list vocab
+        utterance = tokenizer.tokenize(hypo)
 
-        utterances_BERT = get_bert_outputs(hypo, model_bert, tokenizer)[0]
+        if any(["#" in t for t in utterance]):
+            # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
+            continue
 
-        context_separate = data['separate_images']
-        context_concat = data['concat_context']
+        utterance = vocab.encode(utterance, add_special_tokens=True)
+        utterance = utterance.unsqueeze(dim=0)
 
-        lengths = [utterances_BERT.shape[1]]
-        targets = data['target']
+        # get datapoints
+        context_separate = data["separate_images"]
+        context_concat = data["concat_context"]
+        lengths = [utterance.shape[1]]
+        targets = data["target"]
+        prev_hist = data["prev_histories"]
 
-        max_length_tensor = utterances_BERT.shape[1]
-
+        max_length_tensor = utterance.shape[1]
         masks = mask_attn(lengths, max_length_tensor, device)
 
-        prev_hist = data['prev_histories']
-
-        out = list_model(utterances_BERT, lengths, context_separate, context_concat, prev_hist, masks, device)
+        # get listener output
+        out = list_model(
+            utterance, context_separate, context_concat, prev_hist, masks, device
+        )
 
         preds = torch.argmax(out, dim=1)
 
@@ -93,13 +115,12 @@ def evaluate_trained_model(dataloader, speak_model, list_model, device, model_be
             rank_target = images_ranked.tolist().index(targets.item())
             ranks.append(rank_target + 1)  # no 0
 
-    sum_accuracy = np.sum(accuracies)
+    current_accuracy = np.mean(accuracies)
 
-    current_accuracy = sum_accuracy / len(0)
 
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
 
-    print(int(sum_accuracy), round(current_accuracy, 5), 'MRR', round(MRR, 5))
+    print( round(current_accuracy, 5), "MRR", round(MRR, 5))
 
     return current_accuracy, MRR
 
@@ -110,35 +131,37 @@ def load_wandb_checkpoint(url):
 
     datadir = artifact.download()
 
-    files=[f for f in listdir(datadir) if isfile(join(datadir, f))]
+    files = [f for f in listdir(datadir) if isfile(join(datadir, f))]
 
-    if len(files)>1:
+    if len(files) > 1:
         raise FileExistsError(f"More than one checkpoint found in {datadir}!")
 
-    checkpoint = torch.load(join(datadir,files[0]), map_location=device)
+    checkpoint = torch.load(join(datadir, files[0]), map_location=device)
 
     return checkpoint
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')  # ALREADY do_lower_case=True
+    tokenizer = BertTokenizer.from_pretrained(
+        "bert-base-uncased"
+    )  # ALREADY do_lower_case=True
 
     # Load pre-trained model (weights)
-    model_bert = BertModel.from_pretrained('bert-base-uncased')
+    model_bert = BertModel.from_pretrained("bert-base-uncased")
 
     # Set the model in evaluation mode to deactivate the DropOut modules
     # This is IMPORTANT to have reproducible results during evaluation!
     model_bert.eval()
     model_bert.to(device)
 
-    speaker_url = 'adaptive-speaker/speaker/epoch_0_SpeakerModelHistAtt:v0'
+    speaker_url = "adaptive-speaker/speaker/epoch_0_SpeakerModelHistAtt:v0"
 
     speak_check = load_wandb_checkpoint(speaker_url)
 
-    speak_p = speak_check['args']
+    speak_p = speak_check["args"]
     speak_p.__post_init__()
 
     print(speak_p)
@@ -151,18 +174,25 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
 
     print("Loading the vocab...")
-    #vocab = Vocab(speak_p.vocab_file)
-    vocab = Vocab("/Users/giulia/Desktop/pb_speaker_adaptation/dataset/speaker/vocab.csv")
+    # vocab = Vocab(speak_p.vocab_file)
+    vocab = Vocab(
+        "/Users/giulia/Desktop/pb_speaker_adaptation/dataset/speaker/vocab.csv"
+    )
     vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
     vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
 
     img_dim = 2048
 
     speaker_model = SpeakerModelHistAtt(
-        vocab, speak_p.embedding_dim, speak_p.hidden_dim, img_dim, speak_p.dropout_prob, speak_p.attention_dim
+        vocab,
+        speak_p.embedding_dim,
+        speak_p.hidden_dim,
+        img_dim,
+        speak_p.dropout_prob,
+        speak_p.attention_dim,
     ).to(device)
 
-    speaker_model.load_state_dict(speak_check['model_state_dict'])
+    speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()
@@ -176,28 +206,37 @@ if __name__ == '__main__':
         vehicles="adaptive-speaker/listener/epoch_26_ListenerModel_vehicles:v0",
     )
 
-    for dom,url in listener_dict.items():
+    for dom, url in listener_dict.items():
+        list_checkpoint = load_wandb_checkpoint(url)
+        list_args = list_checkpoint["args"]
+        list_args.batch_size = 1
+        list_args.vocab_file = "vocab.csv"
+        list_args.subset_size=50
 
-        list_checkpoint=load_wandb_checkpoint(url)
-        list_args=list_checkpoint['args']
-        list_args.vocab_file="vocab.csv"
         list_args.__post_init__()
         vocab = Vocab(list_args.vocab_file)
 
         list_model = ListenerModel(
-            len(vocab), list_args.embed_dim, list_args.hidden_dim, img_dim, list_args.attention_dim, list_args.dropout_prob
+            len(vocab),
+            list_args.embed_dim,
+            list_args.hidden_dim,
+            img_dim,
+            list_args.attention_dim,
+            list_args.dropout_prob,
         ).to(device)
 
-        training_loader, test_loader, val_loader = get_listener_dataloader(list_args, list_args.train_domain, img_dim)
+        training_loader, test_loader, val_loader, _ = get_dataloaders(
+            list_args, vocab, list_args.train_domain
+        )
 
-
-        list_model.load_state_dict(list_checkpoint['model_state_dict'])
+        list_model.load_state_dict(list_checkpoint["model_state_dict"])
         list_model = list_model.to(device)
 
         with torch.no_grad():
-
             list_model.eval()
 
-            print('test')
-            current_accuracy, MRR = evaluate_trained_model(test_loader, speaker_model, list_model, device, model_bert, tokenizer)
-            print('Accuracy', current_accuracy, 'MRR', MRR)
+            print("test")
+            current_accuracy, MRR = evaluate_trained_model(
+                val_loader, speaker_model, list_model, device, vocab, tokenizer, dom
+            )
+            print("Accuracy", current_accuracy, "MRR", MRR)

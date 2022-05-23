@@ -1,4 +1,8 @@
 import csv
+from typing import List
+
+import torch
+
 
 class Vocab():
 
@@ -20,6 +24,18 @@ class Vocab():
                 self.word2index[w] = len(self.word2index)
                 self.index2word[self.word2index[w]] = w
                 self.word2count[w] = c
+
+    def encode(self, text: List[str], add_special_tokens=False)->torch.Tensor:
+
+        encoded = [self.word2index[t] for t in text]
+
+        if add_special_tokens:
+            encoded.append(self.word2index['<eos>'])
+            encoded.insert(self.word2index['<sos>'], 0)
+
+        encoded=torch.as_tensor(encoded)
+
+        return encoded
 
     def __len__(self):
         return len(self.word2index)

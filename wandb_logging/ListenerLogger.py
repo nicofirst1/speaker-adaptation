@@ -8,7 +8,7 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from wandb_logging.utils import imgid2domain, imgid2path
+from data.dataloaders.utils import imgid2path, imgid2domain
 from wandb_logging.WandbLogger import WandbLogger
 
 
