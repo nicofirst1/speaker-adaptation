@@ -41,7 +41,7 @@ class AbstractDataclass:
         """
         to_print = f"{self.__class__}:\n"
 
-        for k, v in self.__dict__.items():
+        for k, v in sorted(self.__dict__.items()):
             to_print += f"{k}: '{v}'\n"
 
         return to_print
@@ -90,6 +90,17 @@ class ListenerArguments(AbstractDataclass):
     vectors_file: Optional[str] = field(
         default="vectors.json",
     )
+
+    utterances_file: Optional[str] = field(
+        default="ids_utterances.pickle",
+    )
+    chains_file: Optional[str] = field(
+        default="text_chains.json",
+    )
+
+    orig_ref_file: Optional[str] = field(
+        default="text_utterances.pickle",
+    )
     model_type: Optional[str] = field(
         default="scratch_rrr",
     )
@@ -137,6 +148,15 @@ class ListenerArguments(AbstractDataclass):
 
         self.vocab_file = join(self.data_path, self.vocab_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
+
+        if "vectors.json" in self.vectors_file:  # from resnet
+            img_dim = 2048
+        elif "clip.json" in self.vectors_file:
+            img_dim = 512
+        else:
+            raise KeyError(f"No valid image vector for file '{self.vectors_file}'")
+
+        self.image_size=img_dim
 
         if self.embed_type == "sratch":
             assert self.embed_dim == 768, f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
@@ -219,6 +239,15 @@ class SpeakerArguments(AbstractDataclass):
         # self.orig_ref_file = join(self.speaker_data, self.orig_ref_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.vocab_file = join(self.speaker_data, self.vocab_file)
+
+        if "vectors.json" in self.vectors_file:  # from resnet
+            img_dim = 2048
+        elif "clip.json" in self.vectors_file:
+            img_dim = 512
+        else:
+            raise KeyError(f"No valid image vector for file '{self.vectors_file}'")
+
+        self.image_size=img_dim
 
 
 @dataclass

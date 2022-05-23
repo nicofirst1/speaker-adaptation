@@ -8,7 +8,7 @@ import wandb
 
 from transformers import BertTokenizer, BertModel
 
-from data.dataloaders.ListenerDataset import get_data_loaders
+from data.dataloaders.ListenerDataset import get_listener_dataloader
 from data.dataloaders.Vocab import Vocab
 from models.listener.model_listener import ListenerModel
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
@@ -188,7 +188,7 @@ if __name__ == '__main__':
             len(vocab), list_args.embed_dim, list_args.hidden_dim, img_dim, list_args.attention_dim, list_args.dropout_prob
         ).to(device)
 
-        training_loader, test_loader, val_loader = get_data_loaders(list_args, list_args.train_domain, img_dim)
+        training_loader, test_loader, val_loader = get_listener_dataloader(list_args, list_args.train_domain, img_dim)
 
 
         list_model.load_state_dict(list_checkpoint['model_state_dict'])

@@ -1,7 +1,6 @@
-import argparse
 import sys
 from os.path import abspath, dirname
-from dataclasses import asdict, dataclass, field
+
 import numpy as np
 import torch
 import torch.utils.data
@@ -10,8 +9,8 @@ from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from data.dataloaders.ListenerDataset import get_data_loaders
 from data.dataloaders.Vocab import Vocab
+from data.dataloaders.utils import get_dataloaders
 from models.listener.model_listener import ListenerModel
 from trainers.parsers import parse_args
 from trainers.utils import mask_attn
@@ -30,7 +29,6 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 
 if not os.path.isdir("saved_models"):
     os.mkdir("saved_models")
-
 
 
 def evaluate(
@@ -79,8 +77,8 @@ def evaluate(
         out = model(
             utterances, context_separate, context_concat, prev_hist, masks, device
         )
-        
-        targets=targets.to(device)
+
+        targets = targets.to(device)
         loss = criterion(out, targets)
         losses_eval.append(loss.item())
 
@@ -145,9 +143,6 @@ def evaluate(
     return accuracy, loss, MRR
 
 
-
-
-
 if __name__ == "__main__":
 
     args = parse_args("list")
@@ -193,15 +188,15 @@ if __name__ == "__main__":
     ##  DATALOADERS
     ###################################
 
-    if args.vectors_file == "vectors.json":  # from resnet
+    if "vectors.json" in args.vectors_file:  # from resnet
         img_dim = 2048
-    elif args.vectors_file == "clip.json":
+    elif "clip.json" in args.vectors_file:
         img_dim = 512
     else:
         raise KeyError(f"No valid image vector for file '{args.vectors_file}'")
 
-    training_loader, test_loader, val_loader = get_data_loaders(args, domain, img_dim)
-    _, _, val_loader_speaker = get_data_loaders(args, "speaker", img_dim)
+    training_loader, test_loader, val_loader, _ = get_dataloaders(args, vocab, domain)
+    _, _, val_loader_speaker, _ = get_dataloaders(args, vocab, domain="speaker")
 
     if args.log_data:
         # log dataset once
@@ -214,7 +209,6 @@ if __name__ == "__main__":
         data_logger.log_dataset(test_loader.dataset, "test")
         data_logger.log_dataset(val_loader.dataset, "val")
         print("Dataset logged")
-
 
     ###################################
     ##  MODEL
@@ -283,7 +277,7 @@ if __name__ == "__main__":
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
-            training_loader, _, val_loader = get_data_loaders(args, domain, img_dim)
+            training_loader, _, val_loader, _ = get_dataloaders(args, vocab, domain)
 
         losses = []
 
@@ -330,7 +324,7 @@ if __name__ == "__main__":
 
             # targets = torch.tensor([[torch.argmax(tg)] for tg in targets]).to(device)
             # TARGETS SUITABLE FOR CROSS-ENTROPY LOSS
-            targets=targets.to(device)
+            targets = targets.to(device)
             loss = criterion(out, targets)
 
             preds = torch.argmax(out.squeeze(dim=-1), dim=1)

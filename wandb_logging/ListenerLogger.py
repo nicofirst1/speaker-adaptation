@@ -120,7 +120,7 @@ class ListenerLogger(WandbLogger):
         target = int(target)
 
         # remove empty hists
-        hist = [x for x in hist if len(x)]
+        hist = [x for x in hist.values() if len(x)]
 
         # convert to words
         translate_list = lambda utt: " ".join([self.vocab.index2word[x] for x in utt])

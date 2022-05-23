@@ -74,6 +74,8 @@ class ListenerModel(nn.Module):
         visual_context=visual_context.to(device)
         masks=masks.to(device)
 
+        prev_hist=[list(elem.values()) for elem in prev_hist]
+
         representations = self.embeddings(text)
 
         batch_size = representations.shape[0]  # effective batch size

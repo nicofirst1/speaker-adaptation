@@ -86,10 +86,11 @@ class WandbLogger:
         if epoch is None:
             epoch = self.epochs
 
-        metadata['curr_epoch'] = epoch
 
         # cast everything in metadata to str
         metadata = {k: str(v) for k, v in vars(metadata).items()}
+        metadata['curr_epoch'] = str(epoch)
+
 
         # refine model name
         artifact = wandb.Artifact(artifact_name, type=artifact_type, description=description, metadata=metadata)

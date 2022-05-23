@@ -223,3 +223,5 @@ models/speaker/wandb_out/wandb/
 .idea/
 
 */wandb_out/*
+*/artifacts/*
+*/saved_models/*
