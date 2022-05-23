@@ -9,7 +9,6 @@ import torch
 from torch.utils.data import Dataset
 
 
-
 class AbstractDataset(Dataset):
     def __init__(
             self,
@@ -21,6 +20,7 @@ class AbstractDataset(Dataset):
             orig_ref_file,
             subset_size,
             image_size,
+            img2dom_file,
 
     ):
 
@@ -43,6 +43,10 @@ class AbstractDataset(Dataset):
         with open(os.path.join(self.data_dir, orig_ref_file), "rb") as file:
             self.text_refs = pickle.load(file)
 
+        # Original reference sentences without unks
+        with open(img2dom_file, "r") as file:
+            self.img2dom = json.load(file)
+
         self.img_dim = image_size
         self.img_count = 6  # images in the context
         self.max_len = 0
@@ -59,10 +63,10 @@ class AbstractDataset(Dataset):
 
         else:
             self.subset_size = subset_size
-            #np.random.shuffle(self.chains)
+            np.random.shuffle(self.chains)
 
         # create a dict from img_id to domain
-        self.img_id2domain, self.domains = imgid2domain(self.data_dir)
+        # self.img_id2domain, self.domains = imgid2domain(self.data_dir)
 
         self.load_data()
 
@@ -120,7 +124,7 @@ class AbstractDataset(Dataset):
                 if length > self.max_len:
                     self.max_len = length
 
-                #assert len(cur_utterance_text_ids) != 2
+                # assert len(cur_utterance_text_ids) != 2
                 # already had added sos eos into length and IDS version
 
                 images = cur_utterance_obj["image_set"]
@@ -199,7 +203,12 @@ class AbstractDataset(Dataset):
 
                 context_concat = context_separate.reshape(self.img_count * self.img_dim)
 
-                domain=self.img_id2domain[int(target_image)]
+
+                if target_image not in self.img2dom.keys():
+                    print(f"No domain for image '{target_image}'")
+                    domain = "unk"
+                else:
+                    domain = self.img2dom[target_image]
 
                 self.data[len(self.data)] = {
                     "utterance": cur_utterance_text_ids,
@@ -215,9 +224,8 @@ class AbstractDataset(Dataset):
                     "prev_histories": prev_chains,
                     "prev_history_lengths": prev_lengths,
                     "reference_chain": reference_chain,
-                    "domain":domain,
+                    "domain": domain,
                 }
-
 
     @staticmethod
     def get_collate_fn(device, SOS, EOS, NOHS):
@@ -298,13 +306,11 @@ class AbstractDataset(Dataset):
 
         return collate_fn
 
-
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
         return self.data[index]
-
 
 
 def imgid2path(data_path: str) -> Dict[str, str]:
@@ -329,8 +335,8 @@ def imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
     :param data_path: location of data
     :return:
     """
-    #chains_path = os.path.join(data_path, "chains-domain-specific", "speaker")
-    chains_path=data_path
+    chains_path = os.path.join(data_path, "chains-domain-specific", "speaker")
+    # chains_path=data_path
     chain_dict = {}
     for split in ["train", "test", "val"]:
         with open(os.path.join(chains_path, f"{split}.json"), "r") as file:
@@ -373,5 +379,3 @@ def imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
 
     domains = list(set(domain_dict.values()))
     return chain_dict, domains
-
-

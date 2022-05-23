@@ -24,7 +24,8 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
             "orig_ref_file": f"{split}_{args.orig_ref_file}",
             "split": split,
             "subset_size": args.subset_size,
-            "image_size":args.image_size
+            "image_size":args.image_size,
+            "img2dom_file": args.img2dom_file
         }
 
         if domain is not None:

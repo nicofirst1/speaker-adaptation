@@ -1,9 +1,10 @@
 import json
 import os
-from os.path import join
+from os.path import join, isfile
 from typing import Dict, List, Tuple
 
 import torch
+import wandb
 
 
 def save_model(
@@ -38,3 +39,19 @@ def save_model(
     logger.save_model(file_name, type(model).__name__, epoch, args)
 
     print("Model saved and logged to wandb")
+
+
+def load_wandb_checkpoint(url,device):
+    api = wandb.Api()
+    artifact = api.artifact(url)
+
+    datadir = artifact.download()
+
+    files = [f for f in os.listdir(datadir) if isfile(join(datadir, f))]
+
+    if len(files) > 1:
+        raise FileExistsError(f"More than one checkpoint found in {datadir}!")
+
+    checkpoint = torch.load(join(datadir, files[0]), map_location=device)
+
+    return checkpoint

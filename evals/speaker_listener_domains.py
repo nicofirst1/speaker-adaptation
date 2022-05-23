@@ -1,10 +1,8 @@
-from os import listdir
-from os.path import isfile, join
+from collections import Counter
 
 import numpy as np
 import rich.progress
 import torch
-import wandb
 from torch.utils.data import Dataset
 from transformers import BertTokenizer, BertModel
 
@@ -12,7 +10,10 @@ from data.dataloaders.Vocab import Vocab
 from data.dataloaders.utils import get_dataloaders
 from models.listener.model_listener import ListenerModel
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
+from trainers.parsers import parse_args
 from trainers.utils import mask_attn
+from wandb_logging.ListenerLogger import ListenerLogger
+from wandb_logging.utils import load_wandb_checkpoint
 
 
 def get_bert_outputs(text, model, tokenizer):
@@ -53,16 +54,46 @@ def get_bert_outputs(text, model, tokenizer):
     return encoded_layers, tokenized_text
 
 
+def get_domain_accuracy(accuracy, domains):
+    assert len(accuracy) == len(domains)
+
+    domain_accs = {d: 0 for d in set(domains)}
+    domain_accs["all"] = 0
+
+    for idx in range(len(domains)):
+        if accuracy[idx]:
+            dom = domains[idx]
+            domain_accs[dom] += 1
+            domain_accs["all"] += 1
+
+    c = Counter(domains)
+
+    for k, v in c.items():
+        domain_accs[k] /= v
+
+    domain_accs["all"] /= len(accuracy)
+
+    return domain_accs
+
+
 def evaluate_trained_model(
         dataloader: Dataset,
         speak_model: torch.nn.Module,
         list_model: torch.nn.Module,
-        device, vocab, tokenizer, domain: str
+        device, vocab, tokenizer, domain, logger
 ):
     accuracies = []
     ranks = []
+    domains = []
     beam_k = 5
     max_len = 30
+    fake_loss = torch.as_tensor([0])
+    in_domain = domain == dataloader.dataset.domain
+
+    if in_domain:
+        modality="in_domain"
+    else:
+        modality="out_domain"
 
     for ii, data in rich.progress.track(
             enumerate(dataloader),
@@ -115,35 +146,36 @@ def evaluate_trained_model(
             rank_target = images_ranked.tolist().index(targets.item())
             ranks.append(rank_target + 1)  # no 0
 
+        aux = dict(
+            preds=preds.squeeze(),
+            ranks=ranks,
+            scores_ranked=scores_ranked,
+            images_ranked=images_ranked,
+            correct=correct / preds.shape[0],
+        )
+
+        logger.on_batch_end(fake_loss, data, aux, batch_id=ii, modality="eval")
+        domains += data['domain']
+
     current_accuracy = np.mean(accuracies)
 
-
+    # normalize based on batches
+    domain_accuracy = get_domain_accuracy(accuracies, domains)
+    domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
+    accuracy = np.mean(accuracies)
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
+    metrics = dict(mrr=MRR, domain_accuracy=domain_accuracy, loss=fake_loss)
 
-    print( round(current_accuracy, 5), "MRR", round(MRR, 5))
+    logger.on_eval_end(metrics, list_domain=dataloader.dataset.domain, modality="eval")
 
     return current_accuracy, MRR
-
-
-def load_wandb_checkpoint(url):
-    api = wandb.Api()
-    artifact = api.artifact(url)
-
-    datadir = artifact.download()
-
-    files = [f for f in listdir(datadir) if isfile(join(datadir, f))]
-
-    if len(files) > 1:
-        raise FileExistsError(f"More than one checkpoint found in {datadir}!")
-
-    checkpoint = torch.load(join(datadir, files[0]), map_location=device)
-
-    return checkpoint
 
 
 if __name__ == "__main__":
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    common_args = parse_args("speak")
 
     tokenizer = BertTokenizer.from_pretrained(
         "bert-base-uncased"
@@ -159,9 +191,10 @@ if __name__ == "__main__":
 
     speaker_url = "adaptive-speaker/speaker/epoch_0_SpeakerModelHistAtt:v0"
 
-    speak_check = load_wandb_checkpoint(speaker_url)
+    speak_check = load_wandb_checkpoint(speaker_url, device)
 
     speak_p = speak_check["args"]
+    speak_p.vocab_file = "vocab.csv"
     speak_p.__post_init__()
 
     print(speak_p)
@@ -174,10 +207,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     print("Loading the vocab...")
-    # vocab = Vocab(speak_p.vocab_file)
-    vocab = Vocab(
-        "/Users/giulia/Desktop/pb_speaker_adaptation/dataset/speaker/vocab.csv"
-    )
+    vocab = Vocab(speak_p.vocab_file)
     vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
     vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
 
@@ -207,11 +237,11 @@ if __name__ == "__main__":
     )
 
     for dom, url in listener_dict.items():
-        list_checkpoint = load_wandb_checkpoint(url)
+        list_checkpoint = load_wandb_checkpoint(url, device)
         list_args = list_checkpoint["args"]
         list_args.batch_size = 1
         list_args.vocab_file = "vocab.csv"
-        list_args.subset_size=50
+        list_args.subset_size=10
 
         list_args.__post_init__()
         vocab = Vocab(list_args.vocab_file)
@@ -225,18 +255,43 @@ if __name__ == "__main__":
             list_args.dropout_prob,
         ).to(device)
 
-        training_loader, test_loader, val_loader, _ = get_dataloaders(
-            list_args, vocab, list_args.train_domain
-        )
-
         list_model.load_state_dict(list_checkpoint["model_state_dict"])
         list_model = list_model.to(device)
+
+        # add debug label
+        tags = []
+        if list_args.debug or list_args.subset_size != -1:
+            tags = ["debug"]
+
+        logger = ListenerLogger(
+            vocab=vocab,
+            opts=vars(list_args),
+            group=list_args.train_domain,
+            train_logging_step=1,
+            val_logging_step=1,
+            tags=tags,
+            project="speaker-list-dom"
+        )
 
         with torch.no_grad():
             list_model.eval()
 
-            print("test")
-            current_accuracy, MRR = evaluate_trained_model(
-                val_loader, speaker_model, list_model, device, vocab, tokenizer, dom
+            print(f"Eval on '{list_args.train_domain}' domain")
+            training_loader, test_loader, val_loader, _ = get_dataloaders(
+                list_args, vocab, list_args.train_domain
             )
-            print("Accuracy", current_accuracy, "MRR", MRR)
+
+            evaluate_trained_model(
+                val_loader, speaker_model, list_model, device, vocab, tokenizer, dom, logger
+            )
+
+            print(f"Eval on 'all' domain")
+            training_loader, test_loader, val_loader, _ = get_dataloaders(
+                list_args, vocab, "all"
+            )
+
+            evaluate_trained_model(
+                val_loader, speaker_model, list_model, device, vocab, tokenizer, dom, logger
+            )
+
+        logger.wandb_close()

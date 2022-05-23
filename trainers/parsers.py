@@ -148,6 +148,7 @@ class ListenerArguments(AbstractDataclass):
 
         self.vocab_file = join(self.data_path, self.vocab_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
+        self.img2dom_file = join(self.data_path, "img2dom.json")
 
         if "vectors.json" in self.vectors_file:  # from resnet
             img_dim = 2048
@@ -238,6 +239,7 @@ class SpeakerArguments(AbstractDataclass):
         # self.chains_file = join(self.speaker_data, self.chains_file)
         # self.orig_ref_file = join(self.speaker_data, self.orig_ref_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
+        self.img2dom_file = join(self.data_path, "img2dom.json")
         self.vocab_file = join(self.speaker_data, self.vocab_file)
 
         if "vectors.json" in self.vectors_file:  # from resnet

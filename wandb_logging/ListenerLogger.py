@@ -8,18 +8,22 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from data.dataloaders.utils import imgid2path, imgid2domain
+from data.dataloaders import imgid2path, imgid2domain
 from wandb_logging.WandbLogger import WandbLogger
 
 
 class ListenerLogger(WandbLogger):
-    def __init__(self, vocab, **kwargs):
+    def __init__(self, vocab, project=None, **kwargs):
         """
         Args:
             models: list of torch.Modules to watch with wandb
             **kwargs:
         """
-        super().__init__(project="listener", **kwargs)
+
+        if project is None:
+            project = "listener"
+
+        super().__init__(project=project, **kwargs)
 
         self.vocab = vocab
 
@@ -154,7 +158,7 @@ class ListenerLogger(WandbLogger):
 
         logs = {f"{k}/{modality}": v for k, v in logs.items()}
 
-        self.log_to_wandb(logs )
+        self.log_to_wandb(logs)
 
         return logs
 
@@ -231,12 +235,12 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        modality: str,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            modality: str,
     ):
 
         logging_step = (
