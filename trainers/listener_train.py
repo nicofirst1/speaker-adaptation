@@ -9,13 +9,11 @@ from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from data.dataloaders import Vocab,get_dataloaders
+from data.dataloaders import Vocab, get_dataloaders
 from models.listener.model_listener import ListenerModel
 from trainers.parsers import parse_args
 from trainers.utils import mask_attn
-from wandb_logging.DataLogger import DataLogger
-from wandb_logging.ListenerLogger import ListenerLogger
-from wandb_logging.utils import save_model
+from wandb_logging import DataLogger, ListenerLogger, save_model
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 

@@ -14,8 +14,7 @@ from evals.speaker_eval import eval_beam_histatt
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
 from trainers.parsers import parse_args
 from trainers.utils import mask_attn
-from wandb_logging.SpeakerLogger import SpeakerLogger
-from wandb_logging.utils import save_model, load_wandb_checkpoint
+from wandb_logging import save_model, load_wandb_checkpoint,SpeakerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 

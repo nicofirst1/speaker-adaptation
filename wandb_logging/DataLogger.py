@@ -3,8 +3,8 @@ from typing import Dict
 
 import wandb
 
+from data.dataloaders import imgid2path, imgid2domain
 from data.dataloaders.ListenerDataset import ListenerDataset
-from wandb_logging.utils import imgid2domain, imgid2path
 from wandb_logging.WandbLogger import WandbLogger
 
 
