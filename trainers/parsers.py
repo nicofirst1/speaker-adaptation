@@ -199,7 +199,7 @@ class SpeakerArguments(AbstractDataclass):
     )
 
     embedding_dim: Optional[int] = field(
-        default=512,
+        default=1024,
     )
     hidden_dim: Optional[int] = field(
         default=512,
@@ -296,6 +296,10 @@ class DataTrainingArguments:
     )
 
     working_dir: str = get_working_dir()
+
+    resume_train: str=field(
+        default="",
+    )
 
     def __post_init__(self):
         self.device = torch.device(self.device)

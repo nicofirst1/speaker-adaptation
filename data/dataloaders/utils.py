@@ -65,7 +65,7 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
 
     test_loader = torch.utils.data.DataLoader(datasets[1], **load_params_test)
 
-    val_loader = torch.utils.data.DataLoader(datasets[2], **load_params)
+    val_loader = torch.utils.data.DataLoader(datasets[2], **load_params_test)
 
     return training_loader, test_loader, val_loader, training_beam_loader
 

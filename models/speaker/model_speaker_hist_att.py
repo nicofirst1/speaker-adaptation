@@ -16,7 +16,7 @@ class SpeakerModelHistAtt(nn.Module):
             attention_dim,
     ):
         super().__init__()
-        self.vocab=vocab
+        self.vocab = vocab
         self.vocab_size = (
                 len(vocab) - 1
         )  # to exclude <nohs> from the decoder (but add for embed and encoder)

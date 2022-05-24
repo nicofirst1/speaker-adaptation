@@ -5,21 +5,21 @@ from os.path import abspath, dirname
 import numpy as np
 import rich.progress
 import torch.utils.data
+import wandb
 from nlgeval import NLGEval
 from torch import nn, optim
 
 from data.dataloaders import Vocab, get_dataloaders
 from evals.speaker_eval import eval_beam_histatt
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
-from trainers.utils import mask_attn
 from trainers.parsers import parse_args
+from trainers.utils import mask_attn
 from wandb_logging.SpeakerLogger import SpeakerLogger
-from wandb_logging.utils import save_model
+from wandb_logging.utils import save_model, load_wandb_checkpoint
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import datetime
-
 
 if not os.path.isdir("saved_models"):
     os.mkdir("saved_models")
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -67,14 +67,12 @@ if __name__ == "__main__":
     dropout_prob = speak_p.dropout_prob
     beam_size = speak_p.beam_size
 
-
     metric = speak_p.metric
     nlge = NLGEval(no_skipthoughts=True, no_glove=True)
 
     shuffle = speak_p.shuffle
     normalize = speak_p.normalize
     breaking = speak_p.breaking
-
 
     # add debug label
     tags = []
@@ -86,6 +84,7 @@ if __name__ == "__main__":
         opts=vars(speak_p),
         train_logging_step=20,
         val_logging_step=1,
+        resume=speak_p.resume_train != "",
     )
 
     # depending on the selected model type, we will have a different architecture
@@ -96,10 +95,20 @@ if __name__ == "__main__":
             vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim
         ).to(speak_p.device)
 
-    logger.watch_model([model])
-
     learning_rate = speak_p.learning_rate
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    if speak_p.resume_train != "":
+        checkpoint, file = load_wandb_checkpoint(speak_p.resume_train, speak_p.device)
+        logger.run.restore(file)
+
+        model.load_state_dict(checkpoint["model_state_dict"])
+        speaker_model = model.to(speak_p.device)
+        epoch=checkpoint["epoch"]
+
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    logger.watch_model([model])
 
     reduction_method = speak_p.reduction
     criterion = nn.CrossEntropyLoss(
@@ -122,7 +131,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp_tr = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
@@ -141,9 +150,9 @@ if __name__ == "__main__":
         logger.on_train_end({}, epoch_id=epoch)
 
         for i, data in rich.progress.track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description=f"Train epoch {epoch}",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description=f"Train epoch {epoch}",
         ):
 
             if breaking and count == 5:
@@ -190,7 +199,7 @@ if __name__ == "__main__":
 
             # ignoring 0 index in criterion
             #
-            #get_predictions(out, utterances_text_ids, vocab)
+            # get_predictions(out, utterances_text_ids, vocab)
 
             """ https://discuss.pytorch.org/t/pytorch-lstm-target-dimension-in-calculating-cross-entropy-loss/30398/2
             ptrblck Nov '18
@@ -235,14 +244,12 @@ if __name__ == "__main__":
         with torch.no_grad():
             model.eval()
 
-
             isValidation = True
             isTest = False
             print("\nVal Eval")
 
             # THIS IS val EVAL_BEAM
             print("beam")
-
 
             if model_type == "hist_att":
                 (

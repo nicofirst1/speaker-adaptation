@@ -68,8 +68,6 @@ def eval_beam_histatt(
         hypotheses.append(hypo)
 
 
-    #fixme: use hypothesis_string instead of best_seq
-    #logger.log_datapoint( data, [best_seq], modality="eval")
 
     # Calculate scores
     metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
