@@ -257,10 +257,16 @@ if __name__ == "__main__":
     for dom, url in listener_dict.items():
         list_checkpoint,_ = load_wandb_checkpoint(url, device)
         list_args = list_checkpoint["args"]
-        list_args.batch_size = 1
-        list_args.vocab_file = "vocab.csv"
-        list_args.subset_size = -1
 
+        # update list args
+        list_args.batch_size = 1 # hypotesis generation does not support batch
+        list_args.vocab_file = "vocab.csv"
+        list_args.device=device
+
+        # for debug
+        list_args.subset_size = 10
+
+        # update paths
         list_args.__post_init__()
         vocab = Vocab(list_args.vocab_file)
 

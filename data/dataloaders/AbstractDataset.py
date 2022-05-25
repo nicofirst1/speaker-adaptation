@@ -294,7 +294,7 @@ class AbstractDataset(Dataset):
                 # print(key)
 
                 if key in ["separate_images", "concat_context", "target_img_feats"]:
-                    batch[key] = torch.stack(batch[key]).to(device)
+                    batch[key] = torch.stack(batch[key])
 
                 elif key in [
                     "utterance",
@@ -303,7 +303,10 @@ class AbstractDataset(Dataset):
                     "length",
                     "prev_length",
                 ]:
-                    batch[key] = torch.Tensor(batch[key]).long().to(device)
+                    batch[key] = torch.Tensor(batch[key]).long()
+
+                if isinstance( batch[key], torch.Tensor):
+                    batch[key]= batch[key].to(device)
 
                     # for instance targets can be long and sent to device immediately
 
