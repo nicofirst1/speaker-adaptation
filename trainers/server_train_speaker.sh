@@ -23,6 +23,7 @@ common_args=( --dropout 0.3 --batch_size 32 --model_type hist_att --metric bert 
 
 mkdir -p "${out_dir}"
 out_file="${out_dir}"/speaker_hist_att_"${SLURM_ARRAY_TASK_ID}".log
+restore_arg=( --resume_train "adaptive-speaker/speaker/SpeakerModelHistAtt:latest" )
 
 #running the actual code
 echo "Starting the process..."
