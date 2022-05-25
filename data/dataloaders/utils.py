@@ -39,10 +39,10 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
 
         datasets.append(_set)
 
-    print("vocab len", len(vocab))
-    print("train len", len(datasets[0]), "longest sentence", datasets[0].max_len)
-    print("test len", len(datasets[1]), "longest sentence", datasets[1].max_len)
-    print("val len", len(datasets[2]), "longest sentence", datasets[2].max_len)
+    # print("vocab len", len(vocab))
+    # print("train len", len(datasets[0]), "longest sentence", datasets[0].max_len)
+    # print("test len", len(datasets[1]), "longest sentence", datasets[1].max_len)
+    # print("val len", len(datasets[2]), "longest sentence", datasets[2].max_len)
 
     load_params = {
         "batch_size": args.batch_size,

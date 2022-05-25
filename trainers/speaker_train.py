@@ -5,7 +5,6 @@ from os.path import abspath, dirname
 import numpy as np
 import rich.progress
 import torch.utils.data
-import wandb
 from nlgeval import NLGEval
 from torch import nn, optim
 
@@ -99,13 +98,15 @@ if __name__ == "__main__":
 
     if speak_p.resume_train != "":
         checkpoint, file = load_wandb_checkpoint(speak_p.resume_train, speak_p.device)
-        logger.run.restore(file)
+        #logger.run.restore(file)
 
         model.load_state_dict(checkpoint["model_state_dict"])
         speaker_model = model.to(speak_p.device)
         epoch=checkpoint["epoch"]
 
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        print(f"Resumed run at epoch {epoch}")
 
     logger.watch_model([model])
 
