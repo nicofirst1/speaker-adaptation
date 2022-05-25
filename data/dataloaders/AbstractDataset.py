@@ -52,6 +52,7 @@ class AbstractDataset(Dataset):
         self.max_len = 0
 
         self.data = dict()
+        self.missing_images=[]
 
         self.img2chain = defaultdict(dict)
 
@@ -205,8 +206,12 @@ class AbstractDataset(Dataset):
 
 
                 if target_image not in self.img2dom.keys():
-                    print(f"No domain for image '{target_image}'")
+                    if target_image not in self.missing_images:
+                        self.missing_images.append(target_image)
+                        print(f"No domain for image '{target_image}'")
+
                     domain = "unk"
+
                 else:
                     domain = self.img2dom[target_image]
 
