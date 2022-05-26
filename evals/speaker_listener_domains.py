@@ -175,7 +175,7 @@ def evaluate_trained_model(
 
     # normalize based on batches
     domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
-    domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
+    #domain_accuracy = {k: v / len(accuracies) for k, v in domain_accuracy.items()}
     accuracy = np.mean(accuracies)
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
     metrics = dict(mrr=MRR, domain_accuracy=domain_accuracy, loss=fake_loss, accuracy=accuracy)
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     model_bert.eval()
     model_bert.to(device)
 
-    speaker_url = "adaptive-speaker/speaker/epoch_0_SpeakerModelHistAtt:v0"
+    speaker_url = "adaptive-speaker/speaker/SpeakerModelHistAtt:v6"
 
     speak_check,_ = load_wandb_checkpoint(speaker_url, device)
 
@@ -267,6 +267,7 @@ if __name__ == "__main__":
         list_args.subset_size = 10
 
         # update paths
+        #list_args.__parse_args()
         list_args.__post_init__()
         vocab = Vocab(list_args.vocab_file)
 
