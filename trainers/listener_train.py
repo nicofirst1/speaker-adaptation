@@ -29,12 +29,11 @@ if not os.path.isdir("saved_models"):
 
 
 def evaluate(
-        data_loader: DataLoader, breaking: bool, model: torch.nn.Module, in_domain: bool
+        data_loader: DataLoader, model: torch.nn.Module, in_domain: bool
 ):
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
-    :param breaking:
     :param model:
     :param in_domain: when out_domain also estimate per domain accuracy
     :return:
@@ -51,9 +50,6 @@ def evaluate(
 
     for ii, data in enumerate(data_loader):
         # print(i)
-
-        if breaking and count == 5:
-            break
 
         count += 1
 
@@ -245,7 +241,6 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     metric = args.metric
     shuffle = args.shuffle
-    breaking = args.breaking
 
     epochs = 100
     patience = 50  # when to stop if there is no improvement
@@ -293,8 +288,7 @@ if __name__ == "__main__":
                 description="Training",
         ):
 
-            if breaking and count == 5:
-                break
+
 
             # print(count)
             count += 1
@@ -349,11 +343,11 @@ if __name__ == "__main__":
             isValidation = True
             print(f'\nVal Eval on domain "{domain}"')
             current_accuracy, current_loss, current_MRR = evaluate(
-                val_loader, breaking, model, in_domain=True
+                val_loader, model, in_domain=True
             )
 
             print(f"\nVal Eval on all domains")
-            evaluate(val_loader_speaker, breaking, model, in_domain=False)
+            evaluate(val_loader_speaker, model, in_domain=False)
 
             if metric == "loss":
 

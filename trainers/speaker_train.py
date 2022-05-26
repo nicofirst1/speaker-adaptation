@@ -70,7 +70,6 @@ if __name__ == "__main__":
 
     shuffle = speak_p.shuffle
     normalize = speak_p.normalize
-    breaking = speak_p.breaking
 
     # add debug label
     tags = []
@@ -155,8 +154,6 @@ if __name__ == "__main__":
                 description=f"Train epoch {epoch}",
         ):
 
-            if breaking and count == 5:
-                break
 
             # print(count)
             count += 1
