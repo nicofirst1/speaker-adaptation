@@ -122,6 +122,7 @@ class Params:
         self.check_parameters()
 
     def __post_init__(self):
+        self.data_path=get_dataset_path()
 
         self.device = torch.device(self.device)
 
@@ -233,7 +234,6 @@ class ListenerArguments(Params):
     def __post_init__(self):
         super(ListenerArguments, self).__post_init__()
 
-        self.data_path=get_dataset_path()
         self.vocab_file = join(self.data_path, self.vocab_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
@@ -281,7 +281,6 @@ class SpeakerArguments(Params):
     def __post_init__(self):
         super(SpeakerArguments, self).__post_init__()
 
-        self.data_path=get_dataset_path()
         self.speaker_data = join(self.data_path, "speaker")
 
         self.img2dom_file = join(self.data_path, "img2dom.json")
