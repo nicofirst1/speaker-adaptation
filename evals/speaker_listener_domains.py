@@ -1,3 +1,4 @@
+import os
 from collections import Counter
 from typing import Optional
 
@@ -245,12 +246,12 @@ if __name__ == "__main__":
 
     # listener dict
     listener_dict = dict(
-        all="adaptive-speaker/listener/epoch_26_ListenerModel_all:v0",
-        appliances="adaptive-speaker/listener/epoch_26_ListenerModel_appliances:v0",
-        food="adaptive-speaker/listener/epoch_26_ListenerModel_food:v0",
-        indoor="adaptive-speaker/listener/epoch_26_ListenerModel_indoor:v0",
-        outdoor="adaptive-speaker/listener/epoch_26_ListenerModel_outdoor:v0",
-        vehicles="adaptive-speaker/listener/epoch_26_ListenerModel_vehicles:v0",
+        all="adaptive-speaker/listener/ListenerModel_all:v20",
+        appliances="adaptive-speaker/listener/ListenerModel_appliances:v20",
+        food="adaptive-speaker/listener/ListenerModel_food:v20",
+        indoor="adaptive-speaker/listener/ListenerModel_indoor:v20",
+        outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v20",
+        vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v20",
     )
 
     # for every listener
@@ -261,10 +262,11 @@ if __name__ == "__main__":
         # update list args
         list_args.batch_size = 1 # hypotesis generation does not support batch
         list_args.vocab_file = "vocab.csv"
+        list_args.vectors_file = os.path.basename(list_args.vectors_file)
         list_args.device=device
 
         # for debug
-        list_args.subset_size = 10
+        #list_args.subset_size = 10
 
         # update paths
         #list_args.__parse_args()
