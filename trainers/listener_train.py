@@ -10,6 +10,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 from data.dataloaders import Vocab, get_dataloaders
+from evals.speaker_listener_domains import get_domain_accuracy
 from models.listener.model_listener import ListenerModel
 from trainers.parsers import parse_args
 from trainers.utils import mask_attn
@@ -41,7 +42,7 @@ def evaluate(
     losses_eval = []
     accuracies = []
     ranks = []
-
+    domains = []
     count = 0
 
     domain_accuracy = {}
@@ -101,18 +102,13 @@ def evaluate(
         )
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
+        domains += data['domain']
 
-        if not in_domain:
-            # estimate per domain accuracy
-            tmp = logger.get_domain_accuracy(data, preds)
-            for k in tmp.keys():
-                if k not in domain_accuracy.keys():
-                    domain_accuracy[k] = 0
-
-                domain_accuracy[k] += tmp[k]
+    if not in_domain:
+        domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
 
     # normalize based on batches
-    domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
+    # domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
     loss = np.mean(losses_eval)
     accuracy = np.mean(accuracies)
 
@@ -287,9 +283,6 @@ if __name__ == "__main__":
                 total=len(training_loader),
                 description="Training",
         ):
-
-
-
             # print(count)
             count += 1
 
