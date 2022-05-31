@@ -47,7 +47,6 @@ def eval_beam_histatt(
     count = 0
 
 
-    breaking = args.breaking
 
     for i, data in enumerate(split_data_loader):
         # print(i)

@@ -4,7 +4,7 @@
 #SBATCH --job-name=listDM
 #SBATCH --cpus-per-task=1
 #SBATCH --time=2:00:00
-#SBATCH --partition=gpu_shared_jupyter
+#SBATCH --partition=gpu_shared
 #SBATCH --gpus-per-node=1
 
 # array job can be launched with
