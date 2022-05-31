@@ -3,8 +3,8 @@
 #SBATCH --nodes=1
 #SBATCH --job-name=sppb
 #SBATCH --cpus-per-task=1
-#SBATCH --time=2:00:00
-#SBATCH --partition=gpu_shared_jupyter
+#SBATCH --time=05:00:00
+#SBATCH --partition=gpu_shared
 #SBATCH --gpus-per-node=4
 
 
