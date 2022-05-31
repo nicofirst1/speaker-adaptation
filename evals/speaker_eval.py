@@ -56,9 +56,6 @@ def eval_beam_histatt(
 
         beam_k = beam_size
 
-        if breaking and count == 5:
-            break
-
         count += 1
         ref = data["reference_chain"][0]  # batch size 1  # full set of references for a single instance
 
