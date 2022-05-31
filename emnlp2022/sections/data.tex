@@ -1,0 +1,18 @@
+% !TEX root = ../main.tex
+
+%==========================================
+\section{Data}
+\label{sec:data}
+%==========================================
+
+\begin{itemize}
+\item The PhotoBook dataset \citep{haber2019photobook} is a collection of task-oriented visually grounded English dialogues between two participants...
+For every given PhotoBook dialogue and target image \emph{i}, \citet{takmaz-etal-2020-refer} obtained a reference chain made up of the referring utterances that refer to \emph{i} in the dialogue. The extraction procedure has a precision of 0.86 and a recall of 0.61, and the extracted chains are very similar to the human-annotated ones in terms of chain and utterance length. The dataset is made up of 41,340 referring utterances and 16,525 chains (i.e., there are 16,525 first descriptions and 24,815 subsequent references). The median number of utterances in a chain is 3.
+\item The original images are taken from the Microsoft COCO dataset [cite] and belong to 30 different image domains. We cluster the image domains according based on vocabulary vectors constructed by counting word frequencies in the referring utterances targeting images from a given domain. We obtain a set of 5 macro-domains (indoor, outdoor, food, vehicles, appliances), selected so that the domain vocabularies have little overlap. 
+For each cluster of image domains, we extract the PhotoBook reference chains produced in the corresponding visual contexts. We then split these into training, validation, and test set. The test set is made up for two thirds of referring utterances targeting images seen in training (\textit{test seen}) and for one third of utterances targeting unseen images (\textit{test unseen}). 
+Listeners are trained on the 5 domain-specific datasets. The proficient speaker is trained on the union of the domain-specific datasets (the training set is the union of the 5 domain-specific datasets, the test unseen set is the union of the 5 domain-specific datasets, and so forth).
+\item The task is set up as an image reference game. Given a visual context, the speaker produces a referring utterance that describes the target image. The listener selects an image among those in the visual context and is rewarded when it correctly resolves the speaker's reference.
+\end{itemize}
+
+
+

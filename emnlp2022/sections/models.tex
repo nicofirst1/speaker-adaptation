@@ -1,0 +1,47 @@
+% !TEX root = ../main.tex
+
+%==========================================
+\section{Models}
+\label{sec:models}
+%==========================================
+
+
+We construct a speaker model and a listener model. The speaker observes 6 images, knows which one is the target image, and remembers referring expressions previously uttered to describe that image. Given this input, the speaker produces a referring utterance. The listener observes (the same) 6 images, receives the speaker's referring utterance, and remembers the referring expressions used previously for all images. Given this input, the listener selects the most likely image.
+We train a proficient speaker model and domain-specific listener models with true---visually contextualised---referring utterances. During training, the speaker model also learns to predict the behaviour of different listeners, and at testing time it can use this ability to infer the semantic knowledge of the listener and to adapt its utterances accordingly. 
+
+
+We build upon the models presented by \citet{takmaz-etal-2020-refer}. 
+
+%------------------------------------------
+\subsection{Speaker}
+\label{sec:speaker}
+%------------------------------------------
+
+The Speaker generates a referring utterance given (a) the \emph{visual context} in the current game round made up of $6$ images from the perspective of the player who produced the utterance, (b) the \emph{target} among those images, and (c) the \emph{previous co-referring utterances} in the chain (if any). 
+
+
+We use the ReRef model proposed and implemeted by \citet{takmaz-etal-2020-refer}, which generates a new utterance conditioned on both the visual and the linguistic context. This model simulates a speaker who is able to produce subsequent references to a target image in accordance with what has been established in the conversational common ground \cite{Clark1996,BrennanClark1996}.  
+
+The encoder is a one-layer bidirectional LSTM... The decoder is a unidirectional LSTM... We use nucleus sampling rather than beam-search, with parameters ...
+
+
+
+%------------------------------------------
+\subsection{Listener}
+\label{sec:listener}
+%------------------------------------------
+
+The Listeners try to guess the correct image given the Speaker's referring utterance, the visual context, and the previous co-referring utterances.
+
+
+We use the Listener model proposed and implemeted by \citet{takmaz-etal-2020-refer}. Given an utterance referring to a target image and a $6$-image visual context, this model predicts the target image.
+
+Each candidate image is represented by its ResNet-152 features~\cite{resnet2016}. To pick a referent, we take the dot product between the multimodal representation of the input utterance and each of the candidate image representations. The image with the highest dot-product value is the one chosen by the model. 
+
+%------------------------------------------
+\subsection{Adaptive Speaker - PPLM}
+\label{sec:adapts}
+%------------------------------------------
+PPLM in more detail
+
+adaptive speaker trained with the simulator
