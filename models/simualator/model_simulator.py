@@ -26,6 +26,4 @@ class SimulatorModel(ListenerModel):
         # the final multimodal representation of the input utterance, dim [batch_size,6,1]
         dot = super(SimulatorModel, self).forward(text, separate_images, visual_context, prev_hist, masks, device)
 
-        influence=self.speaker_influence(dot)
-
-        return dot, influence
+        return dot
