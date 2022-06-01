@@ -1,5 +1,4 @@
 import os
-from collections import Counter
 from typing import Optional
 
 import numpy as np
@@ -10,71 +9,12 @@ from transformers import BertTokenizer, BertModel
 
 from data.dataloaders.Vocab import Vocab
 from data.dataloaders.utils import get_dataloaders
+from evals.utils import get_domain_accuracy, hypo2utterance
 from models.listener.model_listener import ListenerModel
 from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
 from trainers.parsers import parse_args
 from trainers.utils import mask_attn
 from wandb_logging import ListenerLogger, WandbLogger, load_wandb_checkpoint
-
-
-def get_bert_outputs(text, model, tokenizer):
-    input_tensors = torch.tensor([tokenizer.encode(text, add_special_tokens=True)])
-    # Add special tokens takes care of adding [CLS], [SEP], <s>... tokens in the right way for each model.
-    # same as adding special tokens then tokenize + convert_tokens_to_ids
-
-    tokenized_text = tokenizer.tokenize("[CLS]" + text + "[SEP]")
-    # input tensors the same as tokenizer.convert_tokens_to_ids(tokenized_text)
-
-    # print(input_tensors)
-
-    # just one segment
-    segments_ids = [0] * input_tensors.shape[1]
-    segments_tensors = torch.tensor([segments_ids])
-
-    input_tensors = input_tensors.to(device)
-    segments_tensors = segments_tensors.to(device)
-
-    # Predict hidden states features for each layer
-    with torch.no_grad():
-        # See the models docstrings for the detail of the inputs
-        outputs = model(input_tensors, token_type_ids=segments_tensors)
-
-        # Transformers models always output tuples.
-        # See the models docstrings for the detail of all the outputs
-        # In our case, the first element is the hidden state of the last layer of the Bert model
-
-        encoded_layers = outputs[0]
-    # We have encoded our input sequence in a FloatTensor of shape (batch size, sequence length, model hidden dimension)
-    assert tuple(encoded_layers.shape) == (
-        1,
-        input_tensors.shape[1],
-        model.config.hidden_size,
-    )
-    assert len(tokenized_text) == input_tensors.shape[1]
-
-    return encoded_layers, tokenized_text
-
-
-def get_domain_accuracy(accuracy, domains, all_domains):
-    assert len(accuracy) == len(domains)
-
-    domain_accs = {d: 0 for d in all_domains}
-    domain_accs["all"] = 0
-
-    for idx in range(len(domains)):
-        if accuracy[idx]:
-            dom = domains[idx]
-            domain_accs[dom] += 1
-            domain_accs["all"] += 1
-
-    c = Counter(domains)
-
-    for k, v in c.items():
-        domain_accs[k] /= v
-
-    domain_accs["all"] /= len(accuracy)
-
-    return domain_accs
 
 
 def evaluate_trained_model(
@@ -114,16 +54,7 @@ def evaluate_trained_model(
 
             # generate hypo with speaker
             hypo, _ = speak_model.generate_hypothesis(data, beam_k, max_len, device)
-
-            # encode with list vocab
-            utterance = tokenizer.tokenize(hypo)
-
-            if any(["#" in t for t in utterance]):
-                # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
-                continue
-
-            utterance = vocab.encode(utterance, add_special_tokens=True)
-            utterance = utterance.unsqueeze(dim=0)
+            utterance = hypo2utterance(hypo, tokenizer, vocab)
         else:
             utterance = data['utterance']
             hypo = data['origin_caption']
@@ -176,7 +107,7 @@ def evaluate_trained_model(
 
     # normalize based on batches
     domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
-    #domain_accuracy = {k: v / len(accuracies) for k, v in domain_accuracy.items()}
+    # domain_accuracy = {k: v / len(accuracies) for k, v in domain_accuracy.items()}
     accuracy = np.mean(accuracies)
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
     metrics = dict(mrr=MRR, domain_accuracy=domain_accuracy, loss=fake_loss, accuracy=accuracy)
@@ -206,7 +137,7 @@ if __name__ == "__main__":
 
     speaker_url = "adaptive-speaker/speaker/SpeakerModelHistAtt:v6"
 
-    speak_check,_ = load_wandb_checkpoint(speaker_url, device)
+    speak_check, _ = load_wandb_checkpoint(speaker_url, device)
 
     # load args
     speak_p = speak_check["args"]
@@ -256,20 +187,20 @@ if __name__ == "__main__":
 
     # for every listener
     for dom, url in listener_dict.items():
-        list_checkpoint,_ = load_wandb_checkpoint(url, device)
+        list_checkpoint, _ = load_wandb_checkpoint(url, device)
         list_args = list_checkpoint["args"]
 
         # update list args
-        list_args.batch_size = 1 # hypotesis generation does not support batch
+        list_args.batch_size = 1  # hypotesis generation does not support batch
         list_args.vocab_file = "vocab.csv"
         list_args.vectors_file = os.path.basename(list_args.vectors_file)
-        list_args.device=device
+        list_args.device = device
 
         # for debug
-        #list_args.subset_size = 10
+        # list_args.subset_size = 10
 
         # update paths
-        #list_args.__parse_args()
+        # list_args.__parse_args()
         list_args.__post_init__()
         vocab = Vocab(list_args.vocab_file)
 
