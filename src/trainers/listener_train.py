@@ -9,11 +9,11 @@ from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from commons import (get_dataloaders, get_domain_accuracy, mask_attn,
+from src.commons import (get_dataloaders, get_domain_accuracy, mask_attn,
                      parse_args, save_model)
-from data.dataloaders import Vocab
-from models import ListenerModel
-from wandb_logging import DataLogger, ListenerLogger
+from src.data.dataloaders import Vocab
+from src.models import ListenerModel
+from src.wandb_logging import DataLogger, ListenerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 

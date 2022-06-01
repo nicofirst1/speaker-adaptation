@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from commons import mask_attn
+from src.commons import mask_attn
 
 
 class SpeakerModelHistAtt(nn.Module):

@@ -3,7 +3,7 @@ from typing import List
 import torch
 from torch import nn
 
-from models.listener.model_listener import ListenerModel
+from src.models.listener.model_listener import ListenerModel
 
 
 class SimulatorModel(ListenerModel):

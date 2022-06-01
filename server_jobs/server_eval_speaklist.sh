@@ -18,4 +18,4 @@ source activate uvapb
 
 #running the actual code
 echo "Starting the process..."
-python -u ${HOME}/pb_speaker_adaptation/evals/speaker_listener_domains.py
+python -u ${HOME}/pb_speaker_adaptation/src/evals/speaker_listener_domains.py

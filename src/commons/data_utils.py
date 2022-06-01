@@ -1,16 +1,32 @@
 import argparse
+from typing import Tuple
 
 import torch
+from torch.utils.data import DataLoader
 
 from data.dataloaders import (AbstractDataset, ListenerDataset, SpeakerDataset,
                               Vocab)
 
 
-def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
+def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) -> Tuple[
+    DataLoader, DataLoader, DataLoader, DataLoader]:
+    """
+    Load dataloaders based on args
+    Parameters
+    ----------
+    args
+    vocab
+    domain : only used whit listener dataset.
+
+    Returns
+    -------
+
+    """
     if domain == "all":
         domain = "speaker"
 
     datasets = []
+    # generate kwargs for different splits
     for split in ["train", "test", "val"]:
         kwargs = {
             "utterances_file": f"{split}_{args.utterances_file}",
@@ -34,10 +50,6 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
 
         datasets.append(_set)
 
-    # print("vocab len", len(vocab))
-    # print("train len", len(datasets[0]), "longest sentence", datasets[0].max_len)
-    # print("test len", len(datasets[1]), "longest sentence", datasets[1].max_len)
-    # print("val len", len(datasets[2]), "longest sentence", datasets[2].max_len)
 
     load_params = {
         "batch_size": args.batch_size,

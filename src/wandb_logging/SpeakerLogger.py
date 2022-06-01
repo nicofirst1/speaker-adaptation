@@ -8,8 +8,8 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from data.dataloaders import imgid2domain, imgid2path
-from wandb_logging.WandbLogger import WandbLogger
+from src.data.dataloaders import imgid2domain, imgid2path
+from src.wandb_logging.WandbLogger import WandbLogger
 
 
 class SpeakerLogger(WandbLogger):
@@ -54,47 +54,6 @@ class SpeakerLogger(WandbLogger):
         for idx, mod in enumerate(models):
             wandb.watch(mod, log_freq=1000, log_graph=True, idx=idx, log="all")
 
-    def log_domain_accuracy(self, data_point: Dict, preds) -> Dict:
-        """
-        Log a datapoint into a wandb table
-        :param data_point: datapoint as it comes from the dataloader
-        :param preds: prediction of model, after argmax
-        :return:
-        """
-
-        imgs = data_point["image_set"]
-        target = data_point["target"].cpu().numpy().squeeze()
-        preds = preds.detach().cpu().numpy().squeeze()
-
-        if target.size == 1:
-            # if target is unidimensional then exapnd dim
-            target = [target]
-
-        imgs_class = []
-        for idx in range(len(imgs)):
-            img = imgs[idx][target[idx]]
-            imgs_class.append(self.img_id2domain[img])
-
-        # estimate number of correct
-        correct = preds == target
-
-        domain_accs = {d: 0 for d in self.domains}
-        domain_accs["all"] = 0
-
-        for idx in range(len(imgs_class)):
-            if correct[idx]:
-                dom = imgs_class[idx]
-                domain_accs[dom] += 1
-                domain_accs["all"] += 1
-
-        c = Counter(imgs_class)
-
-        for k, v in c.items():
-            domain_accs[k] /= v
-
-        domain_accs["all"] /= len(correct)
-
-        return domain_accs
 
     def log_datapoint(self, data_point: Dict, preds, modality: str) -> Dict:
         """

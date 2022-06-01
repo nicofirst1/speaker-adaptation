@@ -214,14 +214,8 @@ cython_debug/
 
 *.pkl
 
-models/listener/wandb_out/*
-
-models/speaker/speaker_outputs/
-
-models/speaker/wandb_out/wandb/
-
 .idea/
 
-*/wandb_out/*
-*/artifacts/*
-*/saved_models/*
+wandb_out/
+artifacts/
+saved_models/

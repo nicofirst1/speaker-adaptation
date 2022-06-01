@@ -12,16 +12,30 @@ from torch.utils.data import Dataset
 class AbstractDataset(Dataset):
     def __init__(
         self,
-        split,
-        data_dir,
-        chain_file,
-        utterances_file,
-        vectors_file,
-        orig_ref_file,
-        subset_size,
-        image_size,
-        img2dom_file,
+        split:str,
+        data_dir:str,
+        chain_file:str,
+        utterances_file:str,
+        vectors_file:str,
+        orig_ref_file:str,
+        img2dom_file:str,
+        subset_size:int = -1,
+        image_size:int =2048,
     ):
+        """
+        Abstract dataclass that implements
+        Parameters
+        ----------
+        split : either [train, val, test], the split to load from the dataset
+        data_dir: data dir where to load the data from
+        chain_file : name of the chain file
+        utterances_file : name of the utterance file
+        vectors_file : name of the vector file, can be either vectors or clip and is related to the image size
+        orig_ref_file : name of the original utterance file
+        img2dom_file: dict mapping image id to domains
+        subset_size : how much of the dataset to load, default -1 for all
+        image_size : the image size
+        """
 
         self.data_dir = data_dir
         self.split = split
@@ -62,11 +76,9 @@ class AbstractDataset(Dataset):
             self.subset_size = len(self.chains)
 
         else:
+            # if we take a subset of the data then shuffle with np (use seed)
             self.subset_size = subset_size
             np.random.shuffle(self.chains)
-
-        # create a dict from img_id to domain
-        # self.img_id2domain, self.domains = imgid2domain(self.data_dir)
 
         self.load_data()
 

@@ -7,11 +7,11 @@ import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from commons import (get_dataloaders, get_domain_accuracy,
+from src.commons import (get_dataloaders, get_domain_accuracy,
                      load_wandb_checkpoint, mask_attn, save_model)
-from data.dataloaders import Vocab
-from models import ListenerModel, SimulatorModel
-from wandb_logging import ListenerLogger
+from src.data.dataloaders import Vocab
+from src.models import ListenerModel, SimulatorModel
+from src.wandb_logging import ListenerLogger
 
 
 def evaluate(

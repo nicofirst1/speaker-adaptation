@@ -93,6 +93,16 @@ class Params:
     beam_size: Optional[int] = 5
 
     def merge(self, other):
+        """
+        Merge self with another Parmas class, overlapping attributes will raise an error
+        Parameters
+        ----------
+        other : Params, other params class
+
+        Returns
+        -------
+
+        """
         for k, v in dataclasses.asdict(other).items():
 
             if hasattr(self, k):
@@ -115,6 +125,8 @@ class Params:
         for k, v in attrb:
             to_print += f"\t{k}: '{v}'\n"
 
+        #todo: add rich colors
+
         return to_print
 
     def __init__(self):
@@ -124,6 +136,12 @@ class Params:
         self.check_parameters()
 
     def __post_init__(self):
+        """
+        Get current datapath, fix file paths
+        Returns
+        -------
+
+        """
         self.data_path = get_dataset_path()
 
         self.device = torch.device(self.device)

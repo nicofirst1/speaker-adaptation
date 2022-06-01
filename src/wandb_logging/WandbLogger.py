@@ -1,8 +1,9 @@
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import torch
 import wandb
+from torch import nn
 
 
 class WandbLogger:
@@ -56,6 +57,10 @@ class WandbLogger:
         is_train: bool,
     ):
         raise NotImplemented()
+
+    def watch_model(self, models: List[nn.Module]):
+        for idx, mod in enumerate(models):
+            wandb.watch(mod, log_freq=1000, log_graph=True, idx=idx, log="all")
 
     def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
         self.epochs = epoch_id

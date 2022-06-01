@@ -3,9 +3,9 @@ from typing import Dict
 
 import wandb
 
-from data.dataloaders import imgid2domain, imgid2path
-from data.dataloaders.ListenerDataset import ListenerDataset
-from wandb_logging.WandbLogger import WandbLogger
+from src.data.dataloaders import imgid2domain, imgid2path
+from src.data.dataloaders.ListenerDataset import ListenerDataset
+from src.wandb_logging.WandbLogger import WandbLogger
 
 
 class DataLogger(WandbLogger):

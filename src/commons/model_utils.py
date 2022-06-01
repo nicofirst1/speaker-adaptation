@@ -1,19 +1,22 @@
 import os
 from collections import Counter
 from os.path import isfile, join
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 
 import torch
 import wandb
 
+from commons.Params import Params
+from wandb_logging import WandbLogger
 
-def mask_attn(actual_num_tokens, max_num_tokens, device):
+
+def mask_attn(actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device) -> torch.Tensor:
     masks = []
 
     for n in range(len(actual_num_tokens)):
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (
-            max_num_tokens - actual_num_tokens[n]
+                max_num_tokens - actual_num_tokens[n]
         )
 
         masks.append(mask)
@@ -37,7 +40,19 @@ def hypo2utterance(hypo, tokenizer, vocab):
     return utterance
 
 
-def get_domain_accuracy(accuracy: torch.Tensor, domains: torch.Tensor, all_domains):
+def get_domain_accuracy(accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]) -> Dict[str, float]:
+    """
+    return a dict of domain:accuracy for all the domains in 'all_domains:
+    Parameters
+    ----------
+    accuracy
+    domains
+    all_domains
+
+    Returns
+    -------
+
+    """
     assert len(accuracy) == len(domains)
 
     domain_accs = {d: 0 for d in all_domains}
@@ -60,16 +75,19 @@ def get_domain_accuracy(accuracy: torch.Tensor, domains: torch.Tensor, all_domai
 
 
 def save_model(
-    model: torch.nn.Module,
-    model_type: str,
-    epoch,
-    accuracy,
-    optimizer,
-    args,
-    timestamp,
-    logger,
-    **kwargs,
+        model: torch.nn.Module,
+        model_type: str,
+        epoch: int,
+        accuracy: float,
+        optimizer: torch.optim.Optimizer,
+        args: Params,
+        timestamp: str,
+        logger: WandbLogger,
+        **kwargs,
 ):
+    """
+    Save model in torch and wandb
+    """
     seed = args.seed
     file_name = model_type + "_" + str(seed) + "_" + timestamp + ".pth"
 

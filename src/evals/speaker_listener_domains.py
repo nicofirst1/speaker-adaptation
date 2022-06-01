@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import Dataset
 from transformers import BertTokenizer, BertModel
 
-from commons import (
+from src.commons import (
     hypo2utterance,
     mask_attn,
     get_domain_accuracy,
@@ -15,9 +15,9 @@ from commons import (
     parse_args,
     load_wandb_checkpoint,
 )
-from data.dataloaders import Vocab
-from models import ListenerModel, SpeakerModelHistAtt
-from wandb_logging import ListenerLogger, WandbLogger
+from src.data.dataloaders import Vocab
+from src.models import ListenerModel, SpeakerModelHistAtt
+from src.wandb_logging import ListenerLogger, WandbLogger
 
 
 def evaluate_trained_model(

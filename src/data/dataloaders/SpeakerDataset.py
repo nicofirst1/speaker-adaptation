@@ -1,4 +1,4 @@
-from data.dataloaders.AbstractDataset import AbstractDataset
+from src.data.dataloaders.AbstractDataset import AbstractDataset
 
 
 class SpeakerDataset(AbstractDataset):

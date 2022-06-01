@@ -10,11 +10,11 @@ from bert_score import score
 from nlgeval import NLGEval
 from torch import nn, optim
 
-from commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
+from src.commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
                      parse_args, save_model)
-from data.dataloaders import Vocab
-from models import SpeakerModelHistAtt
-from wandb_logging import SpeakerLogger
+from src.data.dataloaders import Vocab
+from src.models import SpeakerModelHistAtt
+from src.wandb_logging import SpeakerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
