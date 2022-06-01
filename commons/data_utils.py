@@ -1,14 +1,9 @@
 import argparse
-import json
-import os
-from typing import Dict, Tuple, List
 
 import torch
 
-from data.dataloaders.AbstractDataset import AbstractDataset
-from data.dataloaders.ListenerDataset import ListenerDataset
-from data.dataloaders.SpeakerDataset import SpeakerDataset
-from data.dataloaders.Vocab import Vocab
+from data.dataloaders import (AbstractDataset, ListenerDataset, SpeakerDataset,
+                              Vocab)
 
 
 def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
@@ -16,7 +11,7 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
         domain = "speaker"
 
     datasets = []
-    for split in ['train', 'test', 'val']:
+    for split in ["train", "test", "val"]:
         kwargs = {
             "utterances_file": f"{split}_{args.utterances_file}",
             "vectors_file": args.vectors_file,
@@ -24,17 +19,17 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
             "orig_ref_file": f"{split}_{args.orig_ref_file}",
             "split": split,
             "subset_size": args.subset_size,
-            "image_size":args.image_size,
-            "img2dom_file": args.img2dom_file
+            "image_size": args.image_size,
+            "img2dom_file": args.img2dom_file,
         }
 
         if domain is not None:
-            kwargs['domain'] = domain
-            kwargs['data_dir'] = args.data_path
+            kwargs["domain"] = domain
+            kwargs["data_dir"] = args.data_path
 
             _set = ListenerDataset(**kwargs)
         else:
-            kwargs['data_dir'] = args.speaker_data
+            kwargs["data_dir"] = args.speaker_data
             _set = SpeakerDataset(**kwargs)
 
         datasets.append(_set)
@@ -68,4 +63,3 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None):
     val_loader = torch.utils.data.DataLoader(datasets[2], **load_params_test)
 
     return training_loader, test_loader, val_loader, training_beam_loader
-

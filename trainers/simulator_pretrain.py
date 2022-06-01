@@ -4,20 +4,21 @@ import os
 import numpy as np
 import rich.progress
 import torch
-from torch import optim, nn
+from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from data.dataloaders.Vocab import Vocab
-from data.dataloaders.utils import get_dataloaders
-from evals.speaker_listener_domains import get_domain_accuracy
-from models.listener.model_listener import ListenerModel
-from models.simualator.model_simulator import SimulatorModel
-from trainers.utils import mask_attn
-from wandb_logging import ListenerLogger, load_wandb_checkpoint, save_model
+from commons import (get_dataloaders, get_domain_accuracy,
+                     load_wandb_checkpoint, mask_attn, save_model)
+from data.dataloaders import Vocab
+from models import ListenerModel, SimulatorModel
+from wandb_logging import ListenerLogger
 
 
 def evaluate(
-        data_loader: DataLoader, sim_model: torch.nn.Module, list_model: torch.nn.Module, in_domain: bool
+    data_loader: DataLoader,
+    sim_model: torch.nn.Module,
+    list_model: torch.nn.Module,
+    in_domain: bool,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -82,7 +83,7 @@ def evaluate(
         )
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
-        domains += data['domain']
+        domains += data["domain"]
 
     if not in_domain:
         domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
@@ -185,21 +186,23 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="speaker-list-dom"
+        project="speaker-list-dom",
     )
     t = datetime.datetime.now()
 
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
-    for epoch in range(list_args['epochs']):
+    for epoch in range(list_args["epochs"]):
 
         print("Epoch : ", epoch)
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
-            training_loader, _, val_loader, _ = get_dataloaders(list_args, vocab, domain)
+            training_loader, _, val_loader, _ = get_dataloaders(
+                list_args, vocab, domain
+            )
 
         losses = []
         accuracies = []
@@ -214,14 +217,14 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description="Training",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description="Training",
         ):
             # get datapoints
             context_separate = data["separate_images"]
             context_concat = data["concat_context"]
-            utterance = data['utterance']
+            utterance = data["utterance"]
             lengths = [utterance.shape[1]]
             targets = data["target"]
             prev_hist = data["prev_histories"]
@@ -260,8 +263,15 @@ if __name__ == "__main__":
 
             # logs
             logger.on_batch_end(
-                loss, data, aux={"list_preds": list_preds, "sim_preds": sim_preds, "list_loss": list_loss}, batch_id=i,
-                modality="train"
+                loss,
+                data,
+                aux={
+                    "list_preds": list_preds,
+                    "sim_preds": sim_preds,
+                    "list_loss": list_loss,
+                },
+                batch_id=i,
+                modality="train",
             )
 
         losses = np.mean(losses)

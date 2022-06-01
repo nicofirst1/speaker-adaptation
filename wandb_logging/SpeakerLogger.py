@@ -8,7 +8,7 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from data.dataloaders import imgid2path, imgid2domain
+from data.dataloaders import imgid2domain, imgid2path
 from wandb_logging.WandbLogger import WandbLogger
 
 
@@ -32,7 +32,7 @@ class SpeakerLogger(WandbLogger):
 
         ### datapoint table
 
-        self.dt_table ={}
+        self.dt_table = {}
 
         ### domain table
 
@@ -111,12 +111,13 @@ class SpeakerLogger(WandbLogger):
         utt = data_point["orig_utterance"][idx]
         target = data_point["target"][idx].cpu().numpy()
         target_ids = data_point["target_utt_ids"]
-        if len(target_ids)>0: target_ids=target_ids[idx].cpu().numpy()
+        if len(target_ids) > 0:
+            target_ids = target_ids[idx].cpu().numpy()
         hist = data_point["prev_histories"][idx]
         preds = preds[idx]
 
         ## convert to int
-        if isinstance(preds,torch.Tensor):
+        if isinstance(preds, torch.Tensor):
             preds = torch.argmax(preds.detach().cpu(), dim=0).numpy()
         target = int(target)
 
@@ -129,13 +130,13 @@ class SpeakerLogger(WandbLogger):
         target_ids = target_ids.replace("<pad>", "")
 
         # get imgs domain
-        #imgs_domains = [self.img_id2domain[img] for img in imgs]
-        imgs_domains=[]
+        # imgs_domains = [self.img_id2domain[img] for img in imgs]
+        imgs_domains = []
         for img in imgs:
             try:
-                k=self.img_id2domain[img]
+                k = self.img_id2domain[img]
             except KeyError:
-                k="Error"
+                k = "Error"
                 print(f"Error for img '{img}'")
 
             imgs_domains.append(k)
@@ -147,7 +148,7 @@ class SpeakerLogger(WandbLogger):
         ## add red border to pred if wrong
         imgs[target] = ImageOps.expand(imgs[target], border=10, fill="green")
 
-        data=[imgs_domains[target]]
+        data = [imgs_domains[target]]
         data += [
             wandb.Image(img, caption=f"Domain: {dom}")
             for img, dom in zip(imgs, imgs_domains)
@@ -155,7 +156,7 @@ class SpeakerLogger(WandbLogger):
         data += [utt, target_ids, preds]
 
         if modality not in self.dt_table.keys():
-            self.dt_table[modality]=[]
+            self.dt_table[modality] = []
 
         self.dt_table[modality].append(data)
 

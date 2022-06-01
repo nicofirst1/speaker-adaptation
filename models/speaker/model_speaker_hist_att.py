@@ -2,23 +2,23 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from trainers.utils import mask_attn
+from commons import mask_attn
 
 
 class SpeakerModelHistAtt(nn.Module):
     def __init__(
-            self,
-            vocab,
-            embedding_dim,
-            hidden_dim,
-            img_dim,
-            dropout_prob,
-            attention_dim,
+        self,
+        vocab,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        dropout_prob,
+        attention_dim,
     ):
         super().__init__()
         self.vocab = vocab
         self.vocab_size = (
-                len(vocab) - 1
+            len(vocab) - 1
         )  # to exclude <nohs> from the decoder (but add for embed and encoder)
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -101,20 +101,20 @@ class SpeakerModelHistAtt(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def forward(
-            self,
-            utterance,
-            lengths,
-            prev_utterance,
-            prev_utt_lengths,
-            visual_context_sep,
-            visual_context,
-            target_img_feats,
-            targets,
-            prev_hist,
-            prev_hist_len,
-            normalize,
-            masks,
-            device,
+        self,
+        utterance,
+        lengths,
+        prev_utterance,
+        prev_utt_lengths,
+        visual_context_sep,
+        visual_context,
+        target_img_feats,
+        targets,
+        prev_hist,
+        prev_hist_len,
+        normalize,
+        masks,
+        device,
     ):
 
         """
@@ -224,8 +224,8 @@ class SpeakerModelHistAtt(nn.Module):
 
         return predictions
 
-    def generate_hypothesis(self, data, beam_k, max_len,device, sim_embedding=None):
-        #todo: need batch support
+    def generate_hypothesis(self, data, beam_k, max_len, device, sim_embedding=None):
+        # todo: need batch support
 
         # dataset details
         # only the parts I will use for this type of self
@@ -254,10 +254,7 @@ class SpeakerModelHistAtt(nn.Module):
         target_img_hid = self.relu(self.linear_separate(target_img_feats))
 
         concat_visual_input = self.relu(
-            self.linear_hid(
-                torch.cat(
-                    (visual_context_hid, target_img_hid),
-                    dim=1))
+            self.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
         )
 
         embeds_words = self.embedding(prev_utterance)  # b, l, d
@@ -342,9 +339,7 @@ class SpeakerModelHistAtt(nn.Module):
 
             h1_att = self.lin2att_hid(h1)
 
-            attention_out = self.attention(
-                self.tanh(history_att + h1_att.unsqueeze(1))
-            )
+            attention_out = self.attention(self.tanh(history_att + h1_att.unsqueeze(1)))
 
             attention_out = attention_out.masked_fill_(masks, float("-inf"))
 
@@ -371,7 +366,9 @@ class SpeakerModelHistAtt(nn.Module):
                 top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
 
             # self.vocab - 1 to exclude <NOHS>
-            sentence_index = top_words // (len(self.vocab) - 1)  # which sentence it will be added to
+            sentence_index = top_words // (
+                len(self.vocab) - 1
+            )  # which sentence it will be added to
             word_index = top_words % (len(self.vocab) - 1)  # predicted word
 
             gen_len += 1
@@ -440,11 +437,11 @@ class SpeakerModelHistAtt(nn.Module):
             self.vocab.index2word[w]
             for w in best_seq
             if w
-               not in [
-                   self.vocab.word2index["<sos>"],
-                   self.vocab.word2index["<eos>"],
-                   self.vocab.word2index["<pad>"],
-               ]
+            not in [
+                self.vocab.word2index["<sos>"],
+                self.vocab.word2index["<eos>"],
+                self.vocab.word2index["<pad>"],
+            ]
         ]
         # remove sos and pads # I want to check eos
         hypothesis_string = " ".join(hypothesis)

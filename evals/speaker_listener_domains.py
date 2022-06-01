@@ -7,24 +7,28 @@ import torch
 from torch.utils.data import Dataset
 from transformers import BertTokenizer, BertModel
 
-from data.dataloaders.Vocab import Vocab
-from data.dataloaders.utils import get_dataloaders
-from evals.utils import get_domain_accuracy, hypo2utterance
-from models.listener.model_listener import ListenerModel
-from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
-from trainers.parsers import parse_args
-from trainers.utils import mask_attn
-from wandb_logging import ListenerLogger, WandbLogger, load_wandb_checkpoint
+from commons import (
+    hypo2utterance,
+    mask_attn,
+    get_domain_accuracy,
+    get_dataloaders,
+    parse_args,
+    load_wandb_checkpoint,
+)
+from data.dataloaders import Vocab
+from models import ListenerModel, SpeakerModelHistAtt
+from wandb_logging import ListenerLogger, WandbLogger
 
 
 def evaluate_trained_model(
-        dataloader: Dataset,
-        list_model: torch.nn.Module,
-        device, vocab: Vocab, domain: str,
-        logger: WandbLogger,
-        speak_model: Optional[torch.nn.Module] = None,
-        tokenizer=None,
-
+    dataloader: Dataset,
+    list_model: torch.nn.Module,
+    device,
+    vocab: Vocab,
+    domain: str,
+    logger: WandbLogger,
+    speak_model: Optional[torch.nn.Module] = None,
+    tokenizer=None,
 ):
     accuracies = []
     ranks = []
@@ -45,9 +49,9 @@ def evaluate_trained_model(
         modality += "_generated"
 
     for ii, data in rich.progress.track(
-            enumerate(dataloader),
-            total=len(dataloader),
-            description=f"Eval on domain '{domain}' with '{modality}' modality",
+        enumerate(dataloader),
+        total=len(dataloader),
+        description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
         if speak_model is not None:
@@ -56,8 +60,8 @@ def evaluate_trained_model(
             hypo, _ = speak_model.generate_hypothesis(data, beam_k, max_len, device)
             utterance = hypo2utterance(hypo, tokenizer, vocab)
         else:
-            utterance = data['utterance']
-            hypo = data['origin_caption']
+            utterance = data["utterance"]
+            hypo = data["origin_caption"]
 
         # get datapoints
         context_separate = data["separate_images"]
@@ -97,11 +101,11 @@ def evaluate_trained_model(
             scores_ranked=scores_ranked,
             images_ranked=images_ranked,
             correct=correct / preds.shape[0],
-            hypo=hypo
+            hypo=hypo,
         )
 
         logger.on_batch_end(fake_loss, data, aux, batch_id=ii, modality=modality)
-        domains += data['domain']
+        domains += data["domain"]
 
     current_accuracy = np.mean(accuracies)
 
@@ -110,9 +114,13 @@ def evaluate_trained_model(
     # domain_accuracy = {k: v / len(accuracies) for k, v in domain_accuracy.items()}
     accuracy = np.mean(accuracies)
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
-    metrics = dict(mrr=MRR, domain_accuracy=domain_accuracy, loss=fake_loss, accuracy=accuracy)
+    metrics = dict(
+        mrr=MRR, domain_accuracy=domain_accuracy, loss=fake_loss, accuracy=accuracy
+    )
 
-    logger.on_eval_end(metrics, list_domain=dataloader.dataset.domain, modality=modality)
+    logger.on_eval_end(
+        metrics, list_domain=dataloader.dataset.domain, modality=modality
+    )
 
     return current_accuracy, MRR
 
@@ -228,7 +236,7 @@ if __name__ == "__main__":
             train_logging_step=1,
             val_logging_step=1,
             tags=tags,
-            project="speaker-list-dom"
+            project="speaker-list-dom",
         )
 
         with torch.no_grad():
@@ -240,30 +248,48 @@ if __name__ == "__main__":
             )
 
             evaluate_trained_model(
-                dataloader=val_loader, speak_model=speaker_model, list_model=list_model, device=device, vocab=vocab,
-                tokenizer=tokenizer, domain=dom, logger=logger
+                dataloader=val_loader,
+                speak_model=speaker_model,
+                list_model=list_model,
+                device=device,
+                vocab=vocab,
+                tokenizer=tokenizer,
+                domain=dom,
+                logger=logger,
             )
 
             print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
             evaluate_trained_model(
-                dataloader=val_loader, list_model=list_model, device=device, vocab=vocab,
-                domain=dom, logger=logger
+                dataloader=val_loader,
+                list_model=list_model,
+                device=device,
+                vocab=vocab,
+                domain=dom,
+                logger=logger,
             )
 
             print(f"Eval on 'all' domain")
-            _, _, val_loader, _ = get_dataloaders(
-                list_args, vocab, "all"
-            )
+            _, _, val_loader, _ = get_dataloaders(list_args, vocab, "all")
 
             evaluate_trained_model(
-                dataloader=val_loader, speak_model=speaker_model, list_model=list_model, device=device, vocab=vocab,
-                tokenizer=tokenizer, domain=dom, logger=logger
+                dataloader=val_loader,
+                speak_model=speaker_model,
+                list_model=list_model,
+                device=device,
+                vocab=vocab,
+                tokenizer=tokenizer,
+                domain=dom,
+                logger=logger,
             )
 
             print(f"Eval on 'all' domain with golden caption")
             evaluate_trained_model(
-                dataloader=val_loader, list_model=list_model, device=device, vocab=vocab,
-                domain=dom, logger=logger
+                dataloader=val_loader,
+                list_model=list_model,
+                device=device,
+                vocab=vocab,
+                domain=dom,
+                logger=logger,
             )
 
         logger.wandb_close()

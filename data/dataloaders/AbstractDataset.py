@@ -2,7 +2,7 @@ import json
 import os
 import pickle
 from collections import defaultdict
-from typing import Tuple, Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -11,17 +11,16 @@ from torch.utils.data import Dataset
 
 class AbstractDataset(Dataset):
     def __init__(
-            self,
-            split,
-            data_dir,
-            chain_file,
-            utterances_file,
-            vectors_file,
-            orig_ref_file,
-            subset_size,
-            image_size,
-            img2dom_file,
-
+        self,
+        split,
+        data_dir,
+        chain_file,
+        utterances_file,
+        vectors_file,
+        orig_ref_file,
+        subset_size,
+        image_size,
+        img2dom_file,
     ):
 
         self.data_dir = data_dir
@@ -52,7 +51,7 @@ class AbstractDataset(Dataset):
         self.max_len = 0
 
         self.data = dict()
-        self.missing_images=[]
+        self.missing_images = []
 
         self.img2chain = defaultdict(dict)
 
@@ -159,7 +158,7 @@ class AbstractDataset(Dataset):
                     im_counter += 1
 
                     if (
-                            game_id in self.img2chain[im]
+                        game_id in self.img2chain[im]
                     ):  # was there a linguistic chain for this image in this game
                         temp_chain = self.img2chain[im][game_id]
 
@@ -203,7 +202,6 @@ class AbstractDataset(Dataset):
                 # ALWAYS 6 IMAGES IN THE CONTEXT
 
                 context_concat = context_separate.reshape(self.img_count * self.img_dim)
-
 
                 if target_image not in self.img2dom.keys():
                     if target_image not in self.missing_images:
@@ -256,12 +254,12 @@ class AbstractDataset(Dataset):
                         if len(sample[key]) == 0:
                             # OTHERWISE pack_padded wouldn't work
                             padded = [NOHS] + [0] * (
-                                    max_prevutt_length - 1
+                                max_prevutt_length - 1
                             )  # SPECIAL TOKEN FOR NO HIST
 
                         else:
                             padded = sample[key] + [0] * (
-                                    max_prevutt_length - len(sample[key])
+                                max_prevutt_length - len(sample[key])
                             )
 
                         # print('prevutt', padded)
@@ -305,8 +303,8 @@ class AbstractDataset(Dataset):
                 ]:
                     batch[key] = torch.Tensor(batch[key]).long()
 
-                if isinstance( batch[key], torch.Tensor):
-                    batch[key]= batch[key].to(device)
+                if isinstance(batch[key], torch.Tensor):
+                    batch[key] = batch[key].to(device)
 
                     # for instance targets can be long and sent to device immediately
 

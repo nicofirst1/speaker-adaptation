@@ -8,7 +8,7 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from data.dataloaders import imgid2path, imgid2domain
+from data.dataloaders import imgid2domain, imgid2path
 from wandb_logging.WandbLogger import WandbLogger
 
 
@@ -235,12 +235,12 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-            self,
-            loss: torch.Tensor,
-            data_point: Dict[str, Any],
-            aux: Dict[str, Any],
-            batch_id: int,
-            modality: str,
+        self,
+        loss: torch.Tensor,
+        data_point: Dict[str, Any],
+        aux: Dict[str, Any],
+        batch_id: int,
+        modality: str,
     ):
 
         logging_step = (

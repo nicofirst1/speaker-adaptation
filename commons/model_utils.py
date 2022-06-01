@@ -1,0 +1,122 @@
+import os
+from collections import Counter
+from os.path import isfile, join
+from typing import Dict, Tuple
+
+import torch
+import wandb
+
+
+def mask_attn(actual_num_tokens, max_num_tokens, device):
+    masks = []
+
+    for n in range(len(actual_num_tokens)):
+        # items to be masked are TRUE
+        mask = [False] * actual_num_tokens[n] + [True] * (
+            max_num_tokens - actual_num_tokens[n]
+        )
+
+        masks.append(mask)
+
+    masks = torch.tensor(masks).unsqueeze(2).to(device)
+
+    return masks
+
+
+def hypo2utterance(hypo, tokenizer, vocab):
+    # encode with list vocab
+    utterance = tokenizer.tokenize(hypo)
+
+    if any(["#" in t for t in utterance]):
+        # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
+        raise ValueError()
+
+    utterance = vocab.encode(utterance, add_special_tokens=True)
+    utterance = utterance.unsqueeze(dim=0)
+
+    return utterance
+
+
+def get_domain_accuracy(accuracy: torch.Tensor, domains: torch.Tensor, all_domains):
+    assert len(accuracy) == len(domains)
+
+    domain_accs = {d: 0 for d in all_domains}
+    domain_accs["all"] = 0
+
+    for idx in range(len(domains)):
+        if accuracy[idx]:
+            dom = domains[idx]
+            domain_accs[dom] += 1
+            domain_accs["all"] += 1
+
+    c = Counter(domains)
+
+    for k, v in c.items():
+        domain_accs[k] /= v
+
+    domain_accs["all"] /= len(accuracy)
+
+    return domain_accs
+
+
+def save_model(
+    model: torch.nn.Module,
+    model_type: str,
+    epoch,
+    accuracy,
+    optimizer,
+    args,
+    timestamp,
+    logger,
+    **kwargs,
+):
+    seed = args.seed
+    file_name = model_type + "_" + str(seed) + "_" + timestamp + ".pth"
+
+    dir_path = join(args.working_dir, "saved_models")
+
+    if not os.path.exists(dir_path):
+        os.mkdir(dir_path)
+
+    file_name = join(dir_path, file_name)
+
+    save_dict = {
+        "accuracy": accuracy,
+        "args": args,  # more detailed info, metric, model_type etc
+        "epoch": str(epoch),
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+    }
+    save_dict.update(kwargs)
+    torch.save(save_dict, file_name, pickle_protocol=5)
+    logger.save_model(file_name, type(model).__name__, epoch, args)
+
+    print("Model saved and logged to wandb")
+
+
+def load_wandb_checkpoint(url: str, device: str) -> Tuple[Dict, str]:
+    """
+    Download a wandb model artifact and extract checkpoint with torch
+    Parameters
+    ----------
+    url
+    device
+
+    Returns
+    -------
+
+    """
+    api = wandb.Api()
+    artifact = api.artifact(url)
+
+    datadir = artifact.download()
+
+    files = [f for f in os.listdir(datadir) if isfile(join(datadir, f))]
+
+    if len(files) > 1:
+        raise FileExistsError(f"More than one checkpoint found in {datadir}!")
+    files = join(datadir, files[0])
+
+    checkpoint = torch.load(files, map_location=device)
+
+    return checkpoint, files

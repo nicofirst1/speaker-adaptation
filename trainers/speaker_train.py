@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 from os.path import abspath, dirname
@@ -5,15 +6,15 @@ from os.path import abspath, dirname
 import numpy as np
 import rich.progress
 import torch.utils.data
+from bert_score import score
 from nlgeval import NLGEval
 from torch import nn, optim
 
-from data.dataloaders import Vocab, get_dataloaders
-from evals.speaker_eval import eval_beam_histatt
-from models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
-from trainers.parsers import parse_args
-from trainers.utils import mask_attn
-from wandb_logging import save_model, load_wandb_checkpoint,SpeakerLogger
+from commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
+                     parse_args, save_model)
+from data.dataloaders import Vocab
+from models import SpeakerModelHistAtt
+from wandb_logging import SpeakerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -25,11 +26,117 @@ if not os.path.isdir("saved_models"):
 if not os.path.isdir("speaker_outputs"):
     os.mkdir("speaker_outputs")
 
+
+# beam search
+# topk
+# topp
+
+# built via modifying https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning/blob/master/eval.py
+
+
+def eval_beam_histatt(
+    split_data_loader,
+    model,
+    args,
+    best_score,
+    beam_size,
+    max_len,
+    nlgeval_obj,
+    isValidation,
+    logger,
+):
+    """
+    Evaluation
+
+    :param beam_size: beam size at which to generate captions for evaluation
+    :return: Official MSCOCO evaluator scores - bleu4, cider, rouge, meteor
+    """
+
+    # Lists to store references (true captions), and hypothesis (prediction) for each image
+    # If for n images, we have n hypotheses, and references a, b, c... for each image, we need -
+    # references = [[ref1a, ref1b, ref1c], [ref2a, ref2b], ...], hypotheses = [hyp1, hyp2, ...]
+
+    references = []
+    hypotheses = []
+    device = args.device
+    count = 0
+
+    for i, data in enumerate(split_data_loader):
+        # print(i)
+
+        completed_sentences = []
+        completed_scores = []
+
+        beam_k = beam_size
+
+        count += 1
+        ref = data["reference_chain"][
+            0
+        ]  # batch size 1  # full set of references for a single instance
+
+        hypo, model_params = model.generate_hypothesis(data, beam_k, max_len, device)
+        references.append(ref)
+        hypotheses.append(hypo)
+
+    # Calculate scores
+    metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
+    print(metrics_dict)
+
+    (P, R, Fs), hashname = score(
+        hypotheses,
+        references,
+        lang="en",
+        return_hash=True,
+        model_type="bert-base-uncased",
+    )
+    print(
+        f"{hashname}: P={P.mean().item():.6f} R={R.mean().item():.6f} F={Fs.mean().item():.6f}"
+    )
+
+    ##########################################
+    # Logging objects
+    ##########################################
+
+    # metrics
+    logs = copy.deepcopy(metrics_dict)
+    logs["precision"] = P.mean().numpy()
+    logs["recal"] = R.mean().numpy()
+    logs["Fscore"] = Fs.mean().numpy()
+
+    model_out = dict(
+        hypotheses=hypo,
+    )
+
+    logger.on_eval_end(logs, model_params, model_out, data)
+
+    if args.metric == "cider":
+        selected_metric_score = metrics_dict["CIDEr"]
+        print(round(selected_metric_score, 5))
+
+    elif args.metric == "bert":
+        selected_metric_score = Fs.mean().item()
+        print(round(selected_metric_score, 5))
+
+    # from https://github.com/Maluuba/nlg-eval
+    # where references is a list of lists of ground truth reference text strings and hypothesis is a list of
+    # hypothesis text strings. Each inner list in references is one set of references for the hypothesis
+    # (a list of single reference strings for each sentence in hypothesis in the same order).
+
+    if isValidation:
+        has_best_score = False
+
+        if selected_metric_score > best_score:
+            best_score = selected_metric_score
+            has_best_score = True
+
+        return best_score, selected_metric_score, metrics_dict, has_best_score
+
+
 if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -97,11 +204,11 @@ if __name__ == "__main__":
 
     if speak_p.resume_train != "":
         checkpoint, file = load_wandb_checkpoint(speak_p.resume_train, speak_p.device)
-        #logger.run.restore(file)
+        # logger.run.restore(file)
 
         model.load_state_dict(checkpoint["model_state_dict"])
         speaker_model = model.to(speak_p.device)
-        epoch=checkpoint["epoch"]
+        epoch = checkpoint["epoch"]
 
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
@@ -130,7 +237,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp_tr = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
@@ -149,12 +256,10 @@ if __name__ == "__main__":
         logger.on_train_end({}, epoch_id=epoch)
 
         for i, data in rich.progress.track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description=f"Train epoch {epoch}",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description=f"Train epoch {epoch}",
         ):
-
-
             # print(count)
             count += 1
 
@@ -255,19 +360,15 @@ if __name__ == "__main__":
                     metrics_dict,
                     has_best_score,
                 ) = eval_beam_histatt(
-                    val_loader,
-                    model,
-                    speak_p,
-                    best_score,
-                    beam_size,
-                    max_len,
-                    vocab,
-                    mask_attn,
-                    nlge,
-                    isValidation,
-                    timestamp,
-                    isTest,
-                    logger,
+                    split_data_loader=val_loader,
+                    model=model,
+                    args=speak_p,
+                    best_score=best_score,
+                    beam_size=beam_size,
+                    max_len=max_len,
+                    nlgeval_obj=nlge,
+                    isValidation=isValidation,
+                    logger=logger,
                 )
 
             ################################################################
@@ -289,9 +390,7 @@ if __name__ == "__main__":
                         args=speak_p,
                         timestamp=timestamp,
                         logger=logger,
-
                     )
-
 
                 else:
                     # best_score >= current_score:
@@ -321,9 +420,7 @@ if __name__ == "__main__":
                         args=speak_p,
                         timestamp=timestamp,
                         logger=logger,
-
                     )
-
 
                 else:
                     # best_score >= current_score:

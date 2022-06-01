@@ -107,8 +107,10 @@ class Params:
         """
         to_print = f"{self.__class__}:\n"
 
-        attrb=inspect.getmembers(self, lambda a:not(inspect.isroutine(a)))
-        attrb=[a for a in attrb if not(a[0].startswith('__') and a[0].endswith('__'))]
+        attrb = inspect.getmembers(self, lambda a: not (inspect.isroutine(a)))
+        attrb = [
+            a for a in attrb if not (a[0].startswith("__") and a[0].endswith("__"))
+        ]
         sorted(attrb)
         for k, v in attrb:
             to_print += f"\t{k}: '{v}'\n"
@@ -122,7 +124,7 @@ class Params:
         self.check_parameters()
 
     def __post_init__(self):
-        self.data_path=get_dataset_path()
+        self.data_path = get_dataset_path()
 
         self.device = torch.device(self.device)
 
@@ -192,12 +194,22 @@ class Params:
 
         """
         valid_vf = ["vectors.json", "clip.json"]
-        assert self.vectors_file in valid_vf, \
-            f"Invalid vector file '{self.vectors_file}'. " \
-            f"Should be in {valid_vf}"
+        assert self.vectors_file in valid_vf, (
+            f"Invalid vector file '{self.vectors_file}'. " f"Should be in {valid_vf}"
+        )
 
-        valid_dom = ["appliances", "food", "indoor", "outdoor", "speaker", "vehicles", "all", ]
-        assert self.train_domain in valid_dom, f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
+        valid_dom = [
+            "appliances",
+            "food",
+            "indoor",
+            "outdoor",
+            "speaker",
+            "vehicles",
+            "all",
+        ]
+        assert (
+            self.train_domain in valid_dom
+        ), f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
 
 
 class ListenerArguments(Params):
@@ -241,10 +253,14 @@ class ListenerArguments(Params):
     def check_parameters(self):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
-        assert self.metric in valis_metr, f"Invalid metric '{self.metric}'not in '{valis_metr}'"
+        assert (
+            self.metric in valis_metr
+        ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
         if self.embed_type == "sratch":
-            assert self.embed_dim == 768, f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
+            assert (
+                self.embed_dim == 768
+            ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
 class SpeakerArguments(Params):

@@ -9,12 +9,11 @@ from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from data.dataloaders import Vocab, get_dataloaders
-from evals.speaker_listener_domains import get_domain_accuracy
-from models.listener.model_listener import ListenerModel
-from trainers.parsers import parse_args
-from trainers.utils import mask_attn
-from wandb_logging import DataLogger, ListenerLogger, save_model
+from commons import (get_dataloaders, get_domain_accuracy, mask_attn,
+                     parse_args, save_model)
+from data.dataloaders import Vocab
+from models import ListenerModel
+from wandb_logging import DataLogger, ListenerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -29,9 +28,7 @@ if not os.path.isdir("saved_models"):
     os.mkdir("saved_models")
 
 
-def evaluate(
-        data_loader: DataLoader, model: torch.nn.Module, in_domain: bool
-):
+def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
@@ -102,7 +99,7 @@ def evaluate(
         )
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
-        domains += data['domain']
+        domains += data["domain"]
 
     if not in_domain:
         domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
@@ -140,7 +137,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -254,7 +251,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
@@ -279,9 +276,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description="Training",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description="Training",
         ):
             # print(count)
             count += 1
