@@ -4,8 +4,8 @@ from typing import Tuple
 import torch
 from torch.utils.data import DataLoader
 
-from data.dataloaders import (AbstractDataset, ListenerDataset, SpeakerDataset,
-                              Vocab)
+from src.data.dataloaders import (AbstractDataset, ListenerDataset, SpeakerDataset,
+                                  Vocab)
 
 
 def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) -> Tuple[
@@ -37,19 +37,17 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) 
             "subset_size": args.subset_size,
             "image_size": args.image_size,
             "img2dom_file": args.img2dom_file,
+            "data_dir": args.data_path
         }
 
         if domain is not None:
             kwargs["domain"] = domain
-            kwargs["data_dir"] = args.data_path
 
             _set = ListenerDataset(**kwargs)
         else:
-            kwargs["data_dir"] = args.speaker_data
             _set = SpeakerDataset(**kwargs)
 
         datasets.append(_set)
-
 
     load_params = {
         "batch_size": args.batch_size,

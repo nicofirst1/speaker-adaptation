@@ -219,3 +219,4 @@ cython_debug/
 wandb_out/
 artifacts/
 saved_models/
+speaker_outputs/

@@ -6,8 +6,8 @@ from typing import Dict, Tuple, List
 import torch
 import wandb
 
-from commons.Params import Params
-from wandb_logging import WandbLogger
+from src.commons.Params import Params
+from src.wandb_logging import WandbLogger
 
 
 def mask_attn(actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device) -> torch.Tensor:

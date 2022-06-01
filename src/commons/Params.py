@@ -29,7 +29,7 @@ def get_working_dir():
 
 
 def get_dataset_path():
-    return join(get_working_dir(), "dataset")
+    return join(get_working_dir(),"dataset")
 
 
 @dataclass
@@ -318,4 +318,4 @@ class SpeakerArguments(Params):
         self.speaker_data = join(self.data_path, "speaker")
 
         self.img2dom_file = join(self.data_path, "img2dom.json")
-        self.vocab_file = join(self.speaker_data, self.vocab_file)
+        self.vocab_file = join(self.data_path, self.vocab_file)
