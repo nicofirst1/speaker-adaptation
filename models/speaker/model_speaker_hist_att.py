@@ -224,7 +224,9 @@ class SpeakerModelHistAtt(nn.Module):
 
         return predictions
 
-    def generate_hypothesis(self, data, beam_k, max_len, device):
+    def generate_hypothesis(self, data, beam_k, max_len,device, sim_embedding=None):
+        #todo: need batch support
+
         # dataset details
         # only the parts I will use for this type of self
 
