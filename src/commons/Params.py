@@ -46,7 +46,8 @@ class Params:
     # This seed will be set for torch, numpy and random
     seed: Optional[int] = 42
 
-    device: Optional[str] = "cpu"
+    device: Optional[str] = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
 
     # If empty string then no resume. Else use wandb model checkpoints
     resume_train: str = ""
@@ -143,8 +144,6 @@ class Params:
 
         """
         self.data_path = get_dataset_path()
-
-        self.device = torch.device(self.device)
 
         if "vectors.json" in self.vectors_file:  # from resnet
             img_dim = 2048

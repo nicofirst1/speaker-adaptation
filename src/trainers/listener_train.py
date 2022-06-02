@@ -22,7 +22,6 @@ import os
 
 global logger
 
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 if not os.path.isdir("saved_models"):
     os.mkdir("saved_models")
@@ -61,15 +60,15 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
 
         max_length_tensor = utterances.shape[1]
 
-        masks = mask_attn(data["length"], max_length_tensor, device)
+        masks = mask_attn(data["length"], max_length_tensor, args.device)
 
         prev_hist = data["prev_histories"]
 
         out = model(
-            utterances, context_separate, context_concat, prev_hist, masks, device
+            utterances, context_separate, context_concat, prev_hist, masks, args.device
         )
 
-        targets = targets.to(device)
+        targets = targets.to(args.device)
         loss = criterion(out, targets)
         losses_eval.append(loss.item())
 
@@ -213,7 +212,7 @@ if __name__ == "__main__":
     if model_type == "scratch_rrr":  # embeds from scratch, visual context + hist
         model = ListenerModel(
             vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob
-        ).to(device)
+        ).to(args.device)
 
     logger.watch_model([model])
 
@@ -293,19 +292,19 @@ if __name__ == "__main__":
 
             max_length_tensor = utterances.shape[1]
 
-            masks = mask_attn(data["length"], max_length_tensor, device)
+            masks = mask_attn(data["length"], max_length_tensor, args.device)
 
             prev_hist = data["prev_histories"]
 
             out = model(
-                utterances, context_separate, context_concat, prev_hist, masks, device
+                utterances, context_separate, context_concat, prev_hist, masks, args.device
             )
 
             model.zero_grad()
 
             # targets = torch.tensor([[torch.argmax(tg)] for tg in targets]).to(device)
             # TARGETS SUITABLE FOR CROSS-ENTROPY LOSS
-            targets = targets.to(device)
+            targets = targets.to(args.device)
             loss = criterion(out, targets)
 
             preds = torch.argmax(out.squeeze(dim=-1), dim=1)
