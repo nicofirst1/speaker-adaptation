@@ -1,4 +1,5 @@
 import copy
+import operator
 import os
 import sys
 from os.path import abspath, dirname
@@ -11,7 +12,7 @@ from nlgeval import NLGEval
 from torch import nn, optim
 
 from src.commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
-                     parse_args, save_model)
+                         parse_args, save_model, EarlyStopping)
 from src.data.dataloaders import Vocab
 from src.models import SpeakerModelHistAtt
 from src.wandb_logging import SpeakerLogger
@@ -35,15 +36,13 @@ if not os.path.isdir("speaker_outputs"):
 
 
 def eval_beam_histatt(
-    split_data_loader,
-    model,
-    args,
-    best_score,
-    beam_size,
-    max_len,
-    nlgeval_obj,
-    isValidation,
-    logger,
+        split_data_loader,
+        model,
+        args,
+        beam_size,
+        max_len,
+        nlgeval_obj,
+        logger,
 ):
     """
     Evaluation
@@ -58,8 +57,6 @@ def eval_beam_histatt(
 
     references = []
     hypotheses = []
-    device = args.device
-    count = 0
 
     for i, data in enumerate(split_data_loader):
         # print(i)
@@ -69,12 +66,11 @@ def eval_beam_histatt(
 
         beam_k = beam_size
 
-        count += 1
         ref = data["reference_chain"][
             0
         ]  # batch size 1  # full set of references for a single instance
 
-        hypo, model_params = model.generate_hypothesis(data, beam_k, max_len, device)
+        hypo, model_params = model.generate_hypothesis(data, beam_k, max_len)
         references.append(ref)
         hypotheses.append(hypo)
 
@@ -117,26 +113,14 @@ def eval_beam_histatt(
         selected_metric_score = Fs.mean().item()
         print(round(selected_metric_score, 5))
 
-    # from https://github.com/Maluuba/nlg-eval
-    # where references is a list of lists of ground truth reference text strings and hypothesis is a list of
-    # hypothesis text strings. Each inner list in references is one set of references for the hypothesis
-    # (a list of single reference strings for each sentence in hypothesis in the same order).
-
-    if isValidation:
-        has_best_score = False
-
-        if selected_metric_score > best_score:
-            best_score = selected_metric_score
-            has_best_score = True
-
-        return best_score, selected_metric_score, metrics_dict, has_best_score
+    return selected_metric_score, metrics_dict
 
 
 if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -151,6 +135,10 @@ if __name__ == "__main__":
     np.random.seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+
+    ###################################
+    ##  DATA
+    ###################################
 
     print("Loading the vocab...")
     vocab = Vocab(speak_p.vocab_file)
@@ -178,6 +166,10 @@ if __name__ == "__main__":
     shuffle = speak_p.shuffle
     normalize = speak_p.normalize
 
+    ###################################
+    ##  LOGGER
+    ###################################
+
     # add debug label
     tags = []
     if speak_p.debug or speak_p.subset_size != -1:
@@ -191,16 +183,32 @@ if __name__ == "__main__":
         resume=speak_p.resume_train != "",
     )
 
-    # depending on the selected model type, we will have a different architecture
+    ###################################
+    ##  MODEL
+    ###################################
 
+    # depending on the selected model type, we will have a different architecture
     if model_type == "hist_att":  # attention over prev utterance
 
         model = SpeakerModelHistAtt(
-            vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim
+            vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim, speak_p.device
         ).to(speak_p.device)
+
+    ###################################
+    ##  LOSS
+    ###################################
+
+    reduction_method = speak_p.reduction
+    criterion = nn.CrossEntropyLoss(
+        reduction=reduction_method, ignore_index=0
+    )  # reduction
 
     learning_rate = speak_p.learning_rate
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+
+    ###################################
+    ##  RESTORE MODEL
+    ###################################
 
     if speak_p.resume_train != "":
         checkpoint, file = load_wandb_checkpoint(speak_p.resume_train, speak_p.device)
@@ -216,92 +224,74 @@ if __name__ == "__main__":
 
     logger.watch_model([model])
 
-    reduction_method = speak_p.reduction
-    criterion = nn.CrossEntropyLoss(
-        reduction=reduction_method, ignore_index=0
-    )  # reduction
+    ###################################
+    ##  TRAIN STARTS
+    ###################################
 
-    batch_size = speak_p.batch_size
+    patience = 10  # when to stop if there is no improvement
 
-    epochs = speak_p.epochs
-    patience = 50  # when to stop if there is no improvement
-    patience_counter = 0
+    if metric == "cider":
 
-    # best_loss = float('inf')
-    best_score = -1
-
-    # prev_loss = float('inf')
-    prev_score = -1
-
-    best_epoch = -1
+        es = EarlyStopping(patience, operator.ge)
+    elif metric == "bert":
+        es = EarlyStopping(patience, operator.ge)
+    else:
+        raise ValueError(f"metric of value '{metric}' not recognized")
 
     t = datetime.datetime.now()
     timestamp_tr = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
 
-    for epoch in range(epochs):
+    for epoch in range(speak_p.epochs):
 
         print("Epoch", epoch)
-        print("Train")
 
         losses = []
 
         model.train()
         torch.enable_grad()
 
-        count = 0
-        logger.on_train_end({}, epoch_id=epoch)
-
         for i, data in rich.progress.track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description=f"Train epoch {epoch}",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description=f"Train epoch {epoch}",
         ):
-            # print(count)
-            count += 1
-
+            # load infos from datapoint
             utterances_text_ids = data["utterance"]
             prev_utterance_ids = data["prev_utterance"]
             prev_lengths = data["prev_length"]
-
             context_separate = data["separate_images"]
             context_concat = data["concat_context"]
             target_img_feats = data["target_img_feats"]
-
             lengths = data["length"]
-            targets = data["target"]  # image target
-
-            max_length_tensor = prev_utterance_ids.shape[1]
-
-            masks = mask_attn(prev_lengths, max_length_tensor, speak_p.device)
-
+            targets = data["target"]
             prev_hist = data["prev_histories"]
             prev_hist_lens = data["prev_history_lengths"]
 
+
+            max_length_tensor = prev_utterance_ids.shape[1]
+            masks = mask_attn(prev_lengths, max_length_tensor, speak_p.device)
+
+
             out = model(
-                utterances_text_ids,
-                lengths,
-                prev_utterance_ids,
-                prev_lengths,
-                context_separate,
-                context_concat,
-                target_img_feats,
-                targets,
-                prev_hist,
-                prev_hist_lens,
-                normalize,
-                masks,
-                speak_p.device,
+                utterance=utterances_text_ids,
+                lengths=lengths,
+                prev_utterance=prev_utterance_ids,
+                prev_utt_lengths=prev_lengths,
+                visual_context_sep=context_separate,
+                visual_context=context_concat,
+                target_img_feats=target_img_feats,
+                targets=targets,
+                prev_hist=prev_hist,
+                prev_hist_len=prev_hist_lens,
+                normalize=normalize,
+                masks=masks,
             )
 
             model.zero_grad()
-
-            # ignoring 0 index in criterion
-            #
-            # get_predictions(out, utterances_text_ids, vocab)
 
             """ https://discuss.pytorch.org/t/pytorch-lstm-target-dimension-in-calculating-cross-entropy-loss/30398/2
             ptrblck Nov '18
@@ -348,95 +338,33 @@ if __name__ == "__main__":
 
             isValidation = True
             isTest = False
-            print("\nVal Eval")
+            print("\nEVALUATION\n")
 
-            # THIS IS val EVAL_BEAM
-            print("beam")
+            current_score, metrics_dict = eval_beam_histatt(
+                split_data_loader=val_loader,
+                model=model,
+                args=speak_p,
+                beam_size=beam_size,
+                max_len=max_len,
+                nlgeval_obj=nlge,
+                logger=logger,
+            )
 
-            if model_type == "hist_att":
-                (
-                    best_score,
-                    current_score,
-                    metrics_dict,
-                    has_best_score,
-                ) = eval_beam_histatt(
-                    split_data_loader=val_loader,
-                    model=model,
-                    args=speak_p,
-                    best_score=best_score,
-                    beam_size=beam_size,
-                    max_len=max_len,
-                    nlgeval_obj=nlge,
-                    isValidation=isValidation,
-                    logger=logger,
-                )
+            save_model(
+                model=model,
+                model_type=model_type,
+                epoch=epoch,
+                accuracy=current_score,
+                optimizer=optimizer,
+                args=speak_p,
+                timestamp=timestamp,
+                logger=logger,
+            )
 
             ################################################################
             # Early stopping
             ################################################################
+            # check for early stopping
+            if es.should_stop(current_score): break
 
-            if metric == "cider":
-
-                if has_best_score:  # comes from beam eval
-                    # current_score > best_score
-                    best_epoch = epoch
-                    patience_counter = 0
-                    save_model(
-                        model=model,
-                        model_type=model_type,
-                        epoch=best_epoch,
-                        accuracy=current_score,
-                        optimizer=optimizer,
-                        args=speak_p,
-                        timestamp=timestamp,
-                        logger=logger,
-                    )
-
-                else:
-                    # best_score >= current_score:
-
-                    patience_counter += 1
-
-                    if patience_counter == patience:
-                        duration = datetime.datetime.now() - t
-
-                        print("model ending duration", duration)
-
-                        break
-
-            elif metric == "bert":
-
-                if has_best_score:  # comes from beam eval
-                    # current_score > best_score
-                    best_epoch = epoch
-                    patience_counter = 0
-
-                    save_model(
-                        model=model,
-                        model_type=model_type,
-                        epoch=best_epoch,
-                        accuracy=current_score,
-                        optimizer=optimizer,
-                        args=speak_p,
-                        timestamp=timestamp,
-                        logger=logger,
-                    )
-
-                else:
-                    # best_score >= current_score:
-
-                    patience_counter += 1
-
-                    if patience_counter == patience:
-                        duration = datetime.datetime.now() - t
-
-                        print("model ending duration", duration)
-
-                        break
-
-            prev_score = current_score  # not using, stopping based on best score
-
-            print(
-                "\nBest", round(best_score, 5), "epoch", best_epoch
-            )  # , best_loss)  #validset
-            print()
+        logger.on_train_end({}, epoch_id=epoch)

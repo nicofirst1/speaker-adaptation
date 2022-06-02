@@ -1,3 +1,4 @@
+import operator
 import sys
 from os.path import abspath, dirname
 
@@ -10,7 +11,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 from src.commons import (get_dataloaders, get_domain_accuracy, mask_attn,
-                     parse_args, save_model)
+                         parse_args, save_model,EarlyStopping)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel
 from src.wandb_logging import DataLogger, ListenerLogger
@@ -21,7 +22,6 @@ import datetime
 import os
 
 global logger
-
 
 if not os.path.isdir("saved_models"):
     os.mkdir("saved_models")
@@ -65,7 +65,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         prev_hist = data["prev_histories"]
 
         out = model(
-            utterances, context_separate, context_concat, prev_hist, masks, args.device
+            utterances, context_separate, context_concat, prev_hist, masks
         )
 
         targets = targets.to(args.device)
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
     if model_type == "scratch_rrr":  # embeds from scratch, visual context + hist
         model = ListenerModel(
-            vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob
+            vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device=args.device
         ).to(args.device)
 
     logger.watch_model([model])
@@ -230,32 +230,25 @@ if __name__ == "__main__":
     ##  EPOCHS START
     ###################################
 
-    batch_size = args.batch_size
     metric = args.metric
-    shuffle = args.shuffle
+    patience = 10  # when to stop if there is no improvement
 
-    epochs = 100
-    patience = 50  # when to stop if there is no improvement
-    patience_counter = 0
+    if metric == "loss":
 
-    best_loss = float("inf")
-    best_accuracy = -1
-    best_mrr = -1
-
-    prev_loss = float("inf")
-    prev_accuracy = -1
-    prev_mrr = -1
-
-    best_epoch = -1
+        es = EarlyStopping(patience, operator.le)
+    elif metric == "accs":
+        es = EarlyStopping(patience, operator.ge)
+    else:
+        raise ValueError(f"metric of value '{metric}' not recognized")
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
 
-    for epoch in range(epochs):
+    for epoch in range(args.epochs):
 
         print("Epoch : ", epoch)
 
@@ -268,41 +261,33 @@ if __name__ == "__main__":
         model.train()
         torch.enable_grad()
 
-        count = 0
-
         ###################################
         ##  TRAIN LOOP
         ###################################
 
         for i, data in track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description="Training",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description="Training",
         ):
-            # print(count)
-            count += 1
 
+            # collect info from datapoint
             utterances = data["utterance"]
-
             context_separate = data["separate_images"]
             context_concat = data["concat_context"]
-
             lengths = data["length"]
             targets = data["target"]
-
-            max_length_tensor = utterances.shape[1]
-
-            masks = mask_attn(data["length"], max_length_tensor, args.device)
-
             prev_hist = data["prev_histories"]
 
+            max_length_tensor = utterances.shape[1]
+            masks = mask_attn(lengths, max_length_tensor, args.device)
+
             out = model(
-                utterances, context_separate, context_concat, prev_hist, masks, args.device
+                utterances, context_separate, context_concat, prev_hist, masks
             )
 
             model.zero_grad()
 
-            # targets = torch.tensor([[torch.argmax(tg)] for tg in targets]).to(device)
             # TARGETS SUITABLE FOR CROSS-ENTROPY LOSS
             targets = targets.to(args.device)
             loss = criterion(out, targets)
@@ -338,127 +323,23 @@ if __name__ == "__main__":
             print(f"\nVal Eval on all domains")
             evaluate(val_loader_speaker, model, in_domain=False)
 
-            if metric == "loss":
-
-                if best_loss <= current_loss:
-
-                    patience_counter += 1
-
-                    if patience_counter == patience:
-                        duration = datetime.datetime.now() - t
-
-                        print("training ending duration", duration)
-
-                        break
-                else:
-
-                    patience_counter = 0
-
-                    best_loss = current_loss
-                    best_epoch = epoch
-
-                    save_model(
-                        model,
-                        model_type,
-                        best_epoch,
-                        current_accuracy,
-                        current_loss,
-                        current_MRR,
-                        optimizer,
-                        args,
-                        "loss",
-                        timestamp,
-                        args.seed,
-                        t,
-                    )
-
-                print("patience", patience_counter, "\n")
-
-                print("\nBest", best_epoch, round(best_loss, 5), metric)  # validset
-                print()
-
-            elif metric == "accs":
-
-                if best_accuracy >= current_accuracy:
-
-                    patience_counter += 1
-
-                    if patience_counter == patience:
-                        duration = datetime.datetime.now() - t
-
-                        print("training ending duration", duration)
-
-                        break
-                else:
-
-                    patience_counter = 0
-
-                    best_accuracy = current_accuracy
-                    best_epoch = epoch
-
-                    save_model(
-                        model=model,
-                        model_type=model_type,
-                        epoch=best_epoch,
-                        accuracy=current_accuracy,
-                        optimizer=optimizer,
-                        args=args,
-                        timestamp=timestamp,
-                        logger=logger,
-                        loss=current_loss,
-                        mrr=current_MRR,
-                    )
-
-                print("patience", patience_counter)
-
-                print(
-                    "\nBest", best_epoch, round(best_accuracy, 5), metric, "\n"
-                )  # validset
-
-            elif metric == "mrr":
-
-                if best_mrr >= current_MRR:
-
-                    patience_counter += 1
-
-                    if patience_counter == patience:
-                        duration = datetime.datetime.now() - t
-
-                        print("training ending duration", duration)
-
-                        break
-                else:
-
-                    patience_counter = 0
-
-                    best_mrr = current_MRR
-                    best_epoch = epoch
-
-                    save_model(
-                        model,
-                        model_type,
-                        best_epoch,
-                        current_accuracy,
-                        current_loss,
-                        current_MRR,
-                        optimizer,
-                        args,
-                        "mrr",
-                        timestamp,
-                        args.seed,
-                        t,
-                    )
-
-                print("patience", patience_counter)
-
-                print(
-                    "\nBest", best_epoch, round(best_mrr, 5), metric, "\n"
-                )  # validset
-
-            prev_accuracy = current_accuracy
-            prev_loss = current_loss
-            prev_mrr = current_MRR
+            save_model(
+                model=model,
+                model_type=model_type,
+                epoch=epoch,
+                accuracy=current_accuracy,
+                optimizer=optimizer,
+                args=args,
+                timestamp=timestamp,
+                logger=logger,
+                loss=current_loss,
+                mrr=current_MRR,
+            )
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)
+
+        # check for early stopping
+        metric_val = current_loss if metric == "loss" else current_accuracy
+        if es.should_stop(metric_val): break
 
     wandb.finish()

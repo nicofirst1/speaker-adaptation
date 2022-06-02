@@ -14,6 +14,7 @@ class SpeakerModelHistAtt(nn.Module):
         img_dim,
         dropout_prob,
         attention_dim,
+        device,
     ):
         super().__init__()
         self.vocab = vocab
@@ -24,6 +25,7 @@ class SpeakerModelHistAtt(nn.Module):
         self.hidden_dim = hidden_dim
         self.img_dim = img_dim
         self.dropout_prob = dropout_prob
+        self.device=device
 
         # attention over encoder steps
         self.attention_dim = attention_dim
@@ -114,7 +116,8 @@ class SpeakerModelHistAtt(nn.Module):
         prev_hist_len,
         normalize,
         masks,
-        device,
+        simulator:bool =False,
+
     ):
 
         """
@@ -157,7 +160,7 @@ class SpeakerModelHistAtt(nn.Module):
         packed_input = nn.utils.rnn.pack_padded_sequence(
             embeds_words.cpu(), sorted_prev_utt_lens.cpu(), batch_first=True
         )
-        packed_input = packed_input.to(device)
+        packed_input = packed_input.to(self.device)
 
         # start LSTM encoder conditioned on the visual input
         concat_visual_input = torch.stack(
@@ -182,7 +185,7 @@ class SpeakerModelHistAtt(nn.Module):
         # teacher forcing
 
         # word prediction scores
-        predictions = torch.zeros(batch_size, decode_length, self.vocab_size).to(device)
+        predictions = torch.zeros(batch_size, decode_length, self.vocab_size).to(self.device)
 
         # forward backward concatenation of encoder's last hidden states
         decoder_hid = self.linear_dec(
@@ -222,9 +225,12 @@ class SpeakerModelHistAtt(nn.Module):
 
             predictions[:, l] = word_pred
 
+        if simulator:
+            return predictions, target_utterance_embeds
+
         return predictions
 
-    def generate_hypothesis(self, data, beam_k, max_len, device, sim_embedding=None):
+    def generate_hypothesis(self, data, beam_k, max_len):
         # todo: need batch support
 
         # dataset details
@@ -235,8 +241,8 @@ class SpeakerModelHistAtt(nn.Module):
         completed_scores = []
         empty_count = 0
 
-        sos_token = torch.tensor(self.vocab["<sos>"]).to(device)
-        eos_token = torch.tensor(self.vocab["<eos>"]).to(device)
+        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
+        eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
 
         # obtained from the whole chain
 
@@ -248,7 +254,7 @@ class SpeakerModelHistAtt(nn.Module):
 
         max_length_tensor = prev_utterance.shape[1]
 
-        masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
+        masks = mask_attn(prev_utt_lengths, max_length_tensor, self.device)
 
         visual_context_hid = self.relu(self.lin_viscontext(visual_context))
         target_img_hid = self.relu(self.linear_separate(target_img_feats))
@@ -270,12 +276,12 @@ class SpeakerModelHistAtt(nn.Module):
         packed_input = nn.utils.rnn.pack_padded_sequence(
             embeds_words.cpu(), sorted_prev_utt_lens.cpu(), batch_first=True
         )
-        packed_input = packed_input.to(device)
+        packed_input = packed_input.to(self.device)
 
         # start lstm with average visual context:
         # conditioned on the visual context
 
-        # he, ce = self.init_hidden(batch_size, device)
+        # he, ce = self.init_hidden(batch_size, self.device)
         concat_visual_input = torch.stack(
             (concat_visual_input, concat_visual_input), dim=0
         )
@@ -319,7 +325,7 @@ class SpeakerModelHistAtt(nn.Module):
 
         gen_sentences_k = decoder_input  # all start off with sos now
 
-        top_scores = torch.zeros(beam_k, 1).to(device)  # top-k generation scores
+        top_scores = torch.zeros(beam_k, 1).to(self.device)  # top-k generation scores
 
         while True:
 
@@ -455,3 +461,10 @@ class SpeakerModelHistAtt(nn.Module):
         )
 
         return hypothesis_string, model_params
+
+
+    def simulator_forward(self, **kwargs):
+
+        predictions, target_utterance_embeds=self.forward(**kwargs, simulator=True)
+
+        return predictions, target_utterance_embeds

@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class ListenerModel(nn.Module):
     def __init__(
-        self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob
+        self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -15,6 +15,7 @@ class ListenerModel(nn.Module):
         self.hidden_dim = hidden_dim
         self.img_dim = img_dim
         self.attention_dim = att_dim
+        self.device=device
 
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(
@@ -76,7 +77,6 @@ class ListenerModel(nn.Module):
         visual_context: torch.Tensor,
         prev_hist: List,
         masks: torch.Tensor,
-        device,
     ):
 
         """
@@ -88,10 +88,10 @@ class ListenerModel(nn.Module):
         @param device: device to which the tensors are moved
         """
 
-        text = text.to(device)
-        separate_images = separate_images.to(device)
-        visual_context = visual_context.to(device)
-        masks = masks.to(device)
+        text = text.to(self.device)
+        separate_images = separate_images.to(self.device)
+        visual_context = visual_context.to(self.device)
+        masks = masks.to(self.device)
 
         prev_hist = [list(elem.values()) for elem in prev_hist]
 
@@ -143,10 +143,10 @@ class ListenerModel(nn.Module):
                 if len(batch_prev_hist[s]) > 0:
 
                     # print(batch_prev_hist[s])
-                    prev = torch.Tensor(batch_prev_hist[s]).long().to(device)
-                    hist_rep = self.embeddings(prev).to(device)
+                    prev = torch.Tensor(batch_prev_hist[s]).long().to(self.device)
+                    hist_rep = self.embeddings(prev).to(self.device)
                     # if there is history for a candidate image
-                    # hist_rep = torch.stack(batch_prev_hist[s]).to(device)
+                    # hist_rep = torch.stack(batch_prev_hist[s]).to(self.device)
 
                     # take the average history vector
                     hist_avg = self.dropout(hist_rep.sum(dim=0) / hist_rep.shape[0])

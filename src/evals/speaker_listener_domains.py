@@ -13,7 +13,7 @@ from src.commons import (
     get_domain_accuracy,
     get_dataloaders,
     parse_args,
-    load_wandb_checkpoint,
+    load_wandb_checkpoint, LISTENER_CHK_DICT,
 )
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SpeakerModelHistAtt
@@ -183,18 +183,10 @@ if __name__ == "__main__":
 
     speaker_model = speaker_model.eval()
 
-    # listener dict
-    listener_dict = dict(
-        all="adaptive-speaker/listener/ListenerModel_all:v20",
-        appliances="adaptive-speaker/listener/ListenerModel_appliances:v20",
-        food="adaptive-speaker/listener/ListenerModel_food:v20",
-        indoor="adaptive-speaker/listener/ListenerModel_indoor:v20",
-        outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v20",
-        vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v20",
-    )
+
 
     # for every listener
-    for dom, url in listener_dict.items():
+    for dom, url in LISTENER_CHK_DICT.items():
         list_checkpoint, _ = load_wandb_checkpoint(url, device)
         list_args = list_checkpoint["args"]
 
