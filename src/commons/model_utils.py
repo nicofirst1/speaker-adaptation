@@ -26,15 +26,15 @@ def mask_attn(actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torc
     return masks
 
 
-def hypo2utterance(hypo, tokenizer, vocab):
-    # encode with list vocab
-    utterance = tokenizer.tokenize(hypo)
+def hypo2utterance(hypo, vocab):
+    # # encode with list vocab
+    # utterance = tokenizer.tokenize(hypo)
+    #
+    # if any(["#" in t for t in utterance]):
+    #     # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
+    #     raise ValueError()
 
-    if any(["#" in t for t in utterance]):
-        # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
-        raise ValueError()
-
-    utterance = vocab.encode(utterance, add_special_tokens=True)
+    utterance = vocab.encode(hypo.split(" "), add_special_tokens=True)
     utterance = utterance.unsqueeze(dim=0)
 
     return utterance

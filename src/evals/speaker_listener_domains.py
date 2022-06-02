@@ -4,8 +4,7 @@ from typing import Optional
 import numpy as np
 import rich.progress
 import torch
-from torch.utils.data import Dataset
-from transformers import BertTokenizer, BertModel
+from torch.utils.data import DataLoader
 
 from src.commons import (
     hypo2utterance,
@@ -13,7 +12,7 @@ from src.commons import (
     get_domain_accuracy,
     get_dataloaders,
     parse_args,
-    load_wandb_checkpoint, LISTENER_CHK_DICT,
+    load_wandb_checkpoint, LISTENER_CHK_DICT, SPEAKER_CHK,
 )
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SpeakerModelHistAtt
@@ -21,14 +20,12 @@ from src.wandb_logging import ListenerLogger, WandbLogger
 
 
 def evaluate_trained_model(
-    dataloader: Dataset,
-    list_model: torch.nn.Module,
-    device,
-    vocab: Vocab,
-    domain: str,
-    logger: WandbLogger,
-    speak_model: Optional[torch.nn.Module] = None,
-    tokenizer=None,
+        dataloader: DataLoader,
+        list_model: torch.nn.Module,
+        vocab: Vocab,
+        domain: str,
+        logger: WandbLogger,
+        speak_model: Optional[torch.nn.Module] = None,
 ):
     accuracies = []
     ranks = []
@@ -49,17 +46,17 @@ def evaluate_trained_model(
         modality += "_generated"
 
     for ii, data in rich.progress.track(
-        enumerate(dataloader),
-        total=len(dataloader),
-        description=f"Eval on domain '{domain}' with '{modality}' modality",
+            enumerate(dataloader),
+            total=len(dataloader),
+            description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
         if speak_model is not None:
-
             # generate hypo with speaker
-            hypo, _ = speak_model.generate_hypothesis(data, beam_k, max_len, device)
-            utterance = hypo2utterance(hypo, tokenizer, vocab)
+            hypo, _ = speak_model.generate_hypothesis(data, beam_k, max_len)
+            utterance = hypo2utterance(hypo, vocab)
         else:
+            # else take them from golden caption
             utterance = data["utterance"]
             hypo = data["origin_caption"]
 
@@ -71,11 +68,11 @@ def evaluate_trained_model(
         prev_hist = data["prev_histories"]
 
         max_length_tensor = utterance.shape[1]
-        masks = mask_attn(lengths, max_length_tensor, device)
+        masks = mask_attn(lengths, max_length_tensor, list_model.device)
 
         # get listener output
         out = list_model(
-            utterance, context_separate, context_concat, prev_hist, masks, device
+            utterance, context_separate, context_concat, prev_hist, masks
         )
 
         preds = torch.argmax(out, dim=1)
@@ -111,7 +108,6 @@ def evaluate_trained_model(
 
     # normalize based on batches
     domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
-    # domain_accuracy = {k: v / len(accuracies) for k, v in domain_accuracy.items()}
     accuracy = np.mean(accuracies)
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
     metrics = dict(
@@ -131,21 +127,7 @@ if __name__ == "__main__":
 
     common_args = parse_args("speak")
 
-    tokenizer = BertTokenizer.from_pretrained(
-        "bert-base-uncased"
-    )  # ALREADY do_lower_case=True
-
-    # Load pre-trained model (weights)
-    model_bert = BertModel.from_pretrained("bert-base-uncased")
-
-    # Set the model in evaluation mode to deactivate the DropOut modules
-    # This is IMPORTANT to have reproducible results during evaluation!
-    model_bert.eval()
-    model_bert.to(device)
-
-    speaker_url = "adaptive-speaker/speaker/SpeakerModelHistAtt:v6"
-
-    speak_check, _ = load_wandb_checkpoint(speaker_url, device)
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
 
     # load args
     speak_p = speak_check["args"]
@@ -176,14 +158,13 @@ if __name__ == "__main__":
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
-    ).to(device)
+        device,
+    )
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()
-
-
 
     # for every listener
     for dom, url in LISTENER_CHK_DICT.items():
@@ -197,7 +178,8 @@ if __name__ == "__main__":
         list_args.device = device
 
         # for debug
-        # list_args.subset_size = 10
+        list_args.subset_size = common_args.subset_size
+        list_args.debug = common_args.debug
 
         # update paths
         # list_args.__parse_args()
@@ -211,7 +193,8 @@ if __name__ == "__main__":
             img_dim,
             list_args.attention_dim,
             list_args.dropout_prob,
-        ).to(device)
+            device
+        )
 
         list_model.load_state_dict(list_checkpoint["model_state_dict"])
         list_model = list_model.to(device)
@@ -243,9 +226,7 @@ if __name__ == "__main__":
                 dataloader=val_loader,
                 speak_model=speaker_model,
                 list_model=list_model,
-                device=device,
                 vocab=vocab,
-                tokenizer=tokenizer,
                 domain=dom,
                 logger=logger,
             )
@@ -254,7 +235,6 @@ if __name__ == "__main__":
             evaluate_trained_model(
                 dataloader=val_loader,
                 list_model=list_model,
-                device=device,
                 vocab=vocab,
                 domain=dom,
                 logger=logger,
@@ -267,9 +247,7 @@ if __name__ == "__main__":
                 dataloader=val_loader,
                 speak_model=speaker_model,
                 list_model=list_model,
-                device=device,
                 vocab=vocab,
-                tokenizer=tokenizer,
                 domain=dom,
                 logger=logger,
             )
@@ -278,7 +256,6 @@ if __name__ == "__main__":
             evaluate_trained_model(
                 dataloader=val_loader,
                 list_model=list_model,
-                device=device,
                 vocab=vocab,
                 domain=dom,
                 logger=logger,
