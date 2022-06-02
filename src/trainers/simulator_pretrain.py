@@ -1,4 +1,5 @@
 import datetime
+import operator
 import os
 
 import numpy as np
@@ -8,17 +9,19 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 from src.commons import (get_dataloaders, get_domain_accuracy,
-                     load_wandb_checkpoint, mask_attn, save_model)
+                         load_wandb_checkpoint, mask_attn, save_model, LISTENER_CHK_DICT, SPEAKER_CHK, EarlyStopping,
+                         parse_args)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SimulatorModel
+from src.models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
 from src.wandb_logging import ListenerLogger
 
 
 def evaluate(
-    data_loader: DataLoader,
-    sim_model: torch.nn.Module,
-    list_model: torch.nn.Module,
-    in_domain: bool,
+        data_loader: DataLoader,
+        sim_model: torch.nn.Module,
+        list_model: torch.nn.Module,
+        in_domain: bool,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -103,22 +106,17 @@ def evaluate(
 if __name__ == "__main__":
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
     img_dim = 2048
-
-    # listener dict
-    listener_dict = dict(
-        all="adaptive-speaker/listener/ListenerModel_all:v20",
-        appliances="adaptive-speaker/listener/ListenerModel_appliances:v20",
-        food="adaptive-speaker/listener/ListenerModel_food:v20",
-        indoor="adaptive-speaker/listener/ListenerModel_indoor:v20",
-        outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v20",
-        vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v20",
-    )
-
     domain = "all"
 
-    list_checkpoint, _ = load_wandb_checkpoint(listener_dict[domain], device)
+    sim_p = parse_args("sim")
+
+
+    ##########################
+    # LISTENER
+    ##########################
+
+    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device)
     list_args = list_checkpoint["args"]
 
     # update list args
@@ -128,7 +126,8 @@ if __name__ == "__main__":
     list_args.device = device
 
     # for debug
-    # list_args.subset_size = 10
+    list_args.subset_size = sim_p.subset_size
+    list_args.debug = sim_p.debug
 
     # for reproducibility
     seed = list_args.seed
@@ -149,50 +148,98 @@ if __name__ == "__main__":
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
+        device=device
     ).to(device)
 
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
 
+    ##########################
+    # SPEAKER
+    ##########################
+
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
+    # load args
+    speak_p = speak_check["args"]
+    speak_p.vocab_file = "vocab.csv"
+    speak_p.__post_init__()
+
+    # init speak model and load state
+    speaker_model = SpeakerModelHistAtt(
+        vocab,
+        speak_p.embedding_dim,
+        speak_p.hidden_dim,
+        img_dim,
+        speak_p.dropout_prob,
+        speak_p.attention_dim,
+        device=device
+    ).to(device)
+
+    speaker_model.load_state_dict(speak_check["model_state_dict"])
+    speaker_model = speaker_model.to(device)
+
+    speaker_model = speaker_model.eval()
+
+    ##########################
+    # SIMULATOR
+    ##########################
+
     sim_model = SimulatorModel(
         len(vocab),
-        list_args.embed_dim,
-        list_args.hidden_dim,
+        sim_p.embed_dim,
+        sim_p.hidden_dim,
         img_dim,
-        list_args.attention_dim,
-        list_args.dropout_prob,
+        sim_p.attention_dim,
+        sim_p.dropout_prob,
     ).to(device)
 
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    learning_rate = list_args.learning_rate
-    optimizer = optim.Adam(sim_model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
+    criterion = nn.CrossEntropyLoss(reduction=sim_p.reduction_method)
 
-    reduction_method = list_args.reduction
-    criterion = nn.CrossEntropyLoss(reduction=reduction_method)
+    ###################################
+    ##  LOGGER
+    ###################################
 
     # add debug label
     tags = []
-    if list_args.debug or list_args.subset_size != -1:
+    if sim_p.debug or sim_p.subset_size != -1:
         tags = ["debug"]
 
     logger = ListenerLogger(
         vocab=vocab,
-        opts=vars(list_args),
-        group=list_args.train_domain,
+        opts=vars(sim_p),
+        group=sim_p.train_domain,
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
         project="simulator-pretrain",
     )
+
+    metric = sim_p.metric
+    patience = 10  # when to stop if there is no improvement
+
+    if metric == "loss":
+
+        es = EarlyStopping(patience, operator.le)
+    elif metric == "accs":
+        es = EarlyStopping(patience, operator.ge)
+    else:
+        raise ValueError(f"metric of value '{metric}' not recognized")
+
     t = datetime.datetime.now()
 
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
+
+    ###################################
+    ##  START OF TRAINING LOOP
+    ###################################
 
     for epoch in range(list_args["epochs"]):
 
@@ -201,7 +248,7 @@ if __name__ == "__main__":
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
             training_loader, _, val_loader, _ = get_dataloaders(
-                list_args, vocab, domain
+                sim_p, vocab, domain
             )
 
         losses = []
@@ -217,9 +264,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description="Training",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description="Training",
         ):
             # get datapoints
             context_separate = data["separate_images"]
@@ -228,6 +275,9 @@ if __name__ == "__main__":
             lengths = [utterance.shape[1]]
             targets = data["target"]
             prev_hist = data["prev_histories"]
+            prev_utterance_ids = data["prev_utterance"]
+            prev_lengths = data["prev_length"]
+            target_img_feats = data["target_img_feats"]
 
             max_length_tensor = utterance.shape[1]
             masks = mask_attn(lengths, max_length_tensor, device)
@@ -235,6 +285,21 @@ if __name__ == "__main__":
             # get outputs
             list_out = list_model(
                 utterance, context_separate, context_concat, prev_hist, masks, device
+            )
+
+            _, speak_embds = speaker_model.simulator_forward(
+                utterance,
+                lengths,
+                prev_utterance_ids,
+                prev_lengths,
+                context_separate,
+                context_concat,
+                target_img_feats,
+                targets,
+                prev_hist,
+                prev_lengths,
+                normalize=False,
+                masks=masks,
             )
 
             sim_out = sim_model(
@@ -296,11 +361,15 @@ if __name__ == "__main__":
                 epoch=epoch,
                 accuracy=current_accuracy,
                 optimizer=optimizer,
-                args=list_args,
+                args=sim_p,
                 timestamp=timestamp,
                 logger=logger,
                 loss=current_loss,
                 mrr=current_MRR,
             )
+
+            # check for early stopping
+            metric_val = current_loss if sim_p.metric == "loss" else current_accuracy
+            if es.should_stop(metric_val): break
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)

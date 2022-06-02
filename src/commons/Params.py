@@ -17,6 +17,8 @@ def parse_args(mode):
         parser = SpeakerArguments()
     elif mode == "list":
         parser = ListenerArguments()
+    elif mode == "sim":
+        parser = SimulatorArguments()
 
     return parser
 
@@ -269,6 +271,56 @@ class ListenerArguments(Params):
 
     def check_parameters(self):
         super(ListenerArguments, self).check_parameters()
+        valis_metr = ["accs", "loss"]
+        assert (
+            self.metric in valis_metr
+        ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
+
+        if self.embed_type == "sratch":
+            assert (
+                self.embed_dim == 768
+            ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
+
+class SimulatorArguments(Params):
+    """
+    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
+    """
+
+    #########################
+    #   PATHS
+    #########################
+    # Vocabulary path
+    vocab_file: Optional[str] = "vocab.csv"
+    utterances_file: Optional[str] = "ids_utterances.pickle"
+    chains_file: Optional[str] = "text_chains.json"
+    orig_ref_file: Optional[str] = "text_utterances.pickle"
+
+    #########################
+    #   Model
+    #########################
+
+    embed_type: Optional[str] = "scratch"
+    embed_dim: Optional[int] = 768
+    model_type: Optional[str] = "scratch_rrr"
+    hidden_dim: Optional[int] = 512
+    attention_dim: Optional[int] = 512
+    dropout_prob: Optional[float] = 0.0
+
+    metric: Optional[str] = "accs"
+
+    def __init__(self):
+        super(SimulatorArguments, self).__init__()
+        self.__post_init__()
+
+    def __post_init__(self):
+        super(SimulatorArguments, self).__post_init__()
+
+        self.vocab_file = join(self.data_path, self.vocab_file)
+        self.vectors_file = join(self.data_path, self.vectors_file)
+        self.img2dom_file = join(self.data_path, "img2dom.json")
+
+    def check_parameters(self):
+        super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
             self.metric in valis_metr
