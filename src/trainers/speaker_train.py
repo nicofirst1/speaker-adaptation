@@ -228,13 +228,11 @@ if __name__ == "__main__":
     ##  TRAIN STARTS
     ###################################
 
-    patience = 10  # when to stop if there is no improvement
-
     if metric == "cider":
 
-        es = EarlyStopping(patience, operator.ge)
+        es = EarlyStopping(speak_p.patience, operator.ge)
     elif metric == "bert":
-        es = EarlyStopping(patience, operator.ge)
+        es = EarlyStopping(speak_p.patience, operator.ge)
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 

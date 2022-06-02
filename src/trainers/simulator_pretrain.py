@@ -221,13 +221,12 @@ if __name__ == "__main__":
     )
 
     metric = sim_p.metric
-    patience = 10  # when to stop if there is no improvement
 
     if metric == "loss":
 
-        es = EarlyStopping(patience, operator.le)
+        es = EarlyStopping(sim_p.atience, operator.le)
     elif metric == "accs":
-        es = EarlyStopping(patience, operator.ge)
+        es = EarlyStopping(sim_p.patience, operator.ge)
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 

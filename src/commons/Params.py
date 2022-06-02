@@ -47,6 +47,7 @@ class Params:
 
     # This seed will be set for torch, numpy and random
     seed: Optional[int] = 42
+    patience: Optional[int] = 50
 
     device: Optional[str] = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 

@@ -231,13 +231,12 @@ if __name__ == "__main__":
     ###################################
 
     metric = args.metric
-    patience = 10  # when to stop if there is no improvement
 
     if metric == "loss":
 
-        es = EarlyStopping(patience, operator.le)
+        es = EarlyStopping(args.patience, operator.le)
     elif metric == "accs":
-        es = EarlyStopping(patience, operator.ge)
+        es = EarlyStopping(args.patience, operator.ge)
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
