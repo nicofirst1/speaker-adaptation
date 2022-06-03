@@ -31,13 +31,23 @@
 %\usepackage{inconsolata}
 
 
+\newcommand{\raq}[1]{\textcolor{blue}{[R: #1]}}
+\newcommand{\san}[1]{\textcolor{orange}{[S: #1]}}
+\newcommand{\mar}[1]{\textcolor{olive}{[M: #1]}}
+\newcommand{\ece}[1]{\textcolor{violet}{[E: #1]}}
+\newcommand{\nic}[1]{\textcolor{magenta}{[J: #1]}}
+
+\newcommand{\note}[1]{\textcolor{red}{[#1]}}
+
+
+
 % If the title and author information does not fit in the area allocated, uncomment the following
 %
 %\setlength\titlebox{<dim>}
 %
 % and set <dim> to something 5cm or larger.
 
-\title{Speaker Adaptation to Listener Domains in Multimodal Dialogue}
+\title{Speaker Adaptation to Listener Domains in Multimodal Dialogue \note{think about the title}}
 
 % Author information can be set in various styles:
 % For several authors from the same institution:
@@ -69,6 +79,10 @@
 \begin{document}
 \maketitle
 \begin{abstract}
+\note{start with the general problem we tackle: speakers do not have the same experiences/knowledge, yet we are able to communicate by adapting on the fly in conversation ... presumably this is due to our ToM capability... In this paper we investigate this issues in the context of a referential task...  } 
+\raq{be careful with saying the work is on dialogue, because we do not use the whole dialogue and reviewers may complain}
+
+
 Agents exposed to different visual or linguistic domains may have varying proficiency across domains. When referring to visual content coming from a certain domain, we might adapt the way we describe them in line with our impression of our interlocutors' levels of comprehension in that domain. In our work, inspired by the plug-and-play approach to language model adaptation, we propose models of speaker adaptation to listener domains with the aim of improving listeners' comprehension and task success.
 
  We use a dataset of multimodal dialogues to train domain-specific listeners and an all-knowing speaker. We then provide the speaker with the ability to adapt to listeners, simulating their behavior. Since a speaker would not have direct access to the internal states of their interlocutors, we exploit listener behavior to train the speaker's theory of mind module. In this way, the speaker is able to simulate the listeners and modify its outputs to obtain referring utterances tailored more to a listener that might lack information on out-domain concepts (linguistic and visual) ...
@@ -80,10 +94,10 @@ Agents exposed to different visual or linguistic domains may have varying profic
 \input{sections/introduction}
 \input{sections/related-work}
 \input{sections/data}
+\input{sections/problem-formulation}
 \input{sections/models}
 \input{sections/results}
 \input{sections/analysis}
-\input{sections/discussion}
 \input{sections/conclusion}
 
 
@@ -101,7 +115,7 @@ In addition, limitations such as low scalability to long text, the requirement o
 \section*{Ethics Statement}
 Scientific work published at EMNLP 2022 must comply with the \href{https://www.aclweb.org/portal/content/acl-code-ethics}{ACL Ethics Policy}. We encourage all authors to include an explicit ethics statement on the broader impact of the work, or other ethical considerations after the conclusion but before the references. The ethics statement will not count toward the page limit (8 pages for long, 4 pages for short papers).
 
-\section*{Acknowledgements}
+%\section*{Acknowledgements}
 
 
 % Entries for the entire Anthology, followed by custom entries

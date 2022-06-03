@@ -5,6 +5,9 @@
 \label{sec:models}
 %==========================================
 
+\note{half a page}\note{Ece}\\
+\note{Include Experimental Setup (Nico + Ece), possibly as a separate short section; all together this should not fill up page 5}
+
 
 We construct a speaker model and a listener model. The speaker observes 6 images, knows which one is the target image, and remembers referring expressions previously uttered to describe that image. Given this input, the speaker produces a referring utterance. The listener observes (the same) 6 images, receives the speaker's referring utterance, and remembers the referring expressions used previously for all images. Given this input, the listener selects the most likely image.
 We train a proficient speaker model and domain-specific listener models with true---visually contextualised---referring utterances. During training, the speaker model also learns to predict the behaviour of different listeners, and at testing time it can use this ability to infer the semantic knowledge of the listener and to adapt its utterances accordingly. 
