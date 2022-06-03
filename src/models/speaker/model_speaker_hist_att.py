@@ -20,7 +20,7 @@ class SpeakerModel(nn.Module):
     ):
         super().__init__()
         self.vocab = vocab
-        self.vocab_size = len(vocab) - 1
+        self.vocab_size = len(vocab)
         self.beam_k = beam_k
         self.max_len = max_len
 

@@ -53,7 +53,14 @@ def evaluate_trained_model(
 
         if speak_model is not None:
             # generate hypo with speaker
-            hypo, _ = speak_model.generate_hypothesis(data, beam_k, max_len)
+            target_img_feats = data["target_img_feats"]
+            prev_utterance = data["prev_utterance"]
+            prev_utt_lengths = data["prev_length"]
+            visual_context = data["concat_context"]
+
+            # generate hypo with speaker
+            hypo, _, h1 = speak_model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
+                                                          target_img_feats)
             utterance = hypo2utterance(hypo, vocab)
         else:
             # else take them from golden caption
@@ -145,8 +152,6 @@ if __name__ == "__main__":
 
     print("Loading the vocab...")
     vocab = Vocab(speak_p.vocab_file)
-    vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
-    vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
 
     img_dim = 2048
 
