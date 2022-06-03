@@ -5,27 +5,30 @@ import torch.nn.functional as F
 from src.commons import mask_attn
 
 
-class SpeakerModelHistAtt(nn.Module):
+class SpeakerModel(nn.Module):
     def __init__(
-        self,
-        vocab,
-        embedding_dim,
-        hidden_dim,
-        img_dim,
-        dropout_prob,
-        attention_dim,
-        device,
+            self,
+            vocab,
+            embedding_dim,
+            hidden_dim,
+            img_dim,
+            dropout_prob,
+            attention_dim,
+            beam_k,
+            max_len,
+            device,
     ):
         super().__init__()
         self.vocab = vocab
-        self.vocab_size = (
-            len(vocab) - 1
-        )  # to exclude <nohs> from the decoder (but add for embed and encoder)
+        self.vocab_size = len(vocab)
+        self.beam_k = beam_k
+        self.max_len = max_len
+
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.img_dim = img_dim
         self.dropout_prob = dropout_prob
-        self.device=device
+        self.device = device
 
         # attention over encoder steps
         self.attention_dim = attention_dim
@@ -103,20 +106,19 @@ class SpeakerModelHistAtt(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def forward(
-        self,
-        utterance,
-        lengths,
-        prev_utterance,
-        prev_utt_lengths,
-        visual_context_sep,
-        visual_context,
-        target_img_feats,
-        targets,
-        prev_hist,
-        prev_hist_len,
-        normalize,
-        masks,
-        simulator:bool =False,
+            self,
+            utterance,
+            lengths,
+            prev_utterance,
+            prev_utt_lengths,
+            visual_context_sep,
+            visual_context,
+            target_img_feats,
+            targets,
+            prev_hist,
+            prev_hist_len,
+            normalize,
+            masks,
 
     ):
 
@@ -225,32 +227,22 @@ class SpeakerModelHistAtt(nn.Module):
 
             predictions[:, l] = word_pred
 
-        if simulator:
-            return predictions, target_utterance_embeds
-
         return predictions
 
-    def generate_hypothesis(self, data, beam_k, max_len):
-        # todo: need batch support
+    def generate_hypothesis(self, prev_utterance, prev_utt_lengths, visual_context, target_img_feats):
 
         # dataset details
         # only the parts I will use for this type of self
 
-        hypotheses = []
         completed_sentences = []
         completed_scores = []
         empty_count = 0
+        beam_k = self.beam_k
 
         sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
         eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
 
         # obtained from the whole chain
-
-        prev_utterance = data["prev_utterance"]
-        prev_utt_lengths = data["prev_length"]
-
-        visual_context = data["concat_context"]
-        target_img_feats = data["target_img_feats"]
 
         max_length_tensor = prev_utterance.shape[1]
 
@@ -312,6 +304,9 @@ class SpeakerModelHistAtt(nn.Module):
 
         history_att = self.lin2att_hist(outputs)
 
+        # todo: for adaptive speak h1 should have grad, also in eval
+        h1_sim = decoder_hid
+
         decoder_hid = decoder_hid.expand(beam_k, -1)
 
         # multiple copies of the decoder
@@ -331,7 +326,7 @@ class SpeakerModelHistAtt(nn.Module):
 
             # EOS?
 
-            if gen_len > max_len:
+            if gen_len > self.max_len:
                 break  # very long sentence generated
 
             # generate
@@ -373,7 +368,7 @@ class SpeakerModelHistAtt(nn.Module):
 
             # self.vocab - 1 to exclude <NOHS>
             sentence_index = top_words // (
-                len(self.vocab) - 1
+                    len(self.vocab) - 1
             )  # which sentence it will be added to
             word_index = top_words % (len(self.vocab) - 1)  # predicted word
 
@@ -443,11 +438,11 @@ class SpeakerModelHistAtt(nn.Module):
             self.vocab.index2word[w]
             for w in best_seq
             if w
-            not in [
-                self.vocab.word2index["<sos>"],
-                self.vocab.word2index["<eos>"],
-                self.vocab.word2index["<pad>"],
-            ]
+               not in [
+                   self.vocab.word2index["<sos>"],
+                   self.vocab.word2index["<eos>"],
+                   self.vocab.word2index["<pad>"],
+               ]
         ]
         # remove sos and pads # I want to check eos
         hypothesis_string = " ".join(hypothesis)
@@ -460,11 +455,10 @@ class SpeakerModelHistAtt(nn.Module):
             visual_context_hid=visual_context_hid,
         )
 
-        return hypothesis_string, model_params
-
+        return hypothesis_string, model_params, h1_sim
 
     def simulator_forward(self, **kwargs):
 
-        predictions, target_utterance_embeds=self.forward(**kwargs, simulator=True)
+        predictions, target_utterance_embeds = self.forward(**kwargs, simulator=True)
 
         return predictions, target_utterance_embeds

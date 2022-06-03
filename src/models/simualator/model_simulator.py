@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -7,26 +9,48 @@ from src.models.listener.model_listener import ListenerModel
 
 class SimulatorModel(ListenerModel):
     def __init__(
-            self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob
+            self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
     ):
-        super(ListenerModel).__init__(
-            vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob
+        super(SimulatorModel, self).__init__(
+            vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
         )
-        self.speaker_influence = nn.Linear(6, self.hidden_dim)
+
 
     def forward(
             self,
-            speaker_embeds: torch.Tensor
+            speaker_embeds: torch.Tensor,
+            separate_images: torch.Tensor,
+            visual_context: torch.Tensor,
+            prev_hist: List,
+            masks: torch.Tensor,
     ):
         """
         @param speaker_embeds:embeddings coming from speaker
 
         """
-        batch_size = speaker_embeds.shape[0]  # effective batch size
+        separate_images = separate_images.to(self.device)
+        visual_context = visual_context.to(self.device)
+        masks = masks.to(self.device)
+
+        prev_hist = [list(elem.values()) for elem in prev_hist]
+
+        representations = speaker_embeds
+        # [32,512]
+
+        batch_size = representations.shape[0]  # effective batch size
+
+        # utterance representations are processed
+        representations = self.dropout(representations)
+        input_reps = self.relu(self.lin_emb2hid(representations))
+        # [32,512]
+
+        # visual context is processed
+        visual_context = self.dropout(visual_context)
+        projected_context = self.relu(self.lin_context(visual_context))
 
         # multimodal utterance representations
         mm_reps = self.relu(
-            self.lin_mm(speaker_embeds)
+            self.lin_mm(torch.cat((input_reps, projected_context), dim=1))
         )
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
@@ -78,3 +102,4 @@ class SimulatorModel(ListenerModel):
         )
 
         return dot
+

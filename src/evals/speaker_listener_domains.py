@@ -15,7 +15,7 @@ from src.commons import (
     load_wandb_checkpoint, LISTENER_CHK_DICT, SPEAKER_CHK,
 )
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel, SpeakerModelHistAtt
+from src.models import ListenerModel, SpeakerModel
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
@@ -151,13 +151,15 @@ if __name__ == "__main__":
     img_dim = 2048
 
     # init speak model and load state
-    speaker_model = SpeakerModelHistAtt(
+    speaker_model = SpeakerModel(
         vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
+        speak_p.beam_size,
+        speak_p.max_len,
         device,
     )
 

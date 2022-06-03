@@ -96,12 +96,14 @@ class ListenerModel(nn.Module):
         prev_hist = [list(elem.values()) for elem in prev_hist]
 
         representations = self.embeddings(text)
+        #[32,33,786]
 
         batch_size = representations.shape[0]  # effective batch size
 
         # utterance representations are processed
         representations = self.dropout(representations)
         input_reps = self.relu(self.lin_emb2hid(representations))
+        #[32,33,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)

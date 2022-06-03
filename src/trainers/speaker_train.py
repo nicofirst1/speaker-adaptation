@@ -14,7 +14,7 @@ from torch import nn, optim
 from src.commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
                          parse_args, save_model, EarlyStopping)
 from src.data.dataloaders import Vocab
-from src.models import SpeakerModelHistAtt
+from src.models import SpeakerModel
 from src.wandb_logging import SpeakerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
@@ -70,7 +70,13 @@ def eval_beam_histatt(
             0
         ]  # batch size 1  # full set of references for a single instance
 
-        hypo, model_params = model.generate_hypothesis(data, beam_k, max_len)
+        prev_utterance = data["prev_utterance"]
+        prev_utt_lengths = data["prev_length"]
+        visual_context = data["concat_context"]
+        target_img_feats = data["target_img_feats"]
+
+        hypo, model_params, _ = model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
+                                                          target_img_feats)
         references.append(ref)
         hypotheses.append(hypo)
 
@@ -190,8 +196,9 @@ if __name__ == "__main__":
     # depending on the selected model type, we will have a different architecture
     if model_type == "hist_att":  # attention over prev utterance
 
-        model = SpeakerModelHistAtt(
-            vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim, speak_p.device
+        model = SpeakerModel(
+            vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim, speak_p.beam_size,
+            speak_p.max_len, speak_p.device
         ).to(speak_p.device)
 
     ###################################
@@ -269,10 +276,8 @@ if __name__ == "__main__":
             prev_hist = data["prev_histories"]
             prev_hist_lens = data["prev_history_lengths"]
 
-
             max_length_tensor = prev_utterance_ids.shape[1]
             masks = mask_attn(prev_lengths, max_length_tensor, speak_p.device)
-
 
             out = model(
                 utterance=utterances_text_ids,
