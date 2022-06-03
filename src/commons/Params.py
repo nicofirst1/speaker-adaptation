@@ -95,6 +95,7 @@ class Params:
     ############################################
 
     beam_size: Optional[int] = 5
+    max_len: Optional[int] =30
 
     def merge(self, other):
         """

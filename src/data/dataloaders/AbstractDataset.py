@@ -312,8 +312,12 @@ class AbstractDataset(Dataset):
                     "target",
                     "length",
                     "prev_length",
+                    "speak_utterance",
                 ]:
                     batch[key] = torch.Tensor(batch[key]).long()
+                elif key == "speak_h1embed":
+                    batch[key] = torch.Tensor(batch[key]).float()
+
 
                 if isinstance(batch[key], torch.Tensor):
                     batch[key] = batch[key].to(device)

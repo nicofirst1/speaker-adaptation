@@ -11,9 +11,10 @@ from torch.utils.data import DataLoader
 from src.commons import (get_dataloaders, get_domain_accuracy,
                          load_wandb_checkpoint, mask_attn, save_model, LISTENER_CHK_DICT, SPEAKER_CHK, EarlyStopping,
                          parse_args)
+from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SimulatorModel
-from src.models.speaker.model_speaker_hist_att import SpeakerModelHistAtt
+from src.models.speaker.model_speaker_hist_att import SpeakerModel
 from src.wandb_logging import ListenerLogger
 
 
@@ -21,6 +22,7 @@ def evaluate(
         data_loader: DataLoader,
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
+        speaker_model: torch.nn.Module,
         in_domain: bool,
 ):
     """
@@ -43,33 +45,34 @@ def evaluate(
     for ii, data in enumerate(data_loader):
         # print(i)
 
-        count += 1
-
-        utterances = data["utterance"]
-
+        # get datapoints
+        # get datapoints
         context_separate = data["separate_images"]
         context_concat = data["concat_context"]
-
+        utterance = data["speak_utterance"]
+        lengths = [utterance.shape[1]]
         targets = data["target"]
-
-        max_length_tensor = utterances.shape[1]
-
-        masks = mask_attn(data["length"], max_length_tensor, device)
-
         prev_hist = data["prev_histories"]
+        speak_embds = data['speak_h1embed']
+        max_length_tensor = utterance.shape[1]
+        masks = mask_attn(lengths, max_length_tensor, device)
+
+        # get outputs
+        list_out = list_model(
+            utterance, context_separate, context_concat, prev_hist, masks
+        )
 
         sim_out = sim_model(
-            utterances, context_separate, context_concat, prev_hist, masks, device
-        )
-        list_out = list_model(
-            utterances, context_separate, context_concat, prev_hist, masks, device
+            speak_embds, context_separate, context_concat, prev_hist, masks
         )
 
         targets = targets.to(device)
 
+        # Losses and preds
         list_loss = criterion(list_out, targets)
-        sim_loss = criterion(list_out, sim_out)
-        loss = sim_loss
+        sim_list_loss = criterion(list_out, sim_out)
+        sim_loss = criterion(sim_out, targets)
+        loss = sim_list_loss
 
         list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
         sim_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
@@ -83,6 +86,9 @@ def evaluate(
             list_preds=list_preds.squeeze(),
             ranks=ranks,
             correct=correct / sim_preds.shape[0],
+            list_loss=list_loss,
+            sim_list_loss=sim_list_loss,
+            sim_loss=sim_loss,
         )
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
@@ -110,7 +116,6 @@ if __name__ == "__main__":
     domain = "all"
 
     sim_p = parse_args("sim")
-
 
     ##########################
     # LISTENER
@@ -166,13 +171,15 @@ if __name__ == "__main__":
     speak_p.__post_init__()
 
     # init speak model and load state
-    speaker_model = SpeakerModelHistAtt(
+    speaker_model = SpeakerModel(
         vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
+        speak_p.beam_size,
+        speak_p.max_len,
         device=device
     ).to(device)
 
@@ -187,11 +194,12 @@ if __name__ == "__main__":
 
     sim_model = SimulatorModel(
         len(vocab),
-        sim_p.embed_dim,
+        speak_p.hidden_dim,
         sim_p.hidden_dim,
         img_dim,
         sim_p.attention_dim,
         sim_p.dropout_prob,
+        sim_p.device,
     ).to(device)
 
     ###################################
@@ -199,7 +207,7 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
-    criterion = nn.CrossEntropyLoss(reduction=sim_p.reduction_method)
+    criterion = nn.CrossEntropyLoss(reduction=sim_p.reduction)
 
     ###################################
     ##  LOGGER
@@ -237,18 +245,25 @@ if __name__ == "__main__":
     )
 
     ###################################
+    ##  Get speaker dataloader
+    ###################################
+    bs = sim_p.batch_size
+    sim_p.batch_size = 1
+    # load datasets again to shuffle the image sets to avoid biases
+    training_loader, _, val_loader, _ = get_dataloaders(
+        sim_p, vocab, domain
+    )
+
+    speak_train_dl = speaker_augmented_dataloader(training_loader, vocab, speaker_model, batch_size=bs, split_name="train")
+    speak_val_dl = speaker_augmented_dataloader(val_loader, vocab, speaker_model, batch_size=1, split_name="train")
+
+    ###################################
     ##  START OF TRAINING LOOP
     ###################################
 
-    for epoch in range(list_args["epochs"]):
+    for epoch in range(sim_p.epochs):
 
         print("Epoch : ", epoch)
-
-        if epoch > 0:
-            # load datasets again to shuffle the image sets to avoid biases
-            training_loader, _, val_loader, _ = get_dataloaders(
-                sim_p, vocab, domain
-            )
 
         losses = []
         accuracies = []
@@ -262,56 +277,38 @@ if __name__ == "__main__":
         ##  TRAIN LOOP
         ###################################
 
-        for i, data in rich.track(
-                enumerate(training_loader),
-                total=len(training_loader),
+        for i, data in rich.progress.track(
+                enumerate(speak_train_dl),
+                total=len(speak_train_dl),
                 description="Training",
         ):
             # get datapoints
             context_separate = data["separate_images"]
             context_concat = data["concat_context"]
-            utterance = data["utterance"]
+            utterance = data["speak_utterance"]
             lengths = [utterance.shape[1]]
             targets = data["target"]
             prev_hist = data["prev_histories"]
-            prev_utterance_ids = data["prev_utterance"]
-            prev_lengths = data["prev_length"]
-            target_img_feats = data["target_img_feats"]
-
+            speak_embds = data['speak_h1embed']
             max_length_tensor = utterance.shape[1]
             masks = mask_attn(lengths, max_length_tensor, device)
 
             # get outputs
             list_out = list_model(
-                utterance, context_separate, context_concat, prev_hist, masks, device
-            )
-
-            _, speak_embds = speaker_model.simulator_forward(
-                utterance,
-                lengths,
-                prev_utterance_ids,
-                prev_lengths,
-                context_separate,
-                context_concat,
-                target_img_feats,
-                targets,
-                prev_hist,
-                prev_lengths,
-                normalize=False,
-                masks=masks,
+                utterance, context_separate, context_concat, prev_hist, masks
             )
 
             sim_out = sim_model(
-                utterance, context_separate, context_concat, prev_hist, masks, device
+                speak_embds, context_separate, context_concat, prev_hist, masks
             )
 
             targets = targets.to(device)
 
             # Losses and preds
-
             list_loss = criterion(list_out, targets)
-            sim_loss = criterion(list_out, sim_out)
-            loss = sim_loss
+            sim_list_loss = criterion(list_out, sim_out)
+            sim_loss = criterion(list_out, targets)
+            loss = sim_list_loss
 
             list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
             sim_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
@@ -332,7 +329,10 @@ if __name__ == "__main__":
                 aux={
                     "list_preds": list_preds,
                     "sim_preds": sim_preds,
+
                     "list_loss": list_loss,
+                    "sim_list_loss": sim_list_loss,
+                    "sim_loss": sim_loss,
                 },
                 batch_id=i,
                 modality="train",
@@ -351,7 +351,8 @@ if __name__ == "__main__":
             isValidation = True
             print(f'\nVal Eval on domain "{domain}"')
             current_accuracy, current_loss, current_MRR = evaluate(
-                val_loader, sim_model, in_domain=True
+                speak_val_dl, sim_model, list_model,
+                speaker_model, in_domain=True
             )
 
             save_model(

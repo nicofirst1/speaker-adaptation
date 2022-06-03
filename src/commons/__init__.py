@@ -15,13 +15,15 @@ __all__ = [
     "EarlyStopping",
 ]
 
+
+## take all listener at epoch 20
 LISTENER_CHK_DICT = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v20",
-    appliances="adaptive-speaker/listener/ListenerModel_appliances:v20",
-    food="adaptive-speaker/listener/ListenerModel_food:v20",
-    indoor="adaptive-speaker/listener/ListenerModel_indoor:v20",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v20",
-    vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v20",
+    all="adaptive-speaker/listener/ListenerModel_all:v14",
+    appliances="adaptive-speaker/listener/ListenerModel_appliances:v72",
+    food="adaptive-speaker/listener/ListenerModel_food:v61",
+    indoor="adaptive-speaker/listener/ListenerModel_indoor:v68",
+    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v64",
+    vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v70",
 )
 #fixme: get a proper chk
-SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModelHistAtt:latest"
+SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModelHistAtt:v52"
