@@ -43,21 +43,25 @@ class SimulatorModel(ListenerModel):
         representations = self.dropout(representations)
         input_reps = self.relu(self.lin_emb2hid(representations))
         # [32,512]
+        input_reps=input_reps.unsqueeze(dim=1)
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
         projected_context = self.relu(self.lin_context(visual_context))
 
+        repeated_context = projected_context.unsqueeze(1).repeat(
+            1, input_reps.shape[1], 1
+        )
         # multimodal utterance representations
         mm_reps = self.relu(
-            self.lin_mm(torch.cat((input_reps, projected_context), dim=1))
+            self.lin_mm(torch.cat((input_reps, repeated_context), dim=2))
         )
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_att = self.att_linear_2(self.tanh(self.att_linear_1(mm_reps)))
 
         # mask pads so that no attention is paid to them (with -inf)
-        outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
+        #outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
 
         # final attention weights
         att_weights = self.softmax(outputs_att)

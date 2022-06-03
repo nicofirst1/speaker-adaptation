@@ -22,7 +22,6 @@ def evaluate(
         data_loader: DataLoader,
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
-        speaker_model: torch.nn.Module,
         in_domain: bool,
 ):
     """
@@ -36,7 +35,6 @@ def evaluate(
     accuracies = []
     ranks = []
     domains = []
-    count = 0
 
     domain_accuracy = {}
     flag = "eval/"
@@ -102,7 +100,7 @@ def evaluate(
     loss = np.mean(losses_eval)
     accuracy = np.mean(accuracies)
 
-    metrics = dict(domain_accuracy=domain_accuracy, loss=loss)
+    metrics = dict(domain_accuracy=domain_accuracy, loss=loss, mrr=0)
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
@@ -350,9 +348,8 @@ if __name__ == "__main__":
 
             isValidation = True
             print(f'\nVal Eval on domain "{domain}"')
-            current_accuracy, current_loss, current_MRR = evaluate(
-                speak_val_dl, sim_model, list_model,
-                speaker_model, in_domain=True
+            current_accuracy, current_loss = evaluate(
+                speak_val_dl, sim_model, list_model, in_domain=True
             )
 
             save_model(
@@ -365,7 +362,6 @@ if __name__ == "__main__":
                 timestamp=timestamp,
                 logger=logger,
                 loss=current_loss,
-                mrr=current_MRR,
             )
 
             # check for early stopping
