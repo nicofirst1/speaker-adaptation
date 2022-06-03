@@ -168,99 +168,101 @@ if __name__ == "__main__":
 
     speaker_model = speaker_model.eval()
 
+    dom=common_args.train_domain
+    url=LISTENER_CHK_DICT[dom]
+
     # for every listener
-    for dom, url in LISTENER_CHK_DICT.items():
-        list_checkpoint, _ = load_wandb_checkpoint(url, device)
-        list_args = list_checkpoint["args"]
+    list_checkpoint, _ = load_wandb_checkpoint(url, device)
+    list_args = list_checkpoint["args"]
 
-        # update list args
-        list_args.batch_size = 1  # hypotesis generation does not support batch
-        list_args.vocab_file = "vocab.csv"
-        list_args.vectors_file = os.path.basename(list_args.vectors_file)
-        list_args.device = device
+    # update list args
+    list_args.batch_size = 1  # hypotesis generation does not support batch
+    list_args.vocab_file = "vocab.csv"
+    list_args.vectors_file = os.path.basename(list_args.vectors_file)
+    list_args.device = device
 
-        # for debug
-        list_args.subset_size = common_args.subset_size
-        list_args.debug = common_args.debug
+    # for debug
+    list_args.subset_size = common_args.subset_size
+    list_args.debug = common_args.debug
 
-        # update paths
-        # list_args.__parse_args()
-        list_args.__post_init__()
-        vocab = Vocab(list_args.vocab_file)
+    # update paths
+    # list_args.__parse_args()
+    list_args.__post_init__()
+    vocab = Vocab(list_args.vocab_file)
 
-        list_model = ListenerModel(
-            len(vocab),
-            list_args.embed_dim,
-            list_args.hidden_dim,
-            img_dim,
-            list_args.attention_dim,
-            list_args.dropout_prob,
-            device
+    list_model = ListenerModel(
+        len(vocab),
+        list_args.embed_dim,
+        list_args.hidden_dim,
+        img_dim,
+        list_args.attention_dim,
+        list_args.dropout_prob,
+        device
+    )
+
+    list_model.load_state_dict(list_checkpoint["model_state_dict"])
+    list_model = list_model.to(device)
+
+    # add debug label
+    tags = []
+    if list_args.debug or list_args.subset_size != -1:
+        tags = ["debug"]
+
+    logger = ListenerLogger(
+        vocab=vocab,
+        opts=vars(list_args),
+        group=list_args.train_domain,
+        train_logging_step=1,
+        val_logging_step=1,
+        tags=tags,
+        project="speaker-list-dom",
+    )
+
+    with torch.no_grad():
+        list_model.eval()
+
+        print(f"Eval on '{list_args.train_domain}' domain")
+        _, _, val_loader, _ = get_dataloaders(
+            list_args, vocab, list_args.train_domain
         )
 
-        list_model.load_state_dict(list_checkpoint["model_state_dict"])
-        list_model = list_model.to(device)
-
-        # add debug label
-        tags = []
-        if list_args.debug or list_args.subset_size != -1:
-            tags = ["debug"]
-
-        logger = ListenerLogger(
+        evaluate_trained_model(
+            dataloader=val_loader,
+            speak_model=speaker_model,
+            list_model=list_model,
             vocab=vocab,
-            opts=vars(list_args),
-            group=list_args.train_domain,
-            train_logging_step=1,
-            val_logging_step=1,
-            tags=tags,
-            project="speaker-list-dom",
+            domain=dom,
+            logger=logger,
         )
 
-        with torch.no_grad():
-            list_model.eval()
+        print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
+        evaluate_trained_model(
+            dataloader=val_loader,
+            list_model=list_model,
+            vocab=vocab,
+            domain=dom,
+            logger=logger,
+        )
 
-            print(f"Eval on '{list_args.train_domain}' domain")
-            _, _, val_loader, _ = get_dataloaders(
-                list_args, vocab, list_args.train_domain
-            )
+        print(f"Eval on 'all' domain")
+        _, _, val_loader, _ = get_dataloaders(list_args, vocab, "all")
 
-            evaluate_trained_model(
-                dataloader=val_loader,
-                speak_model=speaker_model,
-                list_model=list_model,
-                vocab=vocab,
-                domain=dom,
-                logger=logger,
-            )
+        evaluate_trained_model(
+            dataloader=val_loader,
+            speak_model=speaker_model,
+            list_model=list_model,
+            vocab=vocab,
+            domain=dom,
+            logger=logger,
+        )
 
-            print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
-            evaluate_trained_model(
-                dataloader=val_loader,
-                list_model=list_model,
-                vocab=vocab,
-                domain=dom,
-                logger=logger,
-            )
-
-            print(f"Eval on 'all' domain")
-            _, _, val_loader, _ = get_dataloaders(list_args, vocab, "all")
-
-            evaluate_trained_model(
-                dataloader=val_loader,
-                speak_model=speaker_model,
-                list_model=list_model,
-                vocab=vocab,
-                domain=dom,
-                logger=logger,
-            )
-
-            print(f"Eval on 'all' domain with golden caption")
-            evaluate_trained_model(
-                dataloader=val_loader,
-                list_model=list_model,
-                vocab=vocab,
-                domain=dom,
-                logger=logger,
-            )
+        print(f"Eval on 'all' domain with golden caption")
+        evaluate_trained_model(
+            dataloader=val_loader,
+            list_model=list_model,
+            vocab=vocab,
+            domain=dom,
+            logger=logger,
+        )
 
         logger.wandb_close()

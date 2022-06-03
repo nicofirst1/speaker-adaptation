@@ -4,10 +4,22 @@
 #SBATCH --job-name=sp-lst
 #SBATCH --cpus-per-task=1
 #SBATCH --time=2:00:00
-#SBATCH --partition=gpu_shared_jupyter
-#SBATCH --gpus-per-node=4
+#SBATCH --partition=gpu_shared
+#SBATCH --gpus-per-node=1
 
 
+
+# array job can be launched with
+# sbatch --array 1-6  eval_speaklist.sh
+# or if you want to specify a specific domain use
+# sbatch --array=0,2,3 eval_speaklist.sh
+# the number mapping is the following:
+# 1: appliances
+# 2: food
+# 3: indoor
+# 4: outdoor
+# 5: vehicles
+# 6: all
 
 #activating the virtual environment
 echo "Activating the virtual environment..."
@@ -18,4 +30,46 @@ source activate uvapb
 
 #running the actual code
 echo "Starting the process..."
-PYTHONIOENCODING=utf-8 python -u ${HOME}/pb_speaker_adaptation/src/evals/speaker_listener_domains.py
+trainers_file="${HOME}/pb_speaker_adaptation/src/evals/speaker_listener_domains.py"
+
+#running the actual code
+echo "Starting the process..."
+
+if [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
+  echo "Launching appliances"
+  PYTHONIOENCODING=utf-8 python -u ${trainers_file} --train_domain appliances "${common_args[@]}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 2 ]]; then
+
+  echo "Launching food"
+
+  PYTHONIOENCODING=utf-8 python -u ${trainers_file} --train_domain food "${common_args[@]}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 3 ]]; then
+
+  echo "Launching indoor"
+
+  PYTHONIOENCODING=utf-8 python -u ${trainers_file} --train_domain indoor "${common_args[@]}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 4 ]]; then
+
+  echo "Launching outdoor"
+
+  PYTHONIOENCODING=utf-8 python -u ${trainers_file} --train_domain outdoor "${common_args[@]}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 5 ]]; then
+
+  echo "Launching vehicles"
+
+  PYTHONIOENCODING=utf-8 python -u ${trainers_file} --train_domain vehicles "${common_args[@]}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 6 ]]; then
+  echo "Launching all"
+
+  PYTHONIOENCODING=utf-8 python -u ${trainers_file} --train_domain all "${common_args[@]}"
+
+else
+  echo "No domain specified for id $SLURM_ARRAY_TASK_ID"
+  exit 1
+
+fi
