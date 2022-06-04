@@ -6,7 +6,7 @@ import torch
 import wandb
 from PIL import ImageOps
 
-from src.data.dataloaders import generate_imgid2domain, imgid2path,load_imgid2domain
+from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
 
@@ -203,7 +203,10 @@ class ListenerLogger(WandbLogger):
 
         logs = {}
         logs.update(aux)
-        logs["loss"] = loss.detach().item()
+
+        for k, v in logs.items():
+            if isinstance(k, torch.Tensor):
+                logs[k] = v.detach().item()
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}
