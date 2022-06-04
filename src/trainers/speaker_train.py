@@ -39,8 +39,6 @@ def eval_beam_histatt(
         split_data_loader,
         model,
         args,
-        beam_size,
-        max_len,
         nlgeval_obj,
         logger,
 ):
@@ -61,10 +59,6 @@ def eval_beam_histatt(
     for i, data in enumerate(split_data_loader):
         # print(i)
 
-        completed_sentences = []
-        completed_scores = []
-
-        beam_k = beam_size
 
         ref = data["reference_chain"][
             0
@@ -110,6 +104,7 @@ def eval_beam_histatt(
     )
 
     logger.on_eval_end(logs, model_params, model_out, data)
+    logger.log_datapoint(data, preds=[hypo], modality="eval")
 
     if args.metric == "cider":
         selected_metric_score = metrics_dict["CIDEr"]
@@ -155,16 +150,11 @@ if __name__ == "__main__":
         speak_p, vocab
     )
 
-    max_len = 30  # for beam search
-
     img_dim = 2048
 
     embedding_dim = speak_p.embedding_dim
     hidden_dim = speak_p.hidden_dim
     att_dim = speak_p.attention_dim
-
-    dropout_prob = speak_p.dropout_prob
-    beam_size = speak_p.beam_size
 
     metric = speak_p.metric
     nlge = NLGEval(no_skipthoughts=True, no_glove=True)
@@ -197,7 +187,7 @@ if __name__ == "__main__":
     if model_type == "hist_att":  # attention over prev utterance
 
         model = SpeakerModel(
-            vocab, embedding_dim, hidden_dim, img_dim, dropout_prob, att_dim, speak_p.beam_size,
+            vocab, embedding_dim, hidden_dim, img_dim, speak_p.dropout_prob, att_dim, speak_p.beam_size,
             speak_p.max_len, speak_p.device
         ).to(speak_p.device)
 
@@ -347,8 +337,6 @@ if __name__ == "__main__":
                 split_data_loader=val_loader,
                 model=model,
                 args=speak_p,
-                beam_size=beam_size,
-                max_len=max_len,
                 nlgeval_obj=nlge,
                 logger=logger,
             )

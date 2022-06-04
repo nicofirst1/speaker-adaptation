@@ -84,7 +84,8 @@ class SpeakerLogger(WandbLogger):
         translate_list = lambda lst: " ".join([self.vocab.index2word[x] for x in lst])
         # hist = translate_list([int(x) for x in hist])
 
-        preds = translate_list(preds)
+        if not isinstance(preds,str):
+            preds = translate_list(preds)
         target_ids = translate_list(target_ids)
         target_ids = target_ids.replace("<pad>", "")
 
