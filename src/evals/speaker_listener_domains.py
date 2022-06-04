@@ -1,3 +1,4 @@
+import copy
 import os
 from typing import Optional
 
@@ -19,6 +20,18 @@ from src.models import ListenerModel, SpeakerModel
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
+def dict_diff(golden_dict, gen_dict):
+    res = {}
+    for k, v1 in golden_dict.items():
+
+        v2 = gen_dict[k]
+        if isinstance(v1, dict):
+            res[k] = dict_diff(v1, v2)
+        else:
+            res[k] = v1 - v2
+
+    return res
+
 def evaluate_trained_model(
         dataloader: DataLoader,
         list_model: torch.nn.Module,
@@ -30,8 +43,6 @@ def evaluate_trained_model(
     accuracies = []
     ranks = []
     domains = []
-    beam_k = 5
-    max_len = 30
     fake_loss = torch.as_tensor([0])
     in_domain = domain == dataloader.dataset.domain
 
@@ -59,8 +70,8 @@ def evaluate_trained_model(
             visual_context = data["concat_context"]
 
             # generate hypo with speaker
-            hypo, _, h1 = speak_model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
-                                                          target_img_feats)
+            hypo, _, _ = speak_model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
+                                                         target_img_feats)
             utterance = hypo2utterance(hypo, vocab)
         else:
             # else take them from golden caption
@@ -100,32 +111,33 @@ def evaluate_trained_model(
             ranks.append(rank_target + 1)  # no 0
 
         aux = dict(
-            preds=preds.squeeze(),
+            preds=preds.squeeze().item(),
             ranks=ranks,
             scores_ranked=scores_ranked,
             images_ranked=images_ranked,
-            correct=correct / preds.shape[0],
             hypo=hypo,
         )
 
         logger.on_batch_end(fake_loss, data, aux, batch_id=ii, modality=modality)
         domains += data["domain"]
 
-    current_accuracy = np.mean(accuracies)
+    accuracy = np.mean(accuracies)
 
     # normalize based on batches
-    domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
-    accuracy = np.mean(accuracies)
+    metrics = {}
+    if "out" in modality:
+        domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
+        metrics["domain_accuracy"] = domain_accuracy
+
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
-    metrics = dict(
-        mrr=MRR, domain_accuracy=domain_accuracy, loss=fake_loss, accuracy=accuracy
-    )
+    metrics["mrr"] = MRR
+    metrics['accuracy'] = accuracy
 
     logger.on_eval_end(
-        metrics, list_domain=dataloader.dataset.domain, modality=modality
+        copy.deepcopy(metrics), list_domain=dataloader.dataset.domain, modality=modality
     )
 
-    return current_accuracy, MRR
+    return metrics
 
 
 if __name__ == "__main__":
@@ -173,8 +185,8 @@ if __name__ == "__main__":
 
     speaker_model = speaker_model.eval()
 
-    dom=common_args.train_domain
-    url=LISTENER_CHK_DICT[dom]
+    dom = common_args.train_domain
+    url = LISTENER_CHK_DICT[dom]
 
     # for every listener
     list_checkpoint, _ = load_wandb_checkpoint(url, device)
@@ -252,7 +264,7 @@ if __name__ == "__main__":
         print(f"Eval on 'all' domain")
         _, _, val_loader, _ = get_dataloaders(list_args, vocab, "all")
 
-        evaluate_trained_model(
+        gen_metrics = evaluate_trained_model(
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
@@ -262,7 +274,7 @@ if __name__ == "__main__":
         )
 
         print(f"Eval on 'all' domain with golden caption")
-        evaluate_trained_model(
+        golden_metrics = evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
             vocab=vocab,
@@ -270,4 +282,12 @@ if __name__ == "__main__":
             logger=logger,
         )
 
+        # define difference between golden and generated out_domain metrics
+        diff_dict = dict_diff(golden_metrics, gen_metrics)
+        diff_dict={f"diff/{k}":v for k,v in diff_dict.items()}
+        logger.log_to_wandb(diff_dict,commit=True)
+
         logger.wandb_close()
+
+
+

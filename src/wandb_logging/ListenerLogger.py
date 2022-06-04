@@ -1,11 +1,10 @@
 import random
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import PIL.Image
 import torch
 import wandb
 from PIL import ImageOps
-from torch import nn
 
 from src.data.dataloaders import imgid2domain, imgid2path
 from src.wandb_logging.WandbLogger import WandbLogger
@@ -54,7 +53,6 @@ class ListenerLogger(WandbLogger):
 
         # viz embedding data
         self.embedding_data = {}
-
 
     def log_datapoint(self, data_point: Dict, preds, modality: str) -> Dict:
         """
@@ -181,9 +179,7 @@ class ListenerLogger(WandbLogger):
             # log plot for each domain
             logs["domain_acc_plots"] = dict(domain_accuracy)
 
-        logs["mrr"] = metrics["mrr"]
-        logs["loss"] = metrics["loss"]
-
+        logs.update(metrics)
         logs = {f"{modality}/{k}": v for k, v in logs.items()}
 
         self.log_to_wandb(logs, commit=False)
