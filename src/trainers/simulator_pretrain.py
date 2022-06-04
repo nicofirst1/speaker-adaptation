@@ -101,12 +101,11 @@ def evaluate(
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion)
 
-        losses.append(loss)
+        losses.append(loss.item())
         accuracies.append(accuracy)
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
 
-    # normalize based on batches
     losses = np.mean(losses)
     accuracies = np.mean(accuracies)
 
