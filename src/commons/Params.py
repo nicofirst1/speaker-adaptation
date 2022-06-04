@@ -31,7 +31,7 @@ def get_working_dir():
 
 
 def get_dataset_path():
-    return join(get_working_dir(),"dataset")
+    return join(get_working_dir(), "dataset")
 
 
 @dataclass
@@ -50,7 +50,6 @@ class Params:
     patience: Optional[int] = 50
 
     device: Optional[str] = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
 
     # If empty string then no resume. Else use wandb model checkpoints
     resume_train: str = ""
@@ -95,7 +94,7 @@ class Params:
     ############################################
 
     beam_size: Optional[int] = 5
-    max_len: Optional[int] =30
+    max_len: Optional[int] = 30
 
     def merge(self, other):
         """
@@ -130,7 +129,7 @@ class Params:
         for k, v in attrb:
             to_print += f"\t{k}: '{v}'\n"
 
-        #todo: add rich colors
+        # todo: add rich colors
 
         return to_print
 
@@ -229,7 +228,7 @@ class Params:
             "all",
         ]
         assert (
-            self.train_domain in valid_dom
+                self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
 
 
@@ -275,13 +274,14 @@ class ListenerArguments(Params):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
+
 
 class SimulatorArguments(Params):
     """
@@ -325,12 +325,12 @@ class SimulatorArguments(Params):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -371,4 +371,4 @@ class SpeakerArguments(Params):
         self.speaker_data = join(self.data_path, "speaker")
 
         self.img2dom_file = join(self.data_path, "img2dom.json")
-        self.vocab_file = join(self.data_path, self.vocab_file)
+        self.vocab_file = join(self.data_path,"speaker", self.vocab_file)

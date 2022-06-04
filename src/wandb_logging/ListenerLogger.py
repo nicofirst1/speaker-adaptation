@@ -6,7 +6,7 @@ import torch
 import wandb
 from PIL import ImageOps
 
-from src.data.dataloaders import imgid2domain, imgid2path
+from src.data.dataloaders import generate_imgid2domain, imgid2path,load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
 
@@ -30,7 +30,7 @@ class ListenerLogger(WandbLogger):
         self.img_id2path = imgid2path(data_path)
 
         # create a dict from img_id to domain
-        self.img_id2domain, self.domains = imgid2domain(data_path)
+        self.img_id2domain, self.domains = load_imgid2domain(kwargs['opts']['img2dom_file'])
 
         ### datapoint table
         table_columns = ["model domain"]
@@ -85,7 +85,7 @@ class ListenerLogger(WandbLogger):
         utt = utt.replace(" <pad>", "")
 
         # get imgs domain
-        imgs_domains = [self.img_id2domain[img] for img in imgs]
+        imgs_domains = [self.img_id2domain[str(img)] for img in imgs]
 
         # read image
         imgs = [self.img_id2path[x] for x in imgs]

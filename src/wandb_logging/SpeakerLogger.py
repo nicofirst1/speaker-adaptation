@@ -8,7 +8,8 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from src.data.dataloaders import imgid2domain, imgid2path
+from src.data.dataloaders import generate_imgid2domain, imgid2path
+from src.data.dataloaders.AbstractDataset import load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
 
@@ -28,7 +29,7 @@ class SpeakerLogger(WandbLogger):
         self.img_id2path = imgid2path(data_path)
 
         # create a dict from img_id to domain
-        self.img_id2domain, self.domains = imgid2domain(data_path)
+        self.img_id2domain, self.domains = load_imgid2domain(kwargs['opts']['img2dom_file'])
 
         ### datapoint table
 
@@ -94,7 +95,7 @@ class SpeakerLogger(WandbLogger):
         imgs_domains = []
         for img in imgs:
             try:
-                k = self.img_id2domain[img]
+                k = self.img_id2domain[str(img)]
             except KeyError:
                 k = "Error"
                 print(f"Error for img '{img}'")

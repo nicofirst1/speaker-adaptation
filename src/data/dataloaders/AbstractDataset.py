@@ -351,18 +351,29 @@ def imgid2path(data_path: str) -> Dict[str, str]:
     return dict(zip(imgs_ids, images))
 
 
-def imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
+def load_imgid2domain(file_path: str) -> Tuple[Dict[str, str], List[str]]:
+
+    with open(file_path, "r+") as f:
+        img2domain=json.load(f)
+
+    domains=set(img2domain.values())
+    return img2domain, domains
+
+
+
+def generate_imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
     """
     Return a dict correlating image id to image domain and a list of all domains
     :param data_path: location of data
     :return:
     """
-    chains_path = os.path.join(data_path, "chains-domain-specific", "speaker")
+    chains_path = os.path.join(data_path, "speaker")
     # chains_path=data_path
     chain_dict = {}
     for split in ["train", "test", "val"]:
-        with open(os.path.join(chains_path, f"{split}.json"), "r") as file:
-            chain_dict.update(json.load(file))
+        with open(os.path.join(chains_path, f"{split}_text_chains.json"), "r") as file:
+            utt=json.load(file)
+            chain_dict.update(utt)
 
     chain_dict = {k.split("/")[1]: k.split("/")[0] for k in chain_dict.keys()}
     chain_dict = {int(k.split("_")[-1].split(".")[0]): v for k, v in chain_dict.items()}

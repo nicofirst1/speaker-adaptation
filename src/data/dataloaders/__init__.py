@@ -1,5 +1,5 @@
-from .AbstractDataset import (AbstractDataset, imgid2domain,
-                                              imgid2path)
+from .AbstractDataset import (AbstractDataset, generate_imgid2domain,
+                              imgid2path, load_imgid2domain)
 from .ListenerDataset import ListenerDataset
 from .SpeakerDataset import SpeakerDataset
 from .Vocab import Vocab
@@ -8,7 +8,8 @@ __all__ = [
     "AbstractDataset",
     "ListenerDataset",
     "SpeakerDataset",
-    "imgid2domain",
+    "generate_imgid2domain",
+    "load_imgid2domain",
     "imgid2path",
     "Vocab",
 ]

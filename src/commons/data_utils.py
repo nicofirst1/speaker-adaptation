@@ -24,8 +24,6 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) 
     -------
 
     """
-    if domain == "all":
-        domain = "speaker"
 
     datasets = []
     # generate kwargs for different splits
