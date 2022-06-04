@@ -22,4 +22,4 @@ restore_arg=( --resume_train "adaptive-speaker/speaker/SpeakerModelHistAtt:lates
 
 #running the actual code
 echo "Starting the process..."
-python -u ${HOME}/pb_speaker_adaptation/src/trainers/speaker_train.py  "${common_args[@]}" #&> "${out_file}"
+python -u ${HOME}/pb_speaker_adaptation/src/trainers/speaker_train.py  "${common_args[@]}" > "speaker_train.log"

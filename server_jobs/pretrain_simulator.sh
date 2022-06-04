@@ -21,4 +21,4 @@ common_args=( --dropout 0.3 --batch_size 32 --model_type hist_att --metric bert 
 
 #running the actual code
 echo "Starting the process..."
-python -u ${HOME}/pb_speaker_adaptation/src/trainers/simulator_pretrain.py  "${common_args[@]}" #&> "${out_file}"
+python -u ${HOME}/pb_speaker_adaptation/src/trainers/simulator_pretrain.py  "${common_args[@]}" >  "simulator_pretrain.log"
