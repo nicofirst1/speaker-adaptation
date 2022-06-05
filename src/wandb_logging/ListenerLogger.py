@@ -208,6 +208,10 @@ class ListenerLogger(WandbLogger):
         for k, v in logs.items():
             if isinstance(v, torch.Tensor):
                 logs[k] = v.detach().item()
+            # transform list into histograms
+            elif isinstance(v,list):
+                logs[k]=wandb.Histogram(v)
+
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}

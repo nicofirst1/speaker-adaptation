@@ -26,7 +26,8 @@ class EarlyStopping:
 
         # check the value of the counter
         if self.patient_couter >= self.max_patient:
-            print(f"Early stopping after {self.patient_couter} epochs!")
+            print(f"Early stopping after {self.patient_couter} epochs!\n"
+                  f"Prev metric value '{self.best_metric}' vs current '{metric_val}'")
             return True
         else:
             return False

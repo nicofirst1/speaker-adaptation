@@ -61,8 +61,14 @@ def get_predictions(
     sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
 
     # accuracy
-    accuracy = torch.eq(list_preds, sim_preds).sum()
-    accuracy = accuracy.item() / sim_preds.shape[0]
+    targets=targets.squeeze()
+    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()/ sim_preds.shape[0]
+    list_target_accuracy=torch.eq(list_preds, targets).sum()/ list_preds.shape[0]
+    sim_target_accuracy=torch.eq(sim_preds, targets).sum()/ sim_preds.shape[0]
+
+    sim_list_accuracy=sim_list_accuracy.item()
+    list_target_accuracy=list_target_accuracy.item()
+    sim_target_accuracy=sim_target_accuracy.item()
 
     list_preds = list_preds.tolist()
     sim_preds = sim_preds.tolist()
@@ -71,14 +77,16 @@ def get_predictions(
         sim_preds=sim_preds,
         list_preds=list_preds,
 
-        accuracy=accuracy,
+        sim_list_accuracy=sim_list_accuracy,
+        list_target_accuracy=list_target_accuracy,
+        sim_target_accuracy=sim_target_accuracy,
 
         list_loss=list_loss,
         sim_list_loss=sim_list_loss,
         sim_loss=sim_loss,
     )
 
-    return loss, accuracy, aux
+    return loss, sim_list_accuracy, aux
 
 
 def evaluate(
@@ -258,7 +266,7 @@ if __name__ == "__main__":
         training_loader, vocab, speaker_model, batch_size=bs, split_name="train"
     )
     speak_val_dl = speaker_augmented_dataloader(
-        val_loader, vocab, speaker_model, batch_size=1, split_name="val"
+        val_loader, vocab, speaker_model, batch_size=bs, split_name="val"
     )
 
     ###################################
