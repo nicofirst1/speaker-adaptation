@@ -204,8 +204,9 @@ class ListenerLogger(WandbLogger):
         logs = {}
         logs.update(aux)
 
+        # detach torch tensor and cast to float
         for k, v in logs.items():
-            if isinstance(k, torch.Tensor):
+            if isinstance(v, torch.Tensor):
                 logs[k] = v.detach().item()
 
         # apply correct flag

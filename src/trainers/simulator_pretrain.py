@@ -27,7 +27,7 @@ from src.wandb_logging import ListenerLogger
 
 
 def get_predictions(
-        data: DataLoader, list_model: ListenerModel, sim_model: SimulatorModel, criterion
+        data: DataLoader, list_model: ListenerModel, sim_model: SimulatorModel, criterion, cel
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -52,9 +52,9 @@ def get_predictions(
     targets = targets.to(device)
 
     # Losses and preds
-    list_loss = criterion(list_out, targets)
+    list_loss = cel(list_out, targets)
     sim_list_loss = criterion(list_out, sim_out)
-    sim_loss = criterion(sim_out, targets)
+    sim_loss = cel(sim_out, targets)
     loss = sim_list_loss
 
     list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
@@ -99,7 +99,7 @@ def evaluate(
     flag = "eval"
 
     for ii, data in enumerate(data_loader):
-        loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion)
+        loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion, cel)
 
         losses.append(loss.item())
         accuracies.append(accuracy)
@@ -244,8 +244,8 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
-    criterion = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-
+    cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
+    criterion= nn.KLDivLoss(reduction=sim_p.reduction)
     ###################################
     ##  Get speaker dataloader
     ###################################
@@ -292,7 +292,7 @@ if __name__ == "__main__":
                 description="Training",
         ):
             # get datapoints
-            loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion)
+            loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion, cel)
 
             losses.append(loss.item())
             accuracies.append(accuracy)
