@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=05:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=4
+#SBATCH --gpus-per-node=1
 
 
 
@@ -20,7 +20,7 @@ common_args=( --dropout 0.5 --batch_size 64  --metric accs --reduction sum --sub
 restore_arg=( --resume_train "adaptive-speaker/simulator-pretrain/SimulatorModel:v235" )
 
 # restore the simulator
-#common_args=("${common_args[@]}" "${restore_arg[@]}")
+common_args=("${common_args[@]}" "${restore_arg[@]}")
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/simulator_pretrain.py"
 out_file="simulator_pretrain_${SLURM_ARRAY_TASK_ID}.log"
