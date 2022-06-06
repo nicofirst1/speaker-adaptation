@@ -143,9 +143,8 @@ if __name__ == "__main__":
 
     # update list args
     list_args.batch_size = 1  # hypotesis generation does not support batch
-    list_args.vocab_file = "vocab.csv"
-    list_args.vectors_file = os.path.basename(list_args.vectors_file)
     list_args.device = device
+    list_args.reset_paths()
 
     # for debug
     list_args.subset_size = common_p.subset_size
@@ -184,8 +183,7 @@ if __name__ == "__main__":
     speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
     # load args
     speak_p = speak_check["args"]
-    speak_p.vocab_file = "vocab.csv"
-    speak_p.__post_init__()
+    speak_p.reset_paths()
 
     # init speak model and load state
     speaker_model = SpeakerModel(
@@ -211,11 +209,16 @@ if __name__ == "__main__":
     if common_p.resume_train:
         sim_check, _ = load_wandb_checkpoint(SIM_CHK, device)
         # load args
-
         sim_p = sim_check["args"]
-        sim_p.vocab_file = "vocab.csv"
         sim_p.train_domain = domain
-        sim_p.__post_init__()
+        sim_p.device = device
+
+        # for debug
+        sim_p.subset_size = common_p.subset_size
+        sim_p.debug = common_p.debug
+
+        sim_p.reset_paths()
+
     else:
         sim_p=common_p
 

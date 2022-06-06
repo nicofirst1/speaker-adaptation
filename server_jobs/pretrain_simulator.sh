@@ -16,9 +16,54 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-echo "Creating output directory..."
-common_args=( --dropout 0.3 --batch_size 64 --model_type hist_att --metric accs --beam_size 3 --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 --shuffle --embedding_dim 1024)
+common_args=( --dropout 0.5 --batch_size 64  --metric accs --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 --shuffle --embedding_dim 1024)
+restore_arg=( --resume_train "adaptive-speaker/simulator-pretrain/SimulatorModel:v235" )
+
+# restore the simulator
+#common_args=("${common_args[@]}" "${restore_arg[@]}")
+
+trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/simulator_pretrain.py"
+out_file="simulator_pretrain_${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
 echo "Starting the process..."
-python -u ${HOME}/pb_speaker_adaptation/src/trainers/simulator_pretrain.py  "${common_args[@]}" >  "simulator_pretrain.log"
+
+
+if [[ $SLURM_ARRAY_TASK_ID -eq 1 ]]; then
+  echo "Launching appliances"
+  python -u ${trainers_file} --train_domain appliances "${common_args[@]}" > "${out_file}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 2 ]]; then
+
+  echo "Launching food"
+
+  python -u ${trainers_file} --train_domain food "${common_args[@]}" > "${out_file}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 3 ]]; then
+
+  echo "Launching indoor"
+
+  python -u ${trainers_file} --train_domain indoor "${common_args[@]}" > "${out_file}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 4 ]]; then
+
+  echo "Launching outdoor"
+
+  python -u ${trainers_file} --train_domain outdoor "${common_args[@]}" > "${out_file}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 5 ]]; then
+
+  echo "Launching vehicles"
+
+  python -u ${trainers_file} --train_domain vehicles "${common_args[@]}" > "${out_file}"
+
+elif [[ $SLURM_ARRAY_TASK_ID -eq 6 ]]; then
+  echo "Launching all"
+
+  python -u ${trainers_file} --train_domain all "${common_args[@]}" > "${out_file}"
+
+else
+  echo "No domain specified for id $SLURM_ARRAY_TASK_ID"
+  exit 1
+
+fi

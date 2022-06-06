@@ -146,6 +146,7 @@ class Params:
         -------
 
         """
+        self.working_dir = get_working_dir()
         self.data_path = get_dataset_path()
 
         if "vectors.json" in self.vectors_file:  # from resnet
@@ -230,6 +231,11 @@ class Params:
         assert (
                 self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
+
+    def reset_paths(self):
+        self.vocab_file = "vocab.csv"
+        self.vectors_file = os.path.basename(self.vectors_file)
+        self.__post_init__()
 
 
 class ListenerArguments(Params):
@@ -371,4 +377,4 @@ class SpeakerArguments(Params):
         self.speaker_data = join(self.data_path, "speaker")
 
         self.img2dom_file = join(self.data_path, "img2dom.json")
-        self.vocab_file = join(self.data_path,"speaker", self.vocab_file)
+        self.vocab_file = join(self.data_path, "speaker", self.vocab_file)
