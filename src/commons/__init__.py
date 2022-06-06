@@ -27,3 +27,4 @@ LISTENER_CHK_DICT = dict(
 )
 #fixme: get a proper chk
 SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModelHistAtt:v52"
+SIM_CHK="adaptive-speaker/simulator-pretrain/SimulatorModel:v235"
