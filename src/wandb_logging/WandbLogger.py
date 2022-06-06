@@ -82,8 +82,9 @@ class WandbLogger:
 
     def save_model(self, path2model, model_name, epoch, args):
 
-        if "Listener" in model_name:
+        if "Listener" in model_name or "Simulator" in model_name:
             model_name += f"_{args.train_domain}"
+
 
         self.log_artifact(
             path2model,

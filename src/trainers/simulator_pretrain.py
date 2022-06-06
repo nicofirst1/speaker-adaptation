@@ -17,7 +17,7 @@ from src.commons import (
     load_wandb_checkpoint,
     mask_attn,
     parse_args,
-    save_model,
+    save_model, SIM_CHK,
 )
 from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
@@ -33,6 +33,7 @@ def get_predictions(
     Extract data, get list/sim out, estimate losses and create log dict
 
     """
+    
     # get datapoints
     context_separate = data["separate_images"]
     context_concat = data["concat_context"]
@@ -128,9 +129,10 @@ if __name__ == "__main__":
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
-    domain = "all"
 
-    sim_p = parse_args("sim")
+    common_p = parse_args("sim")
+    domain = common_p.train_domain
+
 
     ##########################
     # LISTENER
@@ -146,8 +148,8 @@ if __name__ == "__main__":
     list_args.device = device
 
     # for debug
-    list_args.subset_size = sim_p.subset_size
-    list_args.debug = sim_p.debug
+    list_args.subset_size = common_p.subset_size
+    list_args.debug = common_p.debug
 
     # for reproducibility
     seed = list_args.seed
@@ -203,13 +205,33 @@ if __name__ == "__main__":
 
     speaker_model = speaker_model.eval()
 
+    ##########################
+    # SIMULATOR
+    ##########################
+    if common_p.resume_train:
+        sim_check, _ = load_wandb_checkpoint(SIM_CHK, device)
+    # load args
+    sim_p = sim_check["args"]
+    sim_p.vocab_file = "vocab.csv"
+    sim_p.__post_init__()
+
+    sim_model = SimulatorModel(
+        len(vocab),
+        speak_p.hidden_dim,
+        sim_p.hidden_dim,
+        img_dim,
+        sim_p.attention_dim,
+        sim_p.dropout_prob,
+        sim_p.device,
+    ).to(device)
+
     ###################################
     ##  LOGGER
     ###################################
 
     # add debug label
     tags = []
-    if sim_p.debug or sim_p.subset_size != -1:
+    if common_p.debug or common_p.subset_size != -1:
         tags = ["debug"]
 
     logger = ListenerLogger(
@@ -231,20 +253,6 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    ##########################
-    # SIMULATOR
-    ##########################
-
-    sim_model = SimulatorModel(
-        len(vocab),
-        speak_p.hidden_dim,
-        sim_p.hidden_dim,
-        img_dim,
-        sim_p.attention_dim,
-        sim_p.dropout_prob,
-        sim_p.device,
-    ).to(device)
-
     logger.watch_model([sim_model])
 
     ###################################
@@ -254,6 +262,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
     criterion= nn.KLDivLoss(reduction=sim_p.reduction)
+
     ###################################
     ##  Get speaker dataloader
     ###################################
@@ -297,7 +306,7 @@ if __name__ == "__main__":
         for i, data in rich.progress.track(
                 enumerate(speak_train_dl),
                 total=len(speak_train_dl),
-                description="Training",
+                description=f"Training epoch {epoch}",
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion, cel)
