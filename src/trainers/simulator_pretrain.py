@@ -33,7 +33,7 @@ def get_predictions(
     Extract data, get list/sim out, estimate losses and create log dict
 
     """
-    
+
     # get datapoints
     context_separate = data["separate_images"]
     context_concat = data["concat_context"]
@@ -210,10 +210,15 @@ if __name__ == "__main__":
     ##########################
     if common_p.resume_train:
         sim_check, _ = load_wandb_checkpoint(SIM_CHK, device)
-    # load args
-    sim_p = sim_check["args"]
-    sim_p.vocab_file = "vocab.csv"
-    sim_p.__post_init__()
+        # load args
+
+        sim_p = sim_check["args"]
+        sim_p.vocab_file = "vocab.csv"
+        sim_p.train_domain = domain
+        sim_p.__post_init__()
+    else:
+        sim_p=common_p
+
 
     sim_model = SimulatorModel(
         len(vocab),
