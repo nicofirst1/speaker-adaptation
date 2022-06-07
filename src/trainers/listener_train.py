@@ -181,7 +181,7 @@ if __name__ == "__main__":
         raise KeyError(f"No valid image vector for file '{args.vectors_file}'")
 
     training_loader, test_loader, val_loader, _ = get_dataloaders(args, vocab, domain)
-    _, _, val_loader_speaker, _ = get_dataloaders(args, vocab, domain="speaker")
+    _, _, val_loader_speaker, _ = get_dataloaders(args, vocab, domain="all")
 
     if args.log_data:
         # log dataset once
