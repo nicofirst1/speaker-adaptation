@@ -157,8 +157,8 @@ def evaluate_trained_model(
     return metrics
 
 
-def generate_table_data(modality: str, table_columns: List, metrics: Dict) -> List:
-    data = [modality]
+def generate_table_data(domain:str,modality: str, table_columns: List, metrics: Dict) -> List:
+    data = [domain,modality]
     for key in table_columns:
         if key == "modality":
             continue
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     # todo make table
 
     ### datapoint table
-    table_columns = ["modality", "mrr", "accuracy"]
+    table_columns = ["list_domain","modality", "mrr", "accuracy"]
     table_columns += [f"{dom}" for dom in logger.domains]
     table_columns += ["target", "utt"]
 
@@ -335,9 +335,9 @@ if __name__ == "__main__":
 
         # define table data rows
         data = []
-        data.append(generate_table_data("golden", table_columns, golden_metrics))
-        data.append(generate_table_data("gen", table_columns, gen_metrics))
-        data.append(generate_table_data("diff", table_columns, diff_dict))
+        data.append(generate_table_data(list_args.train_domain,"golden", table_columns, golden_metrics))
+        data.append(generate_table_data(list_args.train_domain,"gen", table_columns, gen_metrics))
+        data.append(generate_table_data(list_args.train_domain,"diff", table_columns, diff_dict))
 
         # create table and log
         table = wandb.Table(columns=table_columns, data=data)
