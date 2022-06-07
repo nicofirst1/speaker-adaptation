@@ -196,13 +196,13 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     print("Loading the vocab...")
-    vocab = Vocab(speak_p.vocab_file, is_speaker=True)
+    speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
     img_dim = 2048
 
     # init speak model and load state
     speaker_model = SpeakerModel(
-        vocab,
+        speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
@@ -288,7 +288,7 @@ if __name__ == "__main__":
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
-            vocab=vocab,
+            vocab=speak_vocab,
             domain=dom,
             logger=logger,
         )
@@ -297,7 +297,7 @@ if __name__ == "__main__":
         evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
-            vocab=vocab,
+            vocab=speak_vocab,
             domain=dom,
             logger=logger,
         )
@@ -309,7 +309,7 @@ if __name__ == "__main__":
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
-            vocab=vocab,
+            vocab=speak_vocab,
             domain=dom,
             logger=logger,
         )
@@ -318,7 +318,7 @@ if __name__ == "__main__":
         golden_metrics = evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
-            vocab=vocab,
+            vocab=speak_vocab,
             domain=dom,
             logger=logger,
         )
