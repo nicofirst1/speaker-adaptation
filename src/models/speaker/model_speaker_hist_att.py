@@ -22,10 +22,7 @@ class SpeakerModel(nn.Module):
         self.vocab = vocab
 
         # remove nohos from prediction
-        if "<nohs>" in vocab.word2index.keys():
-            vocab_len = len(vocab) - 1
-        else:
-            vocab_len = len(vocab)
+        vocab_len = len(vocab) - 1
 
         self.vocab_size = vocab_len
         self.beam_k = beam_k

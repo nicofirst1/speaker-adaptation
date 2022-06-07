@@ -5,7 +5,7 @@ import torch
 
 
 class Vocab:
-    def __init__(self, file):
+    def __init__(self, file, is_speaker:bool):
         print("Initialising vocab from file.")
 
         self.word2index = {}
@@ -23,6 +23,10 @@ class Vocab:
                 self.word2index[w] = len(self.word2index)
                 self.index2word[self.word2index[w]] = w
                 self.word2count[w] = c
+
+        if is_speaker:
+            self.index2word[len(self)] = "<nohs>"  # special token placeholder for no prev utt
+            self.word2index["<nohs>"] = len(self)  # len(vocab) updated (depends on w2i)
 
     def encode(self, text: List[str], add_special_tokens=False) -> torch.Tensor:
 

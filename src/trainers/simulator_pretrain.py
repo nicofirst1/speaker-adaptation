@@ -160,10 +160,10 @@ if __name__ == "__main__":
     # update paths
     # list_args.__parse_args()
     list_args.__post_init__()
-    vocab = Vocab(list_args.vocab_file)
+    list_vocab = Vocab(list_args.vocab_file,  is_speaker=False)
 
     list_model = ListenerModel(
-        len(vocab),
+        len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
         img_dim,
@@ -185,9 +185,12 @@ if __name__ == "__main__":
     speak_p = speak_check["args"]
     speak_p.reset_paths()
 
+    speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
+
+
     # init speak model and load state
     speaker_model = SpeakerModel(
-        vocab,
+        speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
@@ -224,7 +227,7 @@ if __name__ == "__main__":
 
 
     sim_model = SimulatorModel(
-        len(vocab),
+        len(list_vocab),
         speak_p.hidden_dim,
         sim_p.hidden_dim,
         img_dim,
@@ -243,7 +246,7 @@ if __name__ == "__main__":
         tags = ["debug"]
 
     logger = ListenerLogger(
-        vocab=vocab,
+        vocab=speak_vocab,
         opts=vars(sim_p),
         train_logging_step=1,
         val_logging_step=1,
@@ -277,13 +280,13 @@ if __name__ == "__main__":
     bs = sim_p.batch_size
     # need batchsize =1 for generating the new dataloaders
     sim_p.batch_size = 1
-    training_loader, _, val_loader, _ = get_dataloaders(sim_p, vocab, domain)
+    training_loader, _, val_loader, _ = get_dataloaders(sim_p, speak_vocab, domain)
 
     speak_train_dl = speaker_augmented_dataloader(
-        training_loader, vocab, speaker_model, batch_size=bs, split_name="train"
+        training_loader, speak_vocab, speaker_model, batch_size=bs, split_name="train"
     )
     speak_val_dl = speaker_augmented_dataloader(
-        val_loader, vocab, speaker_model, batch_size=bs, split_name="val"
+        val_loader, speak_vocab, speaker_model, batch_size=bs, split_name="val"
     )
 
     ###################################

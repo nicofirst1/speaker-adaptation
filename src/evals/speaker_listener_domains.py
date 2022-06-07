@@ -1,10 +1,12 @@
 import copy
 import os
-from typing import Optional
+from typing import Optional, List, Dict
 
+import PIL.Image
 import numpy as np
 import rich.progress
 import torch
+import wandb
 from torch.utils.data import DataLoader
 
 from src.commons import (
@@ -31,6 +33,7 @@ def dict_diff(golden_dict, gen_dict):
             res[k] = v1 - v2
 
     return res
+
 
 def evaluate_trained_model(
         dataloader: DataLoader,
@@ -125,19 +128,49 @@ def evaluate_trained_model(
 
     # normalize based on batches
     metrics = {}
-    if "out" in modality:
-        domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
-        metrics["domain_accuracy"] = domain_accuracy
 
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
     metrics["mrr"] = MRR
     metrics['accuracy'] = accuracy
 
-    logger.on_eval_end(
-        copy.deepcopy(metrics), list_domain=dataloader.dataset.domain, modality=modality
-    )
+
+
+    if "out" in modality:
+        domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
+        metrics["domain_accuracy"] = domain_accuracy
+
+        # log image\hypo and utterance
+        img = data['image_set'][0][data['target'][0]]
+        img = logger.img_id2path[img]
+        img =  wandb.Image(img)
+        origin_utt = data['orig_utterance'][0]
+
+        metrics['aux'] = dict(
+            target=img,
+            utt=hypo if speak_model is not None else origin_utt
+        )
+    else:
+        logger.on_eval_end(
+            copy.deepcopy(metrics), list_domain=dataloader.dataset.domain, modality=modality
+        )
 
     return metrics
+
+
+def generate_table_data(modality: str, table_columns: List, metrics: Dict) -> List:
+    data = [modality]
+    for key in table_columns:
+        if key == "modality":
+            continue
+        elif key in metrics.keys():
+            data.append(metrics[key])
+        elif key in metrics['domain_accuracy'].keys():
+            data.append(metrics['domain_accuracy'][key])
+        elif key in metrics['aux'].keys():
+            data.append(metrics['aux'][key])
+        else:
+            raise KeyError(f"No key '{key}' found in dict")
+    return data
 
 
 if __name__ == "__main__":
@@ -163,7 +196,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     print("Loading the vocab...")
-    vocab = Vocab(speak_p.vocab_file)
+    vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
     img_dim = 2048
 
@@ -205,7 +238,7 @@ if __name__ == "__main__":
     # update paths
     # list_args.__parse_args()
     list_args.__post_init__()
-    vocab = Vocab(list_args.vocab_file)
+    vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
     list_model = ListenerModel(
         len(vocab),
@@ -234,6 +267,14 @@ if __name__ == "__main__":
         tags=tags,
         project="speaker-list-dom",
     )
+
+    # todo: log captions
+    # todo make table
+
+    ### datapoint table
+    table_columns = ["modality", "mrr", "accuracy"]
+    table_columns += [f"{dom}" for dom in logger.domains]
+    table_columns += ["target", "utt"]
 
     with torch.no_grad():
         list_model.eval()
@@ -282,12 +323,24 @@ if __name__ == "__main__":
             logger=logger,
         )
 
+        golden_aux = golden_metrics.pop("aux")
+        gen_aux = gen_metrics.pop("aux")
         # define difference between golden and generated out_domain metrics
         diff_dict = dict_diff(golden_metrics, gen_metrics)
-        diff_dict={f"diff/{k}":v for k,v in diff_dict.items()}
-        logger.log_to_wandb(diff_dict,commit=True)
+
+        # reappend aux
+        gen_metrics['aux'] = gen_aux
+        golden_metrics['aux'] = golden_aux
+        diff_dict['aux'] = golden_aux
+
+        # define table data rows
+        data = []
+        data.append(generate_table_data("golden", table_columns, golden_metrics))
+        data.append(generate_table_data("gen", table_columns, gen_metrics))
+        data.append(generate_table_data("diff", table_columns, diff_dict))
+
+        # create table and log
+        table = wandb.Table(columns=table_columns, data=data)
+        logger.log_to_wandb(dict(out_domain=table), commit=True)
 
         logger.wandb_close()
-
-
-

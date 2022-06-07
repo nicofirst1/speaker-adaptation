@@ -130,7 +130,7 @@ class ListenerLogger(WandbLogger):
         img_emb = [list(x) for x in img_emb]
 
         # get imgs domain
-        imgs_domains = [self.img_id2domain[img] for img in imgs]
+        imgs_domains = [self.img_id2domain[str(img)] for img in imgs]
 
         # read images
         imgs = [self.img_id2path[x] for x in imgs]
@@ -165,7 +165,7 @@ class ListenerLogger(WandbLogger):
 
         # get and log domain accuracy table
         logs = {}
-        if "out_domain" in modality:
+        if "domain_accuracy" in metrics.keys():
             domain_accuracy = metrics["domain_accuracy"]
             domain_accuracy = sorted(domain_accuracy.items(), key=lambda item: item[0])
 
@@ -204,14 +204,19 @@ class ListenerLogger(WandbLogger):
         logs = {}
         logs.update(aux)
 
-        # detach torch tensor and cast to float
+        # detach torch tensor
         for k, v in logs.items():
             if isinstance(v, torch.Tensor):
-                logs[k] = v.detach().item()
-            # transform list into histograms
-            elif isinstance(v,list):
-                logs[k]=wandb.Histogram(v)
+                v = v.detach()
+                # transform to list/float
+                if v.ndim > 0:
+                    logs[k] = v.tolist()
+                else:
+                    logs[k] = v.item()
 
+            # transform list into histograms
+            if isinstance(v, list):
+                logs[k] = wandb.Histogram(v)
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}

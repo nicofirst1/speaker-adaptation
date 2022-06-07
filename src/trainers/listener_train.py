@@ -119,7 +119,9 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         round(MRR, 5),
     )
 
-    metrics = dict(mrr=MRR, domain_accuracy=domain_accuracy, loss=loss)
+    metrics = dict(mrr=MRR, loss=loss)
+    if len(domain_accuracy)>0:
+        metrics["domain_accuracy"]=domain_accuracy
 
     logger.log_datapoint(data, preds, modality="eval")
     logger.log_viz_embeddings(data, modality="eval")
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     # print("Loading the vocab...")
-    vocab = Vocab(args.vocab_file)
+    vocab = Vocab(args.vocab_file, is_speaker=False)
     vocab_size = len(vocab)
     # print(f'vocab size {vocab_size}')
 

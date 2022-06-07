@@ -142,9 +142,7 @@ if __name__ == "__main__":
     ###################################
 
     print("Loading the vocab...")
-    vocab = Vocab(speak_p.vocab_file)
-    vocab.index2word[len(vocab)] = "<nohs>"  # special token placeholder for no prev utt
-    vocab.word2index["<nohs>"] = len(vocab)  # len(vocab) updated (depends on w2i)
+    vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
     training_loader, test_loader, val_loader, training_beam_loader = get_dataloaders(
         speak_p, vocab
