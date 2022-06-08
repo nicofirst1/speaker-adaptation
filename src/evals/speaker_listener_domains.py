@@ -2,7 +2,6 @@ import copy
 import os
 from typing import Optional, List, Dict
 
-import PIL.Image
 import numpy as np
 import rich.progress
 import torch
@@ -133,22 +132,24 @@ def evaluate_trained_model(
     metrics["mrr"] = MRR
     metrics['accuracy'] = accuracy
 
+    # log image\hypo and utterance
+    img = data['image_set'][0][data['target'][0]]
+    img = logger.img_id2path[img]
+    origin_utt = data['orig_utterance'][0]
+    utt = hypo if speak_model is not None else origin_utt
 
+    img = wandb.Image(img, caption=utt)
+
+    metrics['aux'] = dict(
+        target=img,
+        utt=utt
+    )
 
     if "out" in modality:
         domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
         metrics["domain_accuracy"] = domain_accuracy
 
-        # log image\hypo and utterance
-        img = data['image_set'][0][data['target'][0]]
-        img = logger.img_id2path[img]
-        img =  wandb.Image(img)
-        origin_utt = data['orig_utterance'][0]
 
-        metrics['aux'] = dict(
-            target=img,
-            utt=hypo if speak_model is not None else origin_utt
-        )
     else:
         logger.on_eval_end(
             copy.deepcopy(metrics), list_domain=dataloader.dataset.domain, modality=modality
@@ -157,10 +158,10 @@ def evaluate_trained_model(
     return metrics
 
 
-def generate_table_data(domain:str,modality: str, table_columns: List, metrics: Dict) -> List:
-    data = [domain,modality]
+def generate_table_data(domain: str, modality: str, table_columns: List, metrics: Dict) -> List:
+    data = [domain, modality]
     for key in table_columns:
-        if key in ["modality","list_domain"]:
+        if key in ["modality", "list_domain"]:
             continue
         elif key in metrics.keys():
             data.append(metrics[key])
@@ -272,7 +273,7 @@ if __name__ == "__main__":
     # todo make table
 
     ### datapoint table
-    table_columns = ["list_domain","modality", "mrr", "accuracy"]
+    table_columns = ["list_domain", "modality", "mrr", "accuracy"]
     table_columns += [f"{dom}" for dom in logger.domains]
     table_columns += ["target", "utt"]
 
@@ -335,9 +336,9 @@ if __name__ == "__main__":
 
         # define table data rows
         data = []
-        data.append(generate_table_data(list_args.train_domain,"golden", table_columns, golden_metrics))
-        data.append(generate_table_data(list_args.train_domain,"gen", table_columns, gen_metrics))
-        data.append(generate_table_data(list_args.train_domain,"diff", table_columns, diff_dict))
+        data.append(generate_table_data(list_args.train_domain, "golden", table_columns, golden_metrics))
+        data.append(generate_table_data(list_args.train_domain, "gen", table_columns, gen_metrics))
+        data.append(generate_table_data(list_args.train_domain, "diff", table_columns, diff_dict))
 
         # create table and log
         table = wandb.Table(columns=table_columns, data=data)
