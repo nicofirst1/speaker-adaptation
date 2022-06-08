@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import PIL.Image
 import torch
@@ -161,7 +161,8 @@ class ListenerLogger(WandbLogger):
 
         self.log_to_wandb(metrics, commit=True)
 
-    def on_eval_end(self, metrics: Dict[str, Any], list_domain: int, modality: str):
+    def on_eval_end(self, metrics: Dict[str, Any], list_domain: int, modality: str, commit: Optional[bool] = False
+                    ):
 
         # get and log domain accuracy table
         logs = {}
@@ -182,7 +183,7 @@ class ListenerLogger(WandbLogger):
         logs.update(metrics)
         logs = {f"{modality}/{k}": v for k, v in logs.items()}
 
-        self.log_to_wandb(logs, commit=False)
+        self.log_to_wandb(logs, commit=commit)
 
     def on_batch_end(
             self,
@@ -191,6 +192,7 @@ class ListenerLogger(WandbLogger):
             aux: Dict[str, Any],
             batch_id: int,
             modality: str,
+            commit: Optional[bool] = False
     ):
 
         logging_step = (
@@ -228,4 +230,4 @@ class ListenerLogger(WandbLogger):
         self.steps[modality] += 1
         logs[f"{modality}/steps"] = self.steps[modality]
 
-        self.log_to_wandb(logs, commit=False)
+        self.log_to_wandb(logs, commit=commit)

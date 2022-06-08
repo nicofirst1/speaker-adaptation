@@ -260,6 +260,9 @@ class AbstractDataset(Dataset):
                         padded = sample[key] + [0] * (max_utt_length - sample["length"])
 
                         # print('utt', padded)
+                    elif key == "speak_utterance":
+
+                        padded = sample[key] + [0] * (max_utt_length -  len(sample[key]))
 
                     elif key == "prev_utterance":
 

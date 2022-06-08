@@ -43,6 +43,7 @@ def get_predictions(
     prev_hist = data["prev_histories"]
     speak_embds = data["speak_h1embed"]
     max_length_tensor = utterance.shape[1]
+    batch_size=utterance.shape[0]
     masks = mask_attn(lengths, max_length_tensor, device)
 
     # get outputs
@@ -63,9 +64,9 @@ def get_predictions(
 
     # accuracy
     targets=targets.squeeze()
-    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()/ sim_preds.shape[0]
-    list_target_accuracy=torch.eq(list_preds, targets).sum()/ list_preds.shape[0]
-    sim_target_accuracy=torch.eq(sim_preds, targets).sum()/ sim_preds.shape[0]
+    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()/ batch_size
+    list_target_accuracy=torch.eq(list_preds, targets).sum()/ batch_size
+    sim_target_accuracy=torch.eq(sim_preds, targets).sum()/ batch_size
 
     sim_list_accuracy=sim_list_accuracy.item()
     list_target_accuracy=list_target_accuracy.item()
@@ -120,7 +121,7 @@ def evaluate(
 
     metrics = dict(accuracy=accuracies, loss=losses)
 
-    logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
+    logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag, commit=True)
 
     return accuracies, losses
 
@@ -336,6 +337,7 @@ if __name__ == "__main__":
                 aux=aux,
                 batch_id=i,
                 modality="train",
+                commit=True
             )
 
         losses = np.mean(losses)
