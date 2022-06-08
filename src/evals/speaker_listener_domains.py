@@ -160,7 +160,7 @@ def evaluate_trained_model(
 def generate_table_data(domain:str,modality: str, table_columns: List, metrics: Dict) -> List:
     data = [domain,modality]
     for key in table_columns:
-        if key == "modality":
+        if key in ["modality","list_domain"]:
             continue
         elif key in metrics.keys():
             data.append(metrics[key])
