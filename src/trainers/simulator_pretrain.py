@@ -121,7 +121,7 @@ def evaluate(
 
     metrics = dict(accuracy=accuracies, loss=losses)
 
-    logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag, commit=True)
+    logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
     return accuracies, losses
 
@@ -337,7 +337,6 @@ if __name__ == "__main__":
                 aux=aux,
                 batch_id=i,
                 modality="train",
-                commit=True
             )
 
         losses = np.mean(losses)
