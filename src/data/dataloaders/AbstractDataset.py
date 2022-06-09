@@ -11,16 +11,16 @@ from torch.utils.data import Dataset
 
 class AbstractDataset(Dataset):
     def __init__(
-        self,
-        split:str,
-        data_dir:str,
-        chain_file:str,
-        utterances_file:str,
-        vectors_file:str,
-        orig_ref_file:str,
-        img2dom_file:str,
-        subset_size:int = -1,
-        image_size:int =2048,
+            self,
+            split: str,
+            data_dir: str,
+            chain_file: str,
+            utterances_file: str,
+            vectors_file: str,
+            orig_ref_file: str,
+            img2dom_file: str,
+            subset_size: int = -1,
+            image_size: int = 2048,
     ):
         """
         Abstract dataclass that implements
@@ -170,7 +170,7 @@ class AbstractDataset(Dataset):
                     im_counter += 1
 
                     if (
-                        game_id in self.img2chain[im]
+                            game_id in self.img2chain[im]
                     ):  # was there a linguistic chain for this image in this game
                         temp_chain = self.img2chain[im][game_id]
 
@@ -248,6 +248,8 @@ class AbstractDataset(Dataset):
 
             max_utt_length = max(d["length"] for d in data)
             max_prevutt_length = max([d["prev_length"] for d in data])
+            if "speak_utterance" in data[0].keys():
+                max_speak_length = max(len(d["speak_utterance"]) for d in data)
 
             batch = defaultdict(list)
 
@@ -262,19 +264,19 @@ class AbstractDataset(Dataset):
                         # print('utt', padded)
                     elif key == "speak_utterance":
 
-                        padded = sample[key] + [0] * (max_utt_length -  len(sample[key]))
+                        padded = sample[key] + [0] * (max_speak_length - len(sample[key]))
 
                     elif key == "prev_utterance":
 
                         if len(sample[key]) == 0:
                             # OTHERWISE pack_padded wouldn't work
                             padded = [NOHS] + [0] * (
-                                max_prevutt_length - 1
+                                    max_prevutt_length - 1
                             )  # SPECIAL TOKEN FOR NO HIST
 
                         else:
                             padded = sample[key] + [0] * (
-                                max_prevutt_length - len(sample[key])
+                                    max_prevutt_length - len(sample[key])
                             )
 
                         # print('prevutt', padded)
@@ -321,7 +323,6 @@ class AbstractDataset(Dataset):
                 elif key == "speak_h1embed":
                     batch[key] = torch.Tensor(batch[key]).float()
 
-
                 if isinstance(batch[key], torch.Tensor):
                     batch[key] = batch[key].to(device)
 
@@ -355,13 +356,11 @@ def imgid2path(data_path: str) -> Dict[str, str]:
 
 
 def load_imgid2domain(file_path: str) -> Tuple[Dict[str, str], List[str]]:
-
     with open(file_path, "r+") as f:
-        img2domain=json.load(f)
+        img2domain = json.load(f)
 
-    domains=set(img2domain.values())
+    domains = set(img2domain.values())
     return img2domain, domains
-
 
 
 def generate_imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
@@ -375,7 +374,7 @@ def generate_imgid2domain(data_path: str) -> Tuple[Dict[str, str], List[str]]:
     chain_dict = {}
     for split in ["train", "test", "val"]:
         with open(os.path.join(chains_path, f"{split}_text_chains.json"), "r") as file:
-            utt=json.load(file)
+            utt = json.load(file)
             chain_dict.update(utt)
 
     chain_dict = {k.split("/")[1]: k.split("/")[0] for k in chain_dict.keys()}
