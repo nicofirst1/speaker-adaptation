@@ -72,10 +72,11 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         loss = criterion(out, targets)
         losses_eval.append(loss.item())
 
-        preds = torch.argmax(out, dim=1)
+        preds = torch.argmax(out, dim=1).squeeze(dim=-1)
+        targets=targets.squeeze(dim=-1)
 
-        correct = torch.eq(preds, targets).sum()
-        accuracies.append(float(correct) / len(preds))
+        accuracy = torch.eq(targets, preds).sum() / preds.shape[0]
+        accuracies.append(accuracy)
 
         scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
 
@@ -94,7 +95,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
             ranks=ranks,
             scores_ranked=scores_ranked,
             images_ranked=images_ranked,
-            correct=correct / preds.shape[0],
+            accuracy=accuracy ,
         )
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
@@ -293,9 +294,13 @@ if __name__ == "__main__":
             targets = targets.to(args.device)
             loss = criterion(out, targets)
 
+            targets = targets.squeeze()
             preds = torch.argmax(out.squeeze(dim=-1), dim=1)
+            accuracy=torch.eq(targets, preds).sum()/ preds.shape[0]
+
+            aux=dict(preds=preds, accuracy=accuracy)
             logger.on_batch_end(
-                loss, data, aux={"preds": preds}, batch_id=i, modality="train"
+                loss, data, aux=aux, batch_id=i, modality="train"
             )
 
             losses.append(loss.item())
