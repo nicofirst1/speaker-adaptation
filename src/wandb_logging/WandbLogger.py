@@ -28,8 +28,10 @@ class WandbLogger:
         out_dir = opts["wandb_dir"]
 
         # create wandb dir if not existing
-        if not os.path.isdir(out_dir):
+        try:
             os.mkdir(out_dir)
+        except FileExistsError:
+            pass
 
         self.run = wandb.init(
             group=group,
