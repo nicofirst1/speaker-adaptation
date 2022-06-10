@@ -76,7 +76,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         targets=targets.squeeze(dim=-1)
 
         accuracy = torch.eq(targets, preds).sum() / preds.shape[0]
-        accuracies.append(accuracy)
+        accuracies.append(accuracy.cpu())
 
         scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
 
