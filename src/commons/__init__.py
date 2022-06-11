@@ -25,6 +25,5 @@ LISTENER_CHK_DICT = dict(
     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v64",
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v70",
 )
-#fixme: get a proper chk
-SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel:v135"
-SIM_CHK="adaptive-speaker/simulator-pretrain/SimulatorModel:v235"
+SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel:v203"
+SIM_CHK="adaptive-speaker/simulator-pretrain/SimulatorModel_all:v89"
