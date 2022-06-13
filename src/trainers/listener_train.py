@@ -11,7 +11,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 from src.commons import (get_dataloaders, get_domain_accuracy, mask_attn,
-                         parse_args, save_model,EarlyStopping)
+                         parse_args, save_model, EarlyStopping)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel
 from src.wandb_logging import DataLogger, ListenerLogger
@@ -38,6 +38,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
     losses_eval = []
     accuracies = []
     ranks = []
+    corrects=[]
     domains = []
     count = 0
 
@@ -73,9 +74,11 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         losses_eval.append(loss.item())
 
         preds = torch.argmax(out, dim=1).squeeze(dim=-1)
-        targets=targets.squeeze(dim=-1)
+        targets = targets.squeeze(dim=-1)
 
-        accuracy = torch.eq(targets, preds).sum() / preds.shape[0]
+        correct=torch.eq(targets, preds)
+        corrects+=correct.tolist()
+        accuracy = correct.sum() / preds.shape[0]
         accuracies.append(accuracy.cpu())
 
         scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
@@ -95,14 +98,14 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
             ranks=ranks,
             scores_ranked=scores_ranked,
             images_ranked=images_ranked,
-            accuracy=accuracy ,
+            accuracy=accuracy,
         )
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
         domains += data["domain"]
 
     if not in_domain:
-        domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
+        domain_accuracy = get_domain_accuracy(corrects, domains, logger.domains)
 
     # normalize based on batches
     # domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
@@ -121,8 +124,8 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
     )
 
     metrics = dict(mrr=MRR, loss=loss)
-    if len(domain_accuracy)>0:
-        metrics["domain_accuracy"]=domain_accuracy
+    if len(domain_accuracy) > 0:
+        metrics["domain_accuracy"] = domain_accuracy
 
     logger.log_datapoint(data, preds, modality="eval")
     logger.log_viz_embeddings(data, modality="eval")
@@ -183,8 +186,8 @@ if __name__ == "__main__":
     else:
         raise KeyError(f"No valid image vector for file '{args.vectors_file}'")
 
-    training_loader, test_loader, val_loader, _ = get_dataloaders(args, vocab, domain)
-    _, _, val_loader_speaker, _ = get_dataloaders(args, vocab, domain="all")
+    training_loader, test_loader, val_loader = get_dataloaders(args, vocab, domain,unary_val_bs=False)
+    _, _, val_loader_speaker = get_dataloaders(args, vocab, domain="all", unary_val_bs=False)
 
     if args.log_data:
         # log dataset once
@@ -256,7 +259,7 @@ if __name__ == "__main__":
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
-            training_loader, _, val_loader, _ = get_dataloaders(args, vocab, domain)
+            training_loader, _, val_loader = get_dataloaders(args, vocab, domain, unary_val_bs=False)
 
         losses = []
 
@@ -272,7 +275,6 @@ if __name__ == "__main__":
                 total=len(training_loader),
                 description="Training",
         ):
-
             # collect info from datapoint
             utterances = data["utterance"]
             context_separate = data["separate_images"]
@@ -296,9 +298,9 @@ if __name__ == "__main__":
 
             targets = targets.squeeze()
             preds = torch.argmax(out.squeeze(dim=-1), dim=1)
-            accuracy=torch.eq(targets, preds).sum()/ preds.shape[0]
+            accuracy = torch.eq(targets, preds).sum() / preds.shape[0]
 
-            aux=dict(preds=preds, accuracy=accuracy)
+            aux = dict(preds=preds, accuracy=accuracy)
             logger.on_batch_end(
                 loss, data, aux=aux, batch_id=i, modality="train"
             )
