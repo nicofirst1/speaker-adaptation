@@ -349,6 +349,7 @@ def imgid2path(data_path: str) -> Dict[str, str]:
 
     images = [f for f in os.listdir(image_path) if "jpg" in f]
     imgs_ids = [int(x.rsplit("_", 1)[1].split(".")[0]) for x in images]
+    imgs_ids = [str(x) for x in imgs_ids]
 
     images = [os.path.join(image_path, x) for x in images]
 
