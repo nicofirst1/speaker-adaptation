@@ -279,14 +279,9 @@ class ListenerArguments(Params):
     def check_parameters(self):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
-        valis_models=["hist","no_hist"]
         assert (
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
-
-        assert (
-                self.model_type in valis_models
-        ), f"Invalid metric '{self.model_type}' not in '{valis_metr}'"
 
         if self.embed_type == "sratch":
             assert (
