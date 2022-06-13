@@ -27,7 +27,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # define variables
-common_args=( --dropout 0.0 --batch_size 64 --model_type scratch_rrr --embed_type scratch --vectors_file vectors.json --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle -log_data)
+common_args=( --dropout 0.0 --batch_size 64 --model_type hist --embed_type scratch --vectors_file vectors.json --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle -log_data)
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/listener_train.py"
 out_file="listener_train_${SLURM_ARRAY_TASK_ID}.log"
