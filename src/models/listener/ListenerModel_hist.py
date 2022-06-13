@@ -1,20 +1,31 @@
+from typing import List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ListenerModelBertAttCtxHist(nn.Module):
-    def __init__(self, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob):
+class ListenerModel_hist(nn.Module):
+    def __init__(
+        self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
+    ):
         super().__init__()
-        self.embedding_dim = embedding_dim  # BERT
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
         self.img_dim = img_dim
         self.attention_dim = att_dim
+        self.device=device
+
+        # embeddings learned from scratch
+        self.embeddings = nn.Embedding(
+            self.vocab_size, self.embedding_dim, padding_idx=0, scale_grad_by_freq=True
+        )
 
         # project images to hidden dimensions
         self.linear_separate = nn.Linear(self.img_dim, self.hidden_dim)
 
-        # from BERT dimensions to hidden dimensions, as we receive embeddings from BERT
+        # from embedding dimensions to hidden dimensions
         self.lin_emb2hid = nn.Linear(self.embedding_dim, self.hidden_dim)
         self.lin_emb2HIST = nn.Linear(
             self.embedding_dim, self.hidden_dim
@@ -23,7 +34,7 @@ class ListenerModelBertAttCtxHist(nn.Module):
         # Concatenation of 6 images in the context projected to hidden
         self.lin_context = nn.Linear(self.img_dim * 6, self.hidden_dim)
 
-        # Multimodal (bert representation; visual context)
+        # Multimodal (text representation; visual context)
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
         # attention linear layers
@@ -40,6 +51,11 @@ class ListenerModelBertAttCtxHist(nn.Module):
         self.init_weights()  # initialize layers
 
     def init_weights(self):
+        """
+        Initializes some parameters with values from the uniform distribution, for easier convergence.
+        """
+
+        self.embeddings.weight.data.uniform_(-0.1, 0.1)
 
         for ll in [
             self.linear_separate,
@@ -56,18 +72,15 @@ class ListenerModelBertAttCtxHist(nn.Module):
 
     def forward(
         self,
-        representations,
-        lengths,
-        separate_images,
-        visual_context,
-        prev_hist,
-        masks,
-        device,
+        text: torch.Tensor,
+        separate_images: torch.Tensor,
+        visual_context: torch.Tensor,
+        prev_hist: List,
+        masks: torch.Tensor,
     ):
 
         """
-        @param representations: utterance converted into BERT representations
-        @param lengths: utterance lengths (after being tokenised) - not used in this model
+        @param text: utterances to be converted into embeddings
         @param separate_images: image feature vectors for all 6 images in the context separately
         @param visual_context: concatenation of 6 images in the context
         @param prev_hist: contains histories for 6 images separately (if exists for a given image)
@@ -75,11 +88,22 @@ class ListenerModelBertAttCtxHist(nn.Module):
         @param device: device to which the tensors are moved
         """
 
+        text = text.to(self.device)
+        separate_images = separate_images.to(self.device)
+        visual_context = visual_context.to(self.device)
+        masks = masks.to(self.device)
+
+        prev_hist = [list(elem.values()) for elem in prev_hist]
+
+        representations = self.embeddings(text)
+        #[32,33,786]
+
         batch_size = representations.shape[0]  # effective batch size
 
         # utterance representations are processed
         representations = self.dropout(representations)
         input_reps = self.relu(self.lin_emb2hid(representations))
+        #[32,33,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
@@ -120,8 +144,11 @@ class ListenerModelBertAttCtxHist(nn.Module):
 
                 if len(batch_prev_hist[s]) > 0:
 
+                    # print(batch_prev_hist[s])
+                    prev = torch.Tensor(batch_prev_hist[s]).long().to(self.device)
+                    hist_rep = self.embeddings(prev).to(self.device)
                     # if there is history for a candidate image
-                    hist_rep = torch.stack(batch_prev_hist[s]).to(device)
+                    # hist_rep = torch.stack(batch_prev_hist[s]).to(self.device)
 
                     # take the average history vector
                     hist_avg = self.dropout(hist_rep.sum(dim=0) / hist_rep.shape[0])

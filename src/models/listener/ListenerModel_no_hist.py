@@ -93,8 +93,6 @@ class ListenerModel(nn.Module):
         visual_context = visual_context.to(self.device)
         masks = masks.to(self.device)
 
-        prev_hist = [list(elem.values()) for elem in prev_hist]
-
         representations = self.embeddings(text)
         #[32,33,786]
 
@@ -133,30 +131,6 @@ class ListenerModel(nn.Module):
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
         separate_images = self.linear_separate(separate_images)
-
-        # this is where we add history to candidates
-
-        for b in range(batch_size):
-
-            batch_prev_hist = prev_hist[b]
-
-            for s in range(len(batch_prev_hist)):
-
-                if len(batch_prev_hist[s]) > 0:
-
-                    # print(batch_prev_hist[s])
-                    prev = torch.Tensor(batch_prev_hist[s]).long().to(self.device)
-                    hist_rep = self.embeddings(prev).to(self.device)
-                    # if there is history for a candidate image
-                    # hist_rep = torch.stack(batch_prev_hist[s]).to(self.device)
-
-                    # take the average history vector
-                    hist_avg = self.dropout(hist_rep.sum(dim=0) / hist_rep.shape[0])
-
-                    # process the history representation and add to image representations
-                    separate_images[b][s] += self.relu(self.lin_emb2HIST(hist_avg))
-
-        # some candidates are now multimodal with the addition of history
 
         separate_images = self.relu(separate_images)
         separate_images = F.normalize(separate_images, p=2, dim=2)

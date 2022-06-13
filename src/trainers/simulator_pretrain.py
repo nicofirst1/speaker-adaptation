@@ -21,13 +21,13 @@ from src.commons import (
 )
 from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel, SimulatorModel
+from src.models import ListenerModel_hist, SimulatorModel
 from src.models.speaker.model_speaker_hist_att import SpeakerModel
 from src.wandb_logging import ListenerLogger
 
 
 def get_predictions(
-        data: DataLoader, list_model: ListenerModel, sim_model: SimulatorModel, criterion, cel
+        data: DataLoader, list_model: ListenerModel_hist, sim_model: SimulatorModel, criterion, cel
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file,  is_speaker=False)
 
-    list_model = ListenerModel(
+    list_model = ListenerModel_hist(
         len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,

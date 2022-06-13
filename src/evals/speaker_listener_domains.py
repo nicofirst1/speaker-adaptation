@@ -17,7 +17,7 @@ from src.commons import (
     load_wandb_checkpoint, LISTENER_CHK_DICT, SPEAKER_CHK,
 )
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel, SpeakerModel
+from src.models import ListenerModel_hist, SpeakerModel
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
@@ -241,7 +241,7 @@ if __name__ == "__main__":
     list_args.__post_init__()
     vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-    list_model = ListenerModel(
+    list_model = ListenerModel_hist(
         len(vocab),
         list_args.embed_dim,
         list_args.hidden_dim,

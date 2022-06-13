@@ -13,18 +13,14 @@ from torch.utils.data import DataLoader
 from src.commons import (get_dataloaders, get_domain_accuracy, mask_attn,
                          parse_args, save_model, EarlyStopping)
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel
+from src.models import ListenerModel_hist,ListenerModel
 from src.wandb_logging import DataLogger, ListenerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import datetime
-import os
-
 global logger
 
-if not os.path.isdir("saved_models"):
-    os.mkdir("saved_models")
 
 
 def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
@@ -214,10 +210,16 @@ if __name__ == "__main__":
 
     # depending on the selected model type, we will have a different architecture
 
-    if model_type == "scratch_rrr":  # embeds from scratch, visual context + hist
+    if model_type == "hist":  # embeds from scratch, visual context + hist
+        model = ListenerModel_hist(
+            vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device=args.device
+        ).to(args.device)
+    elif model_type == "no_hist":  # embeds from scratch, visual context + hist
         model = ListenerModel(
             vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device=args.device
         ).to(args.device)
+    else:
+        raise KeyError(f"No model named '{model_type}' available")
 
     logger.watch_model([model])
 

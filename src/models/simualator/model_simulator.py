@@ -4,10 +4,10 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from src.models.listener.model_listener import ListenerModel
+from src.models.listener.ListenerModel_hist import ListenerModel_hist
 
 
-class SimulatorModel(ListenerModel):
+class SimulatorModel(ListenerModel_hist):
     def __init__(
             self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
     ):

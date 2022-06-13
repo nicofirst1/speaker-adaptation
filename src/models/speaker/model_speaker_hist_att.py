@@ -262,7 +262,6 @@ class SpeakerModel(nn.Module):
         embeds_words = self.embedding(prev_utterance)  # b, l, d
 
         # pack sequence
-
         sorted_prev_utt_lens, sorted_idx = torch.sort(prev_utt_lengths, descending=True)
         embeds_words = embeds_words[sorted_idx]
 

@@ -85,7 +85,8 @@ class ListenerLogger(WandbLogger):
         utt = utt.replace(" <pad>", "")
 
         # get imgs domain
-        imgs_domains = [self.img_id2domain[str(img)] for img in imgs]
+        imgs=[str(x) for x in imgs]
+        imgs_domains = [self.img_id2domain[img] for img in imgs]
 
         # read image
         imgs = [self.img_id2path[x] for x in imgs]
@@ -129,8 +130,10 @@ class ListenerLogger(WandbLogger):
         img_emb = data_point["separate_images"][idx].cpu().numpy()
         img_emb = [list(x) for x in img_emb]
 
+        imgs=[str(x) for x in imgs]
+
         # get imgs domain
-        imgs_domains = [self.img_id2domain[str(img)] for img in imgs]
+        imgs_domains = [self.img_id2domain[img] for img in imgs]
 
         # read images
         imgs = [self.img_id2path[x] for x in imgs]
