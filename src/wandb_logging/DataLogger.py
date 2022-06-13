@@ -73,14 +73,14 @@ class DataLogger(WandbLogger):
         skipped = 0
         for img_id, img_emb in dataset.image_features.items():
             img_id = int(img_id)
-            if img_id not in self.img_id2domain.keys():
+            if str(img_id) not in self.img_id2domain.keys():
                 skipped += 1
                 continue
             img_domain = self.img_id2domain[img_id]
             img = wandb.Image(self.img_id2path[img_id], caption=f"Domain: {img_domain}")
             data.append((img, img_domain, img_emb))
 
-        print(f"Skipped {skipped} images")
+        print(f"Skipped {skipped} image out of {len(dataset.image_features.items())}")
         # create table
         columns = ["image", "domain", "viz_embed"]
         new_table = wandb.Table(columns=columns, data=data)

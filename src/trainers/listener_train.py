@@ -197,7 +197,6 @@ if __name__ == "__main__":
             tags=tags,
         )
         data_logger.log_dataset(training_loader.dataset, "train")
-        data_logger.log_dataset(test_loader.dataset, "test")
         data_logger.log_dataset(val_loader.dataset, "val")
         print("Dataset logged")
 
