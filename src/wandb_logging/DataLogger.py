@@ -42,13 +42,21 @@ class DataLogger(WandbLogger):
 
         domains = [x['domain'] for x in dataset.data.values()]
 
-        if len(set(domains)) == 0:
-            count = Counter(self.img_id2domain.values())
-        else:
-            count = Counter(domains)
+        # if we are using a domain specific dataset, then use the img2domain
+        if len(set(domains)) == 0: domains = self.img_id2domain.values()
 
-        columns = ["domain", "img_num"]
-        new_table = wandb.Table(columns=columns, data=list(count.items()))
+        count = Counter(domains)
+        tot = len(domains)
+
+        columns = ["domain", "img_num", "perc"]
+        data=[]
+        for k,v in count.items():
+            data.append(
+                (k,v,v/tot)
+            )
+
+
+        new_table = wandb.Table(columns=columns, data=data)
         logs = {f"domain_stats/{modality}": new_table}
 
         return logs
