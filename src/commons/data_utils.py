@@ -10,8 +10,9 @@ from src.data.dataloaders import (AbstractDataset, ListenerDataset, SpeakerDatas
                                   Vocab)
 
 
-def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) -> Tuple[
-    DataLoader, DataLoader, DataLoader, DataLoader]:
+def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None, unary_val_bs: Optional[bool] = True) -> \
+        Tuple[
+            DataLoader, DataLoader, DataLoader]:
     """
     Load dataloaders based on args
     Parameters
@@ -19,6 +20,7 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) 
     args
     vocab
     domain : only used whit listener dataset.
+    unary_val_bs: validation batch size ==1
 
     Returns
     -------
@@ -65,14 +67,15 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None) 
         ),
     }
 
+    load_params_val = load_params_test if unary_val_bs else load_params
+
     training_loader = torch.utils.data.DataLoader(datasets[0], **load_params)
-    training_beam_loader = torch.utils.data.DataLoader(datasets[0], **load_params_test)
 
     test_loader = torch.utils.data.DataLoader(datasets[1], **load_params_test)
 
-    val_loader = torch.utils.data.DataLoader(datasets[2], **load_params_test)
+    val_loader = torch.utils.data.DataLoader(datasets[2], **load_params_val)
 
-    return training_loader, test_loader, val_loader, training_beam_loader
+    return training_loader, test_loader, val_loader
 
 
 def speaker_augmented_dataloader(
@@ -116,7 +119,6 @@ def speaker_augmented_dataloader(
             speak_model.device, vocab["<sos>"], vocab["<eos>"], vocab["<nohs>"]
         ),
     }
-
 
     dataloader = torch.utils.data.DataLoader(dataloader.dataset, **load_params)
 

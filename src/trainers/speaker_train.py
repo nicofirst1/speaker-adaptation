@@ -144,7 +144,7 @@ if __name__ == "__main__":
     print("Loading the vocab...")
     vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
-    training_loader, test_loader, val_loader, training_beam_loader = get_dataloaders(
+    training_loader, test_loader, val_loader = get_dataloaders(
         speak_p, vocab
     )
 

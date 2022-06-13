@@ -281,7 +281,7 @@ if __name__ == "__main__":
         list_model.eval()
 
         print(f"Eval on '{list_args.train_domain}' domain")
-        _, _, val_loader, _ = get_dataloaders(
+        _, _, val_loader = get_dataloaders(
             list_args, vocab, list_args.train_domain
         )
 
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         )
 
         print(f"Eval on 'all' domain")
-        _, _, val_loader, _ = get_dataloaders(list_args, vocab, "all")
+        _, _, val_loader = get_dataloaders(list_args, vocab, "all")
 
         gen_metrics = evaluate_trained_model(
             dataloader=val_loader,

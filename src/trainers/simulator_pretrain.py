@@ -17,7 +17,7 @@ from src.commons import (
     load_wandb_checkpoint,
     mask_attn,
     parse_args,
-    save_model, SIM_CHK,
+    save_model, SIM_ALL_CHK,
 )
 from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     # SIMULATOR
     ##########################
     if common_p.resume_train:
-        sim_check, _ = load_wandb_checkpoint(SIM_CHK, device)
+        sim_check, _ = load_wandb_checkpoint(SIM_ALL_CHK, device)
         # load args
         sim_p = sim_check["args"]
         sim_p.train_domain = domain
@@ -281,7 +281,7 @@ if __name__ == "__main__":
     bs = sim_p.batch_size
     # need batchsize =1 for generating the new dataloaders
     sim_p.batch_size = 1
-    training_loader, _, val_loader, _ = get_dataloaders(sim_p, speak_vocab, domain)
+    training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
 
     speak_train_dl = speaker_augmented_dataloader(
         training_loader, speak_vocab, speaker_model, batch_size=bs, split_name="train"
