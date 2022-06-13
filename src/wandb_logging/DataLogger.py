@@ -3,7 +3,7 @@ from typing import Dict
 
 import wandb
 
-from src.data.dataloaders import generate_imgid2domain, imgid2path, load_imgid2domain
+from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.data.dataloaders.ListenerDataset import ListenerDataset
 from src.wandb_logging.WandbLogger import WandbLogger
 
@@ -33,14 +33,20 @@ class DataLogger(WandbLogger):
         table_columns += ["utt", "hist"]
         self.dt_table = wandb.Table(columns=table_columns)
 
-    def log_domain_balance(self, modality: str) -> Dict:
+    def log_domain_balance(self, dataset: ListenerDataset, modality: str) -> Dict:
         """
         Create  a table to log number of domain images
         :param modality:
         :return:
         """
 
-        count = Counter(self.img_id2domain.values())
+        domains = [x['domain'] for x in dataset.data.values()]
+
+        if len(set(domains)) == 0:
+            count = Counter(self.img_id2domain.values())
+        else:
+            count = Counter(domains)
+
         columns = ["domain", "img_num"]
         new_table = wandb.Table(columns=columns, data=list(count.items()))
         logs = {f"domain_stats/{modality}": new_table}
@@ -79,7 +85,7 @@ class DataLogger(WandbLogger):
 
         logs = {}
 
-        logs.update(self.log_domain_balance(modality))
+        logs.update(self.log_domain_balance(dataset, modality))
         logs.update(self.log_viz_embeddings(dataset, modality))
 
         self.log_to_wandb(logs, commit=True)

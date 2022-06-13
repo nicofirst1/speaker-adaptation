@@ -255,8 +255,6 @@ if __name__ == "__main__":
 
     for epoch in range(args.epochs):
 
-        print("Epoch : ", epoch)
-
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
             training_loader, _, val_loader = get_dataloaders(args, vocab, domain, unary_val_bs=False)
@@ -273,7 +271,7 @@ if __name__ == "__main__":
         for i, data in track(
                 enumerate(training_loader),
                 total=len(training_loader),
-                description="Training",
+                description=f"Training epoch {epoch}",
         ):
             # collect info from datapoint
             utterances = data["utterance"]
@@ -297,7 +295,7 @@ if __name__ == "__main__":
             loss = criterion(out, targets)
 
             targets = targets.squeeze()
-            preds = torch.argmax(out.squeeze(dim=-1), dim=1)
+            preds = torch.argmax(out, dim=1).squeeze(dim=-1)
             accuracy = torch.eq(targets, preds).sum() / preds.shape[0]
 
             aux = dict(preds=preds, accuracy=accuracy)
