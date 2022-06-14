@@ -18,12 +18,12 @@ __all__ = [
 
 ## take all listener at epoch 20
 LISTENER_CHK_DICT = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v14",
-    appliances="adaptive-speaker/listener/ListenerModel_appliances:v72",
-    food="adaptive-speaker/listener/ListenerModel_food:v61",
-    indoor="adaptive-speaker/listener/ListenerModel_indoor:v68",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v64",
-    vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v70",
+    all="adaptive-speaker/listener/ListenerModel_all:v153",
+    appliances="adaptive-speaker/listener/ListenerModel_appliances:v297",
+    food="adaptive-speaker/listener/ListenerModel_food:v225",
+    indoor="adaptive-speaker/listener/ListenerModel_indoor:v293",
+    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v274",
+    vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
 )
 SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel:v203"
 SIM_ALL_CHK= "adaptive-speaker/simulator-pretrain/SimulatorModel_all:v89"

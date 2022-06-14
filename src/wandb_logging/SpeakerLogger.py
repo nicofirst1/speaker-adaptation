@@ -1,5 +1,4 @@
 import random
-from collections import Counter
 from typing import Any, Dict, List
 
 import PIL.Image
@@ -8,7 +7,7 @@ import wandb
 from PIL import ImageOps
 from torch import nn
 
-from src.data.dataloaders import generate_imgid2domain, imgid2path
+from src.data.dataloaders import imgid2path
 from src.data.dataloaders.AbstractDataset import load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
@@ -55,7 +54,6 @@ class SpeakerLogger(WandbLogger):
         for idx, mod in enumerate(models):
             wandb.watch(mod, log_freq=1000, log_graph=True, idx=idx, log="all")
 
-
     def log_datapoint(self, data_point: Dict, preds, modality: str) -> Dict:
         """
         Log a datapoint into a wandb table
@@ -85,22 +83,14 @@ class SpeakerLogger(WandbLogger):
         translate_list = lambda lst: " ".join([self.vocab.index2word[x] for x in lst])
         # hist = translate_list([int(x) for x in hist])
 
-        if not isinstance(preds,str):
+        if not isinstance(preds, str):
             preds = translate_list(preds)
         target_ids = translate_list(target_ids)
         target_ids = target_ids.replace("<pad>", "")
 
         # get imgs domain
-        # imgs_domains = [self.img_id2domain[img] for img in imgs]
-        imgs_domains = []
-        for img in imgs:
-            try:
-                k = self.img_id2domain[str(img)]
-            except KeyError:
-                k = "Error"
-                print(f"Error for img '{img}'")
-
-            imgs_domains.append(k)
+        imgs = [str(img) for img in imgs]
+        imgs_domains = [self.img_id2domain[img] for img in imgs]
 
         # read image
         imgs = [self.img_id2path[x] for x in imgs]
@@ -183,11 +173,11 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(metrics, commit=True)
 
     def on_eval_end(
-        self,
-        metrics: Dict[str, Any],
-        model_params: Dict[str, Any],
-        model_out: Dict[str, Any],
-        data_point: Dict[str, Any],
+            self,
+            metrics: Dict[str, Any],
+            model_params: Dict[str, Any],
+            model_out: Dict[str, Any],
+            data_point: Dict[str, Any],
     ):
 
         # get and log domain accuracy table
@@ -197,12 +187,12 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        modality: str,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            modality: str,
     ):
 
         logging_step = (

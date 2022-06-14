@@ -1,6 +1,9 @@
+from typing import Optional, Dict, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 from src.commons import mask_attn
 
@@ -123,7 +126,6 @@ class SpeakerModel(nn.Module):
             prev_hist_len,
             normalize,
             masks,
-
     ):
 
         """
@@ -191,7 +193,9 @@ class SpeakerModel(nn.Module):
         # teacher forcing
 
         # word prediction scores
-        predictions = torch.zeros(batch_size, decode_length, self.vocab_size).to(self.device)
+        predictions = torch.zeros(batch_size, decode_length, self.vocab_size).to(
+            self.device
+        )
 
         # forward backward concatenation of encoder's last hidden states
         decoder_hid = self.linear_dec(
@@ -233,24 +237,45 @@ class SpeakerModel(nn.Module):
 
         return predictions
 
-    def generate_hypothesis(self, prev_utterance, prev_utt_lengths, visual_context, target_img_feats):
+    def generate_hypothesis(
+            self,
+            prev_utterance: torch.Tensor,
+            prev_utt_lengths: torch.Tensor,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
+    ) -> Tuple[str, Dict, torch.Tensor]:
+        """
+        Generate an hypothesis (natural language sentence) based on the current output
+        Does not support batch, so needs batch_size=1
 
-        # dataset details
-        # only the parts I will use for this type of self
+        Returns
+        -------
+        hypos : str = string for hypotesis
+        model_params: dict = dictionary with various model parameters used for logging
+        decoder_hid : torch.Tensor = the decoder hidden output, used for simulator train
+        """
 
-        completed_sentences = []
-        completed_scores = []
-        empty_count = 0
-        beam_k = self.beam_k
+        decoder_hid, history_att, model_params = self.partial_forward(
+            prev_utterance, prev_utt_lengths, visual_context, target_img_feats
+        )
 
-        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
-        eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
-
-        # obtained from the whole chain
+        model_params['history_att']=history_att
 
         max_length_tensor = prev_utterance.shape[1]
-
         masks = mask_attn(prev_utt_lengths, max_length_tensor, self.device)
+
+        hypos = self.beam_serach(decoder_hid, history_att, masks, model_params)
+
+        return hypos, model_params, decoder_hid
+
+    def partial_forward(
+            self,
+            prev_utterance: torch.Tensor,
+            prev_utt_lengths: torch.Tensor,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
+        # todo: need better name
 
         visual_context_hid = self.relu(self.lin_viscontext(visual_context))
         target_img_hid = self.relu(self.linear_separate(target_img_feats))
@@ -309,6 +334,29 @@ class SpeakerModel(nn.Module):
 
         # todo: for adaptive speak h1 should have grad, also in eval
         h1_sim = decoder_hid
+
+        model_params = dict(
+            embeds_words=embeds_words,
+            target_img_hid=target_img_hid,
+            visual_context_hid=visual_context_hid,
+        )
+
+        return decoder_hid, history_att, model_params
+
+    def beam_serach(
+            self,
+            decoder_hid: torch.Tensor,
+            history_att: torch.Tensor,
+            masks: torch.Tensor,
+            model_params: Optional[Dict] = {},
+    ) -> str:
+        completed_sentences = []
+        completed_scores = []
+        empty_count = 0
+        beam_k = self.beam_k
+
+        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
+        eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
 
         decoder_hid = decoder_hid.expand(beam_k, -1)
 
@@ -450,18 +498,12 @@ class SpeakerModel(nn.Module):
         # remove sos and pads # I want to check eos
         hypothesis_string = " ".join(hypothesis)
 
-        model_params = dict(
-            att_context_vector=att_context_vector,
-            decoder_embeds=decoder_embeds,
-            embeds_words=embeds_words,
-            target_img_hid=target_img_hid,
-            visual_context_hid=visual_context_hid,
+        model_params.update(
+            dict(
+                att_context_vector=att_context_vector,
+                decoder_embeds=decoder_embeds,
+            )
         )
 
-        return hypothesis_string, model_params, h1_sim
+        return hypothesis_string
 
-    def simulator_forward(self, **kwargs):
-
-        predictions, target_utterance_embeds = self.forward(**kwargs, simulator=True)
-
-        return predictions, target_utterance_embeds
