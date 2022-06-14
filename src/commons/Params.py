@@ -258,7 +258,7 @@ class ListenerArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
-    model_type: Optional[str] = "hist"
+    model_type: Optional[str] = "no_hist"
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
@@ -282,6 +282,12 @@ class ListenerArguments(Params):
         assert (
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
+
+        valis_type = ["hist", "no_hist"]
+
+        assert (
+                self.model_type in valis_type
+        ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
@@ -309,7 +315,7 @@ class SimulatorArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
-    model_type: Optional[str] = "scratch_rrr"
+    model_type: Optional[str] = "no_hist"
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
@@ -334,6 +340,13 @@ class SimulatorArguments(Params):
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
+
+        valis_type = ["hist", "no_hist"]
+
+        assert (
+                self.model_type in valis_type
+        ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
+
         if self.embed_type == "sratch":
             assert (
                     self.embed_dim == 768
@@ -357,7 +370,7 @@ class SpeakerArguments(Params):
     #########################
     #   Model
     #########################
-    model_type: Optional[str] = "hist_att"
+    model_type: Optional[str] = "no_hist"
     normalize: Optional[bool] = False
     embedding_dim: Optional[int] = 1024
     hidden_dim: Optional[int] = 512
@@ -378,3 +391,13 @@ class SpeakerArguments(Params):
 
         self.img2dom_file = join(self.data_path, "img2dom.json")
         self.vocab_file = join(self.data_path, "speaker", self.vocab_file)
+
+    def check_parameters(self):
+
+        super(SpeakerArguments, self).check_parameters()
+        valis_type = ["hist", "no_hist"]
+
+        assert (
+                self.model_type in valis_type
+        ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
+

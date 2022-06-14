@@ -8,7 +8,7 @@ from torch.autograd import Variable
 from src.commons import mask_attn
 
 
-class SpeakerModel(nn.Module):
+class SpeakerModel_no_hist(nn.Module):
     def __init__(
             self,
             vocab,
@@ -155,6 +155,14 @@ class SpeakerModel(nn.Module):
         concat_visual_input = self.relu(
             self.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
         )
+
+        # here we need to get rid of all prev_utterances, do so by filling an empty torch tensor
+        pad_val=self.vocab.word2index["<pad>"]
+        nohs_val=self.vocab.word2index['<nohs>']
+
+        empty_utt=torch.full(prev_utterance.shape,pad_val)
+        empty_utt[:,0]=nohs_val
+        prev_utterance=empty_utt
 
         # previous utterance is embedded
         embeds_words = self.dropout(self.embedding(prev_utterance))  # b, l, d

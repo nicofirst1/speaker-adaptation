@@ -14,7 +14,8 @@ from torch import nn, optim
 from src.commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
                          parse_args, save_model, EarlyStopping)
 from src.data.dataloaders import Vocab
-from src.models import SpeakerModel
+from src.models import SpeakerModel_hist, get_model
+from src.models.speaker.model_speaker_no_hist import SpeakerModel_no_hist
 from src.wandb_logging import SpeakerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
@@ -181,13 +182,10 @@ if __name__ == "__main__":
     ##  MODEL
     ###################################
 
-    # depending on the selected model type, we will have a different architecture
-    if model_type == "hist_att":  # attention over prev utterance
-
-        model = SpeakerModel(
-            vocab, embedding_dim, hidden_dim, img_dim, speak_p.dropout_prob, att_dim, speak_p.beam_size,
-            speak_p.max_len, speak_p.device
-        ).to(speak_p.device)
+    model = get_model("speak", model_type)
+    model = model(vocab, embedding_dim, hidden_dim, img_dim, speak_p.dropout_prob, att_dim, speak_p.beam_size,
+            speak_p.max_len, speak_p.device).to(
+        speak_p.device)
 
     ###################################
     ##  LOSS

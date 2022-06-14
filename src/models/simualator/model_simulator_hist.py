@@ -2,16 +2,15 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
-from torch import nn
 
 from src.models.listener.ListenerModel_hist import ListenerModel_hist
 
 
-class SimulatorModel(ListenerModel_hist):
+class SimulatorModel_hist(ListenerModel_hist):
     def __init__(
             self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
     ):
-        super(SimulatorModel, self).__init__(
+        super(SimulatorModel_hist, self).__init__(
             vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
         )
 

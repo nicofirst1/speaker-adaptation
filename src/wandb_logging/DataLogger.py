@@ -65,7 +65,6 @@ class DataLogger(WandbLogger):
         :return:
         """
 
-        # todo: log only the targets
         data = []
         skipped = 0
         for d in dataset.data.values():
