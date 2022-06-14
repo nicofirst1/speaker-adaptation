@@ -11,8 +11,14 @@ from bert_score import score
 from nlgeval import NLGEval
 from torch import nn, optim
 
-from src.commons import (get_dataloaders, load_wandb_checkpoint, mask_attn,
-                         parse_args, save_model, EarlyStopping)
+from src.commons import (
+    get_dataloaders,
+    load_wandb_checkpoint,
+    mask_attn,
+    parse_args,
+    save_model,
+    EarlyStopping,
+)
 from src.data.dataloaders import Vocab
 from src.models import SpeakerModel_hist, get_model
 from src.models.speaker.model_speaker_no_hist import SpeakerModel_no_hist
@@ -37,11 +43,11 @@ if not os.path.isdir("speaker_outputs"):
 
 
 def eval_beam_histatt(
-        split_data_loader,
-        model,
-        args,
-        nlgeval_obj,
-        logger,
+    split_data_loader,
+    model,
+    args,
+    nlgeval_obj,
+    logger,
 ):
     """
     Evaluation
@@ -60,7 +66,6 @@ def eval_beam_histatt(
     for i, data in enumerate(split_data_loader):
         # print(i)
 
-
         ref = data["reference_chain"][
             0
         ]  # batch size 1  # full set of references for a single instance
@@ -70,8 +75,9 @@ def eval_beam_histatt(
         visual_context = data["concat_context"]
         target_img_feats = data["target_img_feats"]
 
-        hypo, model_params, _ = model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
-                                                          target_img_feats)
+        hypo, model_params, _ = model.generate_hypothesis(
+            prev_utterance, prev_utt_lengths, visual_context, target_img_feats
+        )
         references.append(ref)
         hypotheses.append(hypo)
 
@@ -122,7 +128,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -145,9 +151,7 @@ if __name__ == "__main__":
     print("Loading the vocab...")
     vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
-    training_loader, test_loader, val_loader = get_dataloaders(
-        speak_p, vocab
-    )
+    training_loader, test_loader, val_loader = get_dataloaders(speak_p, vocab)
 
     img_dim = 2048
 
@@ -183,9 +187,17 @@ if __name__ == "__main__":
     ###################################
 
     model = get_model("speak", model_type)
-    model = model(vocab, embedding_dim, hidden_dim, img_dim, speak_p.dropout_prob, att_dim, speak_p.beam_size,
-            speak_p.max_len, speak_p.device).to(
-        speak_p.device)
+    model = model(
+        vocab,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        speak_p.dropout_prob,
+        att_dim,
+        speak_p.beam_size,
+        speak_p.max_len,
+        speak_p.device,
+    ).to(speak_p.device)
 
     ###################################
     ##  LOSS
@@ -231,7 +243,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp_tr = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
@@ -246,9 +258,9 @@ if __name__ == "__main__":
         torch.enable_grad()
 
         for i, data in rich.progress.track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description=f"Train epoch {epoch}",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description=f"Train epoch {epoch}",
         ):
             # load infos from datapoint
             utterances_text_ids = data["utterance"]
@@ -352,6 +364,7 @@ if __name__ == "__main__":
             # Early stopping
             ################################################################
             # check for early stopping
-            if es.should_stop(current_score): break
+            if es.should_stop(current_score):
+                break
 
         logger.on_train_end({}, epoch_id=epoch)

@@ -10,8 +10,14 @@ from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from src.commons import (get_dataloaders, get_domain_accuracy, mask_attn,
-                         parse_args, save_model, EarlyStopping)
+from src.commons import (
+    get_dataloaders,
+    get_domain_accuracy,
+    mask_attn,
+    parse_args,
+    save_model,
+    EarlyStopping,
+)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, ListenerModel_no_hist, get_model
 from src.wandb_logging import DataLogger, ListenerLogger
@@ -19,8 +25,8 @@ from src.wandb_logging import DataLogger, ListenerLogger
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import datetime
-global logger
 
+global logger
 
 
 def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
@@ -34,7 +40,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
     losses_eval = []
     accuracies = []
     ranks = []
-    corrects=[]
+    corrects = []
     domains = []
     count = 0
 
@@ -61,9 +67,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
 
         prev_hist = data["prev_histories"]
 
-        out = model(
-            utterances, context_separate, context_concat, prev_hist, masks
-        )
+        out = model(utterances, context_separate, context_concat, prev_hist, masks)
 
         targets = targets.to(args.device)
         loss = criterion(out, targets)
@@ -72,8 +76,8 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         preds = torch.argmax(out, dim=1).squeeze(dim=-1)
         targets = targets.squeeze(dim=-1)
 
-        correct=torch.eq(targets, preds)
-        corrects+=correct.tolist()
+        correct = torch.eq(targets, preds)
+        corrects += correct.tolist()
         accuracy = correct.sum() / preds.shape[0]
         accuracies.append(accuracy.cpu())
 
@@ -124,7 +128,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
         metrics["domain_accuracy"] = domain_accuracy
 
     logger.log_datapoint(data, preds, modality="eval")
-    #logger.log_viz_embeddings(data, modality="eval")
+    # logger.log_viz_embeddings(data, modality="eval")
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
     return accuracy, loss, MRR
@@ -138,7 +142,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -182,8 +186,12 @@ if __name__ == "__main__":
     else:
         raise KeyError(f"No valid image vector for file '{args.vectors_file}'")
 
-    training_loader, test_loader, val_loader = get_dataloaders(args, vocab, domain,unary_val_bs=False)
-    _, _, val_loader_speaker = get_dataloaders(args, vocab, domain="all", unary_val_bs=False)
+    training_loader, test_loader, val_loader = get_dataloaders(
+        args, vocab, domain, unary_val_bs=False
+    )
+    _, _, val_loader_speaker = get_dataloaders(
+        args, vocab, domain="all", unary_val_bs=False
+    )
 
     if args.log_data:
         # log dataset once
@@ -210,8 +218,16 @@ if __name__ == "__main__":
 
     # depending on the selected model type, we will have a different architecture
 
-    model=get_model("list",model_type)
-    model=model(vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device=args.device).to(args.device)
+    model = get_model("list", model_type)
+    model = model(
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        att_dim,
+        dropout_prob,
+        device=args.device,
+    ).to(args.device)
 
     logger.watch_model([model])
 
@@ -241,7 +257,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
@@ -250,7 +266,9 @@ if __name__ == "__main__":
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
-            training_loader, _, val_loader = get_dataloaders(args, vocab, domain, unary_val_bs=False)
+            training_loader, _, val_loader = get_dataloaders(
+                args, vocab, domain, unary_val_bs=False
+            )
 
         losses = []
 
@@ -262,9 +280,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description=f"Training epoch {epoch}",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description=f"Training epoch {epoch}",
         ):
             # collect info from datapoint
             utterances = data["utterance"]
@@ -277,9 +295,7 @@ if __name__ == "__main__":
             max_length_tensor = utterances.shape[1]
             masks = mask_attn(lengths, max_length_tensor, args.device)
 
-            out = model(
-                utterances, context_separate, context_concat, prev_hist, masks
-            )
+            out = model(utterances, context_separate, context_concat, prev_hist, masks)
 
             model.zero_grad()
 
@@ -292,9 +308,7 @@ if __name__ == "__main__":
             accuracy = torch.eq(targets, preds).sum() / preds.shape[0]
 
             aux = dict(preds=preds, accuracy=accuracy)
-            logger.on_batch_end(
-                loss, data, aux=aux, batch_id=i, modality="train"
-            )
+            logger.on_batch_end(loss, data, aux=aux, batch_id=i, modality="train")
 
             losses.append(loss.item())
             loss.backward()
@@ -304,7 +318,7 @@ if __name__ == "__main__":
         losses = np.mean(losses)
         print("Train loss sum", round(losses, 5))  # sum all the batches for this epoch
         logger.log_datapoint(data, preds, modality="train")
-        #logger.log_viz_embeddings(data, modality="train")
+        # logger.log_viz_embeddings(data, modality="train")
 
         ###################################
         ##  EVAL LOOP
@@ -339,6 +353,7 @@ if __name__ == "__main__":
 
         # check for early stopping
         metric_val = current_loss if metric == "loss" else current_accuracy
-        if es.should_stop(metric_val): break
+        if es.should_stop(metric_val):
+            break
 
     wandb.finish()

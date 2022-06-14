@@ -8,21 +8,32 @@ from src.models.listener.ListenerModel_hist import ListenerModel_hist
 
 class SimulatorModel_no_hist(ListenerModel_hist):
     def __init__(
-            self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
+        self,
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        att_dim,
+        dropout_prob,
+        device,
     ):
         super(SimulatorModel_no_hist, self).__init__(
-            vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
+            vocab_size,
+            embedding_dim,
+            hidden_dim,
+            img_dim,
+            att_dim,
+            dropout_prob,
+            device,
         )
 
-
-
     def forward(
-            self,
-            speaker_embeds: torch.Tensor,
-            separate_images: torch.Tensor,
-            visual_context: torch.Tensor,
-            prev_hist: List,
-            masks: torch.Tensor,
+        self,
+        speaker_embeds: torch.Tensor,
+        separate_images: torch.Tensor,
+        visual_context: torch.Tensor,
+        prev_hist: List,
+        masks: torch.Tensor,
     ):
         """
         @param speaker_embeds:embeddings coming from speaker
@@ -40,7 +51,7 @@ class SimulatorModel_no_hist(ListenerModel_hist):
         representations = self.dropout(representations)
         input_reps = self.relu(self.lin_emb2hid(representations))
         # [32,512]
-        input_reps=input_reps.unsqueeze(dim=1)
+        input_reps = input_reps.unsqueeze(dim=1)
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
@@ -58,7 +69,7 @@ class SimulatorModel_no_hist(ListenerModel_hist):
         outputs_att = self.att_linear_2(self.tanh(self.att_linear_1(mm_reps)))
 
         # mask pads so that no attention is paid to them (with -inf)
-        #outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
+        # outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
 
         # final attention weights
         att_weights = self.softmax(outputs_att)
@@ -70,7 +81,6 @@ class SimulatorModel_no_hist(ListenerModel_hist):
         separate_images = self.dropout(separate_images)
         separate_images = self.linear_separate(separate_images)
 
-
         separate_images = self.relu(separate_images)
         separate_images = F.normalize(separate_images, p=2, dim=2)
 
@@ -81,4 +91,3 @@ class SimulatorModel_no_hist(ListenerModel_hist):
         )
 
         return dot
-

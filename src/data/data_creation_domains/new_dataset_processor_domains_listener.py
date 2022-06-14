@@ -10,7 +10,7 @@ from Vocab import Vocab
 tweet_tokenizer = TweetTokenizer(preserve_case=False)
 min_freq = 0
 
-vocab_csv_path = '../../../data/vocab.csv'
+vocab_csv_path = "../../../data/vocab.csv"
 
 
 def process_data(data, domain_path, split):
@@ -20,15 +20,15 @@ def process_data(data, domain_path, split):
     chain_dataset = []
     utterance_dataset = defaultdict()
 
-    chains_path = domain_path + '/' + split + '_text_chains.json'
-    utterances_path = domain_path + '/' + split + '_text_utterances.pickle'
+    chains_path = domain_path + "/" + split + "_text_chains.json"
+    utterances_path = domain_path + "/" + split + "_text_utterances.pickle"
 
     chain_count = 0
     utterance_count = 0
 
     for img_file in sorted(data):
 
-        img_id = str(int(img_file.split('/')[1].split('.')[0].split('_')[2]))
+        img_id = str(int(img_file.split("/")[1].split(".")[0].split("_")[2]))
         # img path in the form of 'person_bed/COCO_train2014_000000318646.jpg'
         # but also like 'bowl_dining_table/COCO_train2014_000000086285.jpg'
 
@@ -44,9 +44,9 @@ def process_data(data, domain_path, split):
             for m in range(len(chain_data)):
 
                 utterance_data = chain_data[m]
-                message = utterance_data['Message_Text']
-                message_nr = utterance_data['Message_Nr']
-                round_nr = utterance_data['Round_Nr']
+                message = utterance_data["Message_Text"]
+                message_nr = utterance_data["Message_Nr"]
+                round_nr = utterance_data["Round_Nr"]
 
                 tokenized_message = tweet_tokenizer.tokenize(message)
 
@@ -55,22 +55,22 @@ def process_data(data, domain_path, split):
                 # - / * AND SO ON punctuation marks are they in the dataset? vocab of bert?
                 # INCLUDES * AND STUFF FOR CENSORING
 
-                speaker = utterance_data['Message_Speaker']
+                speaker = utterance_data["Message_Speaker"]
 
                 # visual context for the listener is the round images of the person who uttered the message
-                if speaker == 'A':
+                if speaker == "A":
 
-                    visual_context = utterance_data['Round_Images_A']
+                    visual_context = utterance_data["Round_Images_A"]
 
-                elif speaker == 'B':
+                elif speaker == "B":
 
-                    visual_context = utterance_data['Round_Images_B']
+                    visual_context = utterance_data["Round_Images_B"]
 
                 visual_context_ids = []
 
                 for v in visual_context:
 
-                    v_id = str(int(v.split('/')[1].split('.')[0].split('_')[2]))
+                    v_id = str(int(v.split("/")[1].split(".")[0].split("_")[2]))
 
                     visual_context_ids.append(v_id)
 
@@ -78,11 +78,19 @@ def process_data(data, domain_path, split):
 
                 utt_length = len(tokenized_message)
                 # utterance information
-                utterance = {'utterance': tokenized_message, 'image_set': visual_context_ids,
-                             'target': [visual_context_ids.index(img_id)], 'length': utt_length, 'game_id': game_id,
-                             'round_nr': round_nr, 'message_nr': message_nr}
+                utterance = {
+                    "utterance": tokenized_message,
+                    "image_set": visual_context_ids,
+                    "target": [visual_context_ids.index(img_id)],
+                    "length": utt_length,
+                    "game_id": game_id,
+                    "round_nr": round_nr,
+                    "message_nr": message_nr,
+                }
 
-                utterance_dataset[(game_id, round_nr, message_nr, img_id)] = utterance # add to the full dataset
+                utterance_dataset[
+                    (game_id, round_nr, message_nr, img_id)
+                ] = utterance  # add to the full dataset
 
                 utterance_lengths.append(utt_length)
                 utt_ids.append((game_id, round_nr, message_nr, img_id))
@@ -92,23 +100,29 @@ def process_data(data, domain_path, split):
                     print(utterance_count)
 
             # chain information
-            chain = {'game_id': game_id, 'chain_id': chain_count, 'utterances': utt_ids, 'target': img_id,
-                     'lengths': utterance_lengths}  # utterance lengths
+            chain = {
+                "game_id": game_id,
+                "chain_id": chain_count,
+                "utterances": utt_ids,
+                "target": img_id,
+                "lengths": utterance_lengths,
+            }  # utterance lengths
 
             chain_dataset.append(chain)
             chain_count += 1
 
     # dump the text versions of the chains and utterances
 
-    with open(chains_path, 'w') as f:
+    with open(chains_path, "w") as f:
         json.dump(chain_dataset, f)
 
-    with open(utterances_path, 'wb') as f:
+    with open(utterances_path, "wb") as f:
         pickle.dump(utterance_dataset, f)
 
     return domainsplit_full_vocab
 
-domains = ['indoor', 'outdoor', 'food', 'vehicles', 'appliances', 'speaker']
+
+domains = ["indoor", "outdoor", "food", "vehicles", "appliances", "speaker"]
 
 full_vocab = []
 
@@ -116,31 +130,31 @@ for domain in domains:
 
     print(domain)
 
-    domain_path = '../../../data/chains-domain-specific/{}/'.format(domain)
+    domain_path = "../../../data/chains-domain-specific/{}/".format(domain)
 
-    with open('{}train.json'.format(domain_path), 'r') as f:
+    with open("{}train.json".format(domain_path), "r") as f:
         train = json.load(f)
 
-    with open('{}val.json'.format(domain_path), 'r') as f:
+    with open("{}val.json".format(domain_path), "r") as f:
         val = json.load(f)
 
-    with open('{}test.json'.format(domain_path), 'r') as f:
+    with open("{}test.json".format(domain_path), "r") as f:
         test = json.load(f)
 
     print(len(train))
     print(len(val))
     print(len(test))
 
-    print('processing train...')
-    dom_train_tokens = process_data(train, domain_path, 'train')
+    print("processing train...")
+    dom_train_tokens = process_data(train, domain_path, "train")
 
-    print('processing val...')
-    dom_val_tokens = process_data(val, domain_path, 'val')
+    print("processing val...")
+    dom_val_tokens = process_data(val, domain_path, "val")
 
-    print('processing test...')
-    dom_test_tokens = process_data(test, domain_path, 'test')
+    print("processing test...")
+    dom_test_tokens = process_data(test, domain_path, "test")
 
-    if domain in ['indoor', 'outdoor', 'food', 'vehicles', 'appliances']:
+    if domain in ["indoor", "outdoor", "food", "vehicles", "appliances"]:
 
         tokens2add = dom_train_tokens + dom_val_tokens + dom_test_tokens
 
@@ -159,13 +173,13 @@ for word, freq in vocab_ordered:
 
 with open(vocab_csv_path, "w") as f:
 
-    writer = csv.writer(f, delimiter=',', quotechar='|')
+    writer = csv.writer(f, delimiter=",", quotechar="|")
     writer.writerows(truncated_word_list)
 
 vocab = Vocab(vocab_csv_path)
 
 # Convert from text to IDs
-print('converting test to IDs')
+print("converting test to IDs")
 
 
 def convert2indices(dataset, vocab, split, id_path):
@@ -174,15 +188,15 @@ def convert2indices(dataset, vocab, split, id_path):
 
         utt = dataset[tup]
 
-        text = utt['utterance']
+        text = utt["utterance"]
 
-        ids = [vocab[t] for t in text] # + [vocab['<eos>']]
+        ids = [vocab[t] for t in text]  # + [vocab['<eos>']]
 
-        utt['utterance'] = ids  # length was already +2 so ne need to add again
+        utt["utterance"] = ids  # length was already +2 so ne need to add again
 
-    new_file_name = id_path + '/' + split + '_ids_utterances.pickle'
+    new_file_name = id_path + "/" + split + "_ids_utterances.pickle"
 
-    with open(new_file_name, 'wb') as f:
+    with open(new_file_name, "wb") as f:
         pickle.dump(dataset, f)
 
 
@@ -190,22 +204,22 @@ for domain in domains:
 
     print(domain)
 
-    domain_path = '../../../data/chains-domain-specific/{}/'.format(domain)
+    domain_path = "../../../data/chains-domain-specific/{}/".format(domain)
 
-    with open('{}train_text_utterances.pickle'.format(domain_path), 'rb') as f:
+    with open("{}train_text_utterances.pickle".format(domain_path), "rb") as f:
         train_utterances = pickle.load(f)
 
-    with open('{}val_text_utterances.pickle'.format(domain_path), 'rb') as f:
+    with open("{}val_text_utterances.pickle".format(domain_path), "rb") as f:
         val_utterances = pickle.load(f)
 
-    with open('{}test_text_utterances.pickle'.format(domain_path), 'rb') as f:
+    with open("{}test_text_utterances.pickle".format(domain_path), "rb") as f:
         test_utterances = pickle.load(f)
 
-    print('converting train...')
-    convert2indices(train_utterances, vocab, 'train', domain_path)
+    print("converting train...")
+    convert2indices(train_utterances, vocab, "train", domain_path)
 
-    print('converting val...')
-    convert2indices(val_utterances, vocab, 'val', domain_path)
+    print("converting val...")
+    convert2indices(val_utterances, vocab, "val", domain_path)
 
-    print('converting test...')
-    convert2indices(test_utterances, vocab, 'test', domain_path)
+    print("converting test...")
+    convert2indices(test_utterances, vocab, "test", domain_path)

@@ -11,16 +11,16 @@ from torch.utils.data import Dataset
 
 class AbstractDataset(Dataset):
     def __init__(
-            self,
-            split: str,
-            data_dir: str,
-            chain_file: str,
-            utterances_file: str,
-            vectors_file: str,
-            orig_ref_file: str,
-            img2dom_file: str,
-            subset_size: int = -1,
-            image_size: int = 2048,
+        self,
+        split: str,
+        data_dir: str,
+        chain_file: str,
+        utterances_file: str,
+        vectors_file: str,
+        orig_ref_file: str,
+        img2dom_file: str,
+        subset_size: int = -1,
+        image_size: int = 2048,
     ):
         """
         Abstract dataclass that implements
@@ -170,7 +170,7 @@ class AbstractDataset(Dataset):
                     im_counter += 1
 
                     if (
-                            game_id in self.img2chain[im]
+                        game_id in self.img2chain[im]
                     ):  # was there a linguistic chain for this image in this game
                         temp_chain = self.img2chain[im][game_id]
 
@@ -264,19 +264,21 @@ class AbstractDataset(Dataset):
                         # print('utt', padded)
                     elif key == "speak_utterance":
 
-                        padded = sample[key] + [0] * (max_speak_length - len(sample[key]))
+                        padded = sample[key] + [0] * (
+                            max_speak_length - len(sample[key])
+                        )
 
                     elif key == "prev_utterance":
 
                         if len(sample[key]) == 0:
                             # OTHERWISE pack_padded wouldn't work
                             padded = [NOHS] + [0] * (
-                                    max_prevutt_length - 1
+                                max_prevutt_length - 1
                             )  # SPECIAL TOKEN FOR NO HIST
 
                         else:
                             padded = sample[key] + [0] * (
-                                    max_prevutt_length - len(sample[key])
+                                max_prevutt_length - len(sample[key])
                             )
 
                         # print('prevutt', padded)

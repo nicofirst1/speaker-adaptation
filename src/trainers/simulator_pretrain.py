@@ -17,7 +17,8 @@ from src.commons import (
     load_wandb_checkpoint,
     mask_attn,
     parse_args,
-    save_model, SIM_ALL_CHK,
+    save_model,
+    SIM_ALL_CHK,
 )
 from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
@@ -27,7 +28,11 @@ from src.wandb_logging import ListenerLogger
 
 
 def get_predictions(
-        data: DataLoader, list_model: ListenerModel_hist, sim_model: SimulatorModel_hist, criterion, cel
+    data: DataLoader,
+    list_model: ListenerModel_hist,
+    sim_model: SimulatorModel_hist,
+    criterion,
+    cel,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -43,7 +48,7 @@ def get_predictions(
     prev_hist = data["prev_histories"]
     speak_embds = data["speak_h1embed"]
     max_length_tensor = utterance.shape[1]
-    batch_size=utterance.shape[0]
+    batch_size = utterance.shape[0]
     masks = mask_attn(lengths, max_length_tensor, device)
 
     # get outputs
@@ -63,14 +68,14 @@ def get_predictions(
     sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
 
     # accuracy
-    targets=targets.squeeze()
-    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()/ batch_size
-    list_target_accuracy=torch.eq(list_preds, targets).sum()/ batch_size
-    sim_target_accuracy=torch.eq(sim_preds, targets).sum()/ batch_size
+    targets = targets.squeeze()
+    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum() / batch_size
+    list_target_accuracy = torch.eq(list_preds, targets).sum() / batch_size
+    sim_target_accuracy = torch.eq(sim_preds, targets).sum() / batch_size
 
-    sim_list_accuracy=sim_list_accuracy.item()
-    list_target_accuracy=list_target_accuracy.item()
-    sim_target_accuracy=sim_target_accuracy.item()
+    sim_list_accuracy = sim_list_accuracy.item()
+    list_target_accuracy = list_target_accuracy.item()
+    sim_target_accuracy = sim_target_accuracy.item()
 
     list_preds = list_preds.tolist()
     sim_preds = sim_preds.tolist()
@@ -78,11 +83,9 @@ def get_predictions(
     aux = dict(
         sim_preds=sim_preds,
         list_preds=list_preds,
-
         sim_list_accuracy=sim_list_accuracy,
         list_target_accuracy=list_target_accuracy,
         sim_target_accuracy=sim_target_accuracy,
-
         list_loss=list_loss,
         sim_list_loss=sim_list_loss,
         sim_loss=sim_loss,
@@ -92,9 +95,9 @@ def get_predictions(
 
 
 def evaluate(
-        data_loader: DataLoader,
-        sim_model: torch.nn.Module,
-        list_model: torch.nn.Module,
+    data_loader: DataLoader,
+    sim_model: torch.nn.Module,
+    list_model: torch.nn.Module,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -109,7 +112,9 @@ def evaluate(
     flag = "eval"
 
     for ii, data in enumerate(data_loader):
-        loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion, cel)
+        loss, accuracy, aux = get_predictions(
+            data, list_model, sim_model, criterion, cel
+        )
 
         losses.append(loss.item())
         accuracies.append(accuracy)
@@ -133,7 +138,6 @@ if __name__ == "__main__":
 
     common_p = parse_args("sim")
     domain = common_p.train_domain
-
 
     ##########################
     # LISTENER
@@ -161,7 +165,7 @@ if __name__ == "__main__":
     # update paths
     # list_args.__parse_args()
     list_args.__post_init__()
-    list_vocab = Vocab(list_args.vocab_file,  is_speaker=False)
+    list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
     list_model = ListenerModel_hist(
         len(list_vocab),
@@ -187,7 +191,6 @@ if __name__ == "__main__":
     speak_p.reset_paths()
 
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
-
 
     # init speak model and load state
     speaker_model = SpeakerModel_hist(
@@ -224,18 +227,18 @@ if __name__ == "__main__":
         sim_p.reset_paths()
 
     else:
-        sim_p=common_p
+        sim_p = common_p
 
     model = get_model("sim", sim_p.model_type)
-    sim_model = model(len(list_vocab),
+    sim_model = model(
+        len(list_vocab),
         speak_p.hidden_dim,
         sim_p.hidden_dim,
         img_dim,
         sim_p.attention_dim,
         sim_p.dropout_prob,
-        sim_p.device,).to(
-        device)
-
+        sim_p.device,
+    ).to(device)
 
     ###################################
     ##  LOGGER
@@ -273,7 +276,7 @@ if __name__ == "__main__":
 
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-    criterion= nn.KLDivLoss(reduction=sim_p.reduction)
+    criterion = nn.KLDivLoss(reduction=sim_p.reduction)
 
     ###################################
     ##  Get speaker dataloader
@@ -296,7 +299,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(sim_p.epochs):
@@ -316,12 +319,14 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.progress.track(
-                enumerate(speak_train_dl),
-                total=len(speak_train_dl),
-                description=f"Training epoch {epoch}",
+            enumerate(speak_train_dl),
+            total=len(speak_train_dl),
+            description=f"Training epoch {epoch}",
         ):
             # get datapoints
-            loss, accuracy, aux = get_predictions(data, list_model, sim_model, criterion, cel)
+            loss, accuracy, aux = get_predictions(
+                data, list_model, sim_model, criterion, cel
+            )
 
             losses.append(loss.item())
             accuracies.append(accuracy)
@@ -360,12 +365,14 @@ if __name__ == "__main__":
             sim_model.eval()
 
             isValidation = True
-            print(f'\nEvaluation')
+            print(f"\nEvaluation")
             current_accuracy, current_loss = evaluate(
                 speak_val_dl, sim_model, list_model
             )
 
-            print(f"Evaluation loss {current_loss:.6f}, accuracy {current_accuracy:.3f} ")
+            print(
+                f"Evaluation loss {current_loss:.6f}, accuracy {current_accuracy:.3f} "
+            )
 
             save_model(
                 model=sim_model,

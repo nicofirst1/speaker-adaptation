@@ -49,7 +49,9 @@ class Params:
     seed: Optional[int] = 42
     patience: Optional[int] = 50
 
-    device: Optional[str] = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device: Optional[str] = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
 
     # If empty string then no resume. Else use wandb model checkpoints
     resume_train: str = ""
@@ -229,7 +231,7 @@ class Params:
             "all",
         ]
         assert (
-                self.train_domain in valid_dom
+            self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
 
     def reset_paths(self):
@@ -280,18 +282,18 @@ class ListenerArguments(Params):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-                self.metric in valis_metr
+            self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                    self.embed_dim == 768
+                self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -337,19 +339,18 @@ class SimulatorArguments(Params):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-                self.metric in valis_metr
+            self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
-
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                    self.embed_dim == 768
+                self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -398,6 +399,5 @@ class SpeakerArguments(Params):
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
-

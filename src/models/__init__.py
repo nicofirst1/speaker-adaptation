@@ -17,8 +17,8 @@ __all__ = [
 ]
 
 
-def get_model(model_type:Literal["list","speak","sim"], model_hist:str):
-    model_hist="hist"== model_hist
+def get_model(model_type: Literal["list", "speak", "sim"], model_hist: str):
+    model_hist = "hist" == model_hist
 
     if model_type == "list":
         if model_hist:

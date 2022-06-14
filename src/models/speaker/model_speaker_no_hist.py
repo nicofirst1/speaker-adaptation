@@ -10,16 +10,16 @@ from src.commons import mask_attn
 
 class SpeakerModel_no_hist(nn.Module):
     def __init__(
-            self,
-            vocab,
-            embedding_dim,
-            hidden_dim,
-            img_dim,
-            dropout_prob,
-            attention_dim,
-            beam_k,
-            max_len,
-            device,
+        self,
+        vocab,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        dropout_prob,
+        attention_dim,
+        beam_k,
+        max_len,
+        device,
     ):
         super().__init__()
         self.vocab = vocab
@@ -113,19 +113,19 @@ class SpeakerModel_no_hist(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def forward(
-            self,
-            utterance,
-            lengths,
-            prev_utterance,
-            prev_utt_lengths,
-            visual_context_sep,
-            visual_context,
-            target_img_feats,
-            targets,
-            prev_hist,
-            prev_hist_len,
-            normalize,
-            masks,
+        self,
+        utterance,
+        lengths,
+        prev_utterance,
+        prev_utt_lengths,
+        visual_context_sep,
+        visual_context,
+        target_img_feats,
+        targets,
+        prev_hist,
+        prev_hist_len,
+        normalize,
+        masks,
     ):
 
         """
@@ -157,12 +157,12 @@ class SpeakerModel_no_hist(nn.Module):
         )
 
         # here we need to get rid of all prev_utterances, do so by filling an empty torch tensor
-        pad_val=self.vocab.word2index["<pad>"]
-        nohs_val=self.vocab.word2index['<nohs>']
+        pad_val = self.vocab.word2index["<pad>"]
+        nohs_val = self.vocab.word2index["<nohs>"]
 
-        empty_utt=torch.full(prev_utterance.shape,pad_val)
-        empty_utt[:,0]=nohs_val
-        prev_utterance=empty_utt
+        empty_utt = torch.full(prev_utterance.shape, pad_val)
+        empty_utt[:, 0] = nohs_val
+        prev_utterance = empty_utt
 
         # previous utterance is embedded
         embeds_words = self.dropout(self.embedding(prev_utterance))  # b, l, d
@@ -246,11 +246,11 @@ class SpeakerModel_no_hist(nn.Module):
         return predictions
 
     def generate_hypothesis(
-            self,
-            prev_utterance: torch.Tensor,
-            prev_utt_lengths: torch.Tensor,
-            visual_context: torch.Tensor,
-            target_img_feats: torch.Tensor,
+        self,
+        prev_utterance: torch.Tensor,
+        prev_utt_lengths: torch.Tensor,
+        visual_context: torch.Tensor,
+        target_img_feats: torch.Tensor,
     ) -> Tuple[str, Dict, torch.Tensor]:
         """
         Generate an hypothesis (natural language sentence) based on the current output
@@ -267,7 +267,7 @@ class SpeakerModel_no_hist(nn.Module):
             prev_utterance, prev_utt_lengths, visual_context, target_img_feats
         )
 
-        model_params['history_att']=history_att
+        model_params["history_att"] = history_att
 
         max_length_tensor = prev_utterance.shape[1]
         masks = mask_attn(prev_utt_lengths, max_length_tensor, self.device)
@@ -277,11 +277,11 @@ class SpeakerModel_no_hist(nn.Module):
         return hypos, model_params, decoder_hid
 
     def partial_forward(
-            self,
-            prev_utterance: torch.Tensor,
-            prev_utt_lengths: torch.Tensor,
-            visual_context: torch.Tensor,
-            target_img_feats: torch.Tensor,
+        self,
+        prev_utterance: torch.Tensor,
+        prev_utt_lengths: torch.Tensor,
+        visual_context: torch.Tensor,
+        target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
         # todo: need better name
 
@@ -352,11 +352,11 @@ class SpeakerModel_no_hist(nn.Module):
         return decoder_hid, history_att, model_params
 
     def beam_serach(
-            self,
-            decoder_hid: torch.Tensor,
-            history_att: torch.Tensor,
-            masks: torch.Tensor,
-            model_params: Optional[Dict] = {},
+        self,
+        decoder_hid: torch.Tensor,
+        history_att: torch.Tensor,
+        masks: torch.Tensor,
+        model_params: Optional[Dict] = {},
     ) -> str:
         completed_sentences = []
         completed_scores = []
@@ -427,7 +427,7 @@ class SpeakerModel_no_hist(nn.Module):
 
             # self.vocab - 1 to exclude <NOHS>
             sentence_index = top_words // (
-                    len(self.vocab) - 1
+                len(self.vocab) - 1
             )  # which sentence it will be added to
             word_index = top_words % (len(self.vocab) - 1)  # predicted word
 
@@ -497,11 +497,11 @@ class SpeakerModel_no_hist(nn.Module):
             self.vocab.index2word[w]
             for w in best_seq
             if w
-               not in [
-                   self.vocab.word2index["<sos>"],
-                   self.vocab.word2index["<eos>"],
-                   self.vocab.word2index["<pad>"],
-               ]
+            not in [
+                self.vocab.word2index["<sos>"],
+                self.vocab.word2index["<eos>"],
+                self.vocab.word2index["<pad>"],
+            ]
         ]
         # remove sos and pads # I want to check eos
         hypothesis_string = " ".join(hypothesis)
@@ -514,4 +514,3 @@ class SpeakerModel_no_hist(nn.Module):
         )
 
         return hypothesis_string
-

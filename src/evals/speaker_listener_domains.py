@@ -14,7 +14,9 @@ from src.commons import (
     get_domain_accuracy,
     get_dataloaders,
     parse_args,
-    load_wandb_checkpoint, LISTENER_CHK_DICT, SPEAKER_CHK,
+    load_wandb_checkpoint,
+    LISTENER_CHK_DICT,
+    SPEAKER_CHK,
 )
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
@@ -35,12 +37,12 @@ def dict_diff(golden_dict, gen_dict):
 
 
 def evaluate_trained_model(
-        dataloader: DataLoader,
-        list_model: torch.nn.Module,
-        vocab: Vocab,
-        domain: str,
-        logger: WandbLogger,
-        speak_model: Optional[torch.nn.Module] = None,
+    dataloader: DataLoader,
+    list_model: torch.nn.Module,
+    vocab: Vocab,
+    domain: str,
+    logger: WandbLogger,
+    speak_model: Optional[torch.nn.Module] = None,
 ):
     accuracies = []
     ranks = []
@@ -59,9 +61,9 @@ def evaluate_trained_model(
         modality += "_generated"
 
     for ii, data in rich.progress.track(
-            enumerate(dataloader),
-            total=len(dataloader),
-            description=f"Eval on domain '{domain}' with '{modality}' modality",
+        enumerate(dataloader),
+        total=len(dataloader),
+        description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
         if speak_model is not None:
@@ -72,8 +74,9 @@ def evaluate_trained_model(
             visual_context = data["concat_context"]
 
             # generate hypo with speaker
-            hypo, _, _ = speak_model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
-                                                         target_img_feats)
+            hypo, _, _ = speak_model.generate_hypothesis(
+                prev_utterance, prev_utt_lengths, visual_context, target_img_feats
+            )
             utterance = hypo2utterance(hypo, vocab)
         else:
             # else take them from golden caption
@@ -91,9 +94,7 @@ def evaluate_trained_model(
         masks = mask_attn(lengths, max_length_tensor, list_model.device)
 
         # get listener output
-        out = list_model(
-            utterance, context_separate, context_concat, prev_hist, masks
-        )
+        out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
 
         preds = torch.argmax(out, dim=1)
 
@@ -130,45 +131,45 @@ def evaluate_trained_model(
 
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
     metrics["mrr"] = MRR
-    metrics['accuracy'] = accuracy
+    metrics["accuracy"] = accuracy
 
     # log image\hypo and utterance
-    img = data['image_set'][0][data['target'][0]]
+    img = data["image_set"][0][data["target"][0]]
     img = logger.img_id2path[img]
-    origin_utt = data['orig_utterance'][0]
+    origin_utt = data["orig_utterance"][0]
     utt = hypo if speak_model is not None else origin_utt
 
     img = wandb.Image(img, caption=utt)
 
-    metrics['aux'] = dict(
-        target=img,
-        utt=utt
-    )
+    metrics["aux"] = dict(target=img, utt=utt)
 
     if "out" in modality:
         domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
         metrics["domain_accuracy"] = domain_accuracy
 
-
     else:
         logger.on_eval_end(
-            copy.deepcopy(metrics), list_domain=dataloader.dataset.domain, modality=modality
+            copy.deepcopy(metrics),
+            list_domain=dataloader.dataset.domain,
+            modality=modality,
         )
 
     return metrics
 
 
-def generate_table_data(domain: str, modality: str, table_columns: List, metrics: Dict) -> List:
+def generate_table_data(
+    domain: str, modality: str, table_columns: List, metrics: Dict
+) -> List:
     data = [domain, modality]
     for key in table_columns:
         if key in ["modality", "list_domain"]:
             continue
         elif key in metrics.keys():
             data.append(metrics[key])
-        elif key in metrics['domain_accuracy'].keys():
-            data.append(metrics['domain_accuracy'][key])
-        elif key in metrics['aux'].keys():
-            data.append(metrics['aux'][key])
+        elif key in metrics["domain_accuracy"].keys():
+            data.append(metrics["domain_accuracy"][key])
+        elif key in metrics["aux"].keys():
+            data.append(metrics["aux"][key])
         else:
             raise KeyError(f"No key '{key}' found in dict")
     return data
@@ -201,7 +202,8 @@ if __name__ == "__main__":
 
     img_dim = 2048
     model = get_model("speak", speak_p.model_type)
-    speaker_model = model( speak_vocab,
+    speaker_model = model(
+        speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
@@ -209,8 +211,8 @@ if __name__ == "__main__":
         speak_p.attention_dim,
         speak_p.beam_size,
         speak_p.max_len,
-        device,)
-
+        device,
+    )
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
@@ -240,15 +242,15 @@ if __name__ == "__main__":
     vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
     model = get_model("list", list_args.model_type)
-    list_model = model( len(vocab),
+    list_model = model(
+        len(vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
-        device )
-
-
+        device,
+    )
 
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
@@ -280,9 +282,7 @@ if __name__ == "__main__":
         list_model.eval()
 
         print(f"Eval on '{list_args.train_domain}' domain")
-        _, _, val_loader = get_dataloaders(
-            list_args, vocab, list_args.train_domain
-        )
+        _, _, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
 
         evaluate_trained_model(
             dataloader=val_loader,
@@ -329,15 +329,27 @@ if __name__ == "__main__":
         diff_dict = dict_diff(golden_metrics, gen_metrics)
 
         # reappend aux
-        gen_metrics['aux'] = gen_aux
-        golden_metrics['aux'] = golden_aux
-        diff_dict['aux'] = golden_aux
+        gen_metrics["aux"] = gen_aux
+        golden_metrics["aux"] = golden_aux
+        diff_dict["aux"] = golden_aux
 
         # define table data rows
         data = []
-        data.append(generate_table_data(list_args.train_domain, "golden", table_columns, golden_metrics))
-        data.append(generate_table_data(list_args.train_domain, "gen", table_columns, gen_metrics))
-        data.append(generate_table_data(list_args.train_domain, "diff", table_columns, diff_dict))
+        data.append(
+            generate_table_data(
+                list_args.train_domain, "golden", table_columns, golden_metrics
+            )
+        )
+        data.append(
+            generate_table_data(
+                list_args.train_domain, "gen", table_columns, gen_metrics
+            )
+        )
+        data.append(
+            generate_table_data(
+                list_args.train_domain, "diff", table_columns, diff_dict
+            )
+        )
 
         # create table and log
         table = wandb.Table(columns=table_columns, data=data)

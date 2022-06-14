@@ -25,7 +25,9 @@ class DataLogger(WandbLogger):
         self.img_id2path = imgid2path(data_path)
 
         # create a dict from img_id to domain
-        self.img_id2domain, self.domains = load_imgid2domain(kwargs['opts']['img2dom_file'])
+        self.img_id2domain, self.domains = load_imgid2domain(
+            kwargs["opts"]["img2dom_file"]
+        )
 
         ### datapoint table
         table_columns = ["model domain"]
@@ -40,7 +42,7 @@ class DataLogger(WandbLogger):
         :return:
         """
 
-        domains = [x['domain'] for x in dataset.data.values()]
+        domains = [x["domain"] for x in dataset.data.values()]
 
         count = Counter(domains)
         tot = len(domains)
@@ -48,9 +50,7 @@ class DataLogger(WandbLogger):
         columns = ["domain", "img_num", "perc"]
         data = []
         for k, v in count.items():
-            data.append(
-                (k, v, v / tot)
-            )
+            data.append((k, v, v / tot))
 
         new_table = wandb.Table(columns=columns, data=data)
         logs = {f"domain_stats/{modality}": new_table}
@@ -70,7 +70,7 @@ class DataLogger(WandbLogger):
         for d in dataset.data.values():
 
             # get img_id of target
-            img_id = d['image_set'][d['target'][0]]
+            img_id = d["image_set"][d["target"][0]]
             img_id = str(img_id)
 
             # skip if id not in dict
@@ -86,8 +86,9 @@ class DataLogger(WandbLogger):
             img = wandb.Image(self.img_id2path[img_id], caption=f"Domain: {img_domain}")
             data.append((img, img_domain, img_emb))
 
-
-        print(f"Skipped {skipped} image out of {len(dataset)} ({skipped/len(dataset)*100:.3f}%)")
+        print(
+            f"Skipped {skipped} image out of {len(dataset)} ({skipped/len(dataset)*100:.3f}%)"
+        )
         # create table
         columns = ["image", "domain", "viz_embed"]
         new_table = wandb.Table(columns=columns, data=data)

@@ -7,9 +7,16 @@ import wandb
 from torch import nn
 from torch.utils.data import DataLoader
 
-from src.commons import (LISTENER_CHK_DICT, SIM_DOMAIN_CHK, SPEAKER_CHK,
-                         get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args)
+from src.commons import (
+    LISTENER_CHK_DICT,
+    SIM_DOMAIN_CHK,
+    SPEAKER_CHK,
+    get_dataloaders,
+    hypo2utterance,
+    load_wandb_checkpoint,
+    mask_attn,
+    parse_args,
+)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -22,8 +29,8 @@ def evaluate(
     sim_model: SimulatorModel_hist,
     list_model: ListenerModel_hist,
     criterion,
-    split:str,
-    lr:float=0.1
+    split: str,
+    lr: float = 0.1,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -189,15 +196,16 @@ if __name__ == "__main__":
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-
     model = get_model("list", list_args.model_type)
-    list_model = model(  len(list_vocab),
+    list_model = model(
+        len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
-        device=device, ).to(device)
+        device=device,
+    ).to(device)
 
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
@@ -215,7 +223,8 @@ if __name__ == "__main__":
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
     model = get_model("speak", speak_p.model_type)
-    speaker_model = model( speak_vocab,
+    speaker_model = model(
+        speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
@@ -223,9 +232,8 @@ if __name__ == "__main__":
         speak_p.attention_dim,
         speak_p.beam_size,
         speak_p.max_len,
-        device=device, ).to(device)
-
-
+        device=device,
+    ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
@@ -248,15 +256,15 @@ if __name__ == "__main__":
     sim_p.reset_paths()
 
     model = get_model("sim", sim_p.model_type)
-    sim_model = model(len(list_vocab),
+    sim_model = model(
+        len(list_vocab),
         speak_p.hidden_dim,
         sim_p.hidden_dim,
         img_dim,
         sim_p.attention_dim,
         sim_p.dropout_prob,
-        sim_p.device,).to(device)
-
-
+        sim_p.device,
+    ).to(device)
 
     ###################################
     ##  LOGGER
@@ -311,7 +319,7 @@ if __name__ == "__main__":
         list_model,
         criterion=cel,
         split="train",
-        lr=common_p.learning_rate
+        lr=common_p.learning_rate,
     )
 
     print(f"\nEvaluation on eval")
@@ -322,8 +330,7 @@ if __name__ == "__main__":
         list_model,
         criterion=cel,
         split="val",
-        lr=common_p.learning_rate
-
+        lr=common_p.learning_rate,
     )
 
-    logger.on_train_end({},epoch_id=0)
+    logger.on_train_end({}, epoch_id=0)

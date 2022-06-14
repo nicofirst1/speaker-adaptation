@@ -30,7 +30,9 @@ class ListenerLogger(WandbLogger):
         self.img_id2path = imgid2path(data_path)
 
         # create a dict from img_id to domain
-        self.img_id2domain, self.domains = load_imgid2domain(kwargs['opts']['img2dom_file'])
+        self.img_id2domain, self.domains = load_imgid2domain(
+            kwargs["opts"]["img2dom_file"]
+        )
 
         ### datapoint table
         table_columns = ["model domain"]
@@ -85,7 +87,7 @@ class ListenerLogger(WandbLogger):
         utt = utt.replace(" <pad>", "")
 
         # get imgs domain
-        imgs=[str(x) for x in imgs]
+        imgs = [str(x) for x in imgs]
         imgs_domains = [self.img_id2domain[img] for img in imgs]
 
         # read image
@@ -130,7 +132,7 @@ class ListenerLogger(WandbLogger):
         img_emb = data_point["separate_images"][idx].cpu().numpy()
         img_emb = [list(x) for x in img_emb]
 
-        imgs=[str(x) for x in imgs]
+        imgs = [str(x) for x in imgs]
 
         # get imgs domain
         imgs_domains = [self.img_id2domain[img] for img in imgs]
@@ -164,8 +166,13 @@ class ListenerLogger(WandbLogger):
 
         self.log_to_wandb(metrics, commit=True)
 
-    def on_eval_end(self, metrics: Dict[str, Any], list_domain: int, modality: str, commit: Optional[bool] = False
-                    ):
+    def on_eval_end(
+        self,
+        metrics: Dict[str, Any],
+        list_domain: int,
+        modality: str,
+        commit: Optional[bool] = False,
+    ):
 
         # get and log domain accuracy table
         logs = {}
@@ -189,13 +196,13 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=commit)
 
     def on_batch_end(
-            self,
-            loss: torch.Tensor,
-            data_point: Dict[str, Any],
-            aux: Dict[str, Any],
-            batch_id: int,
-            modality: str,
-            commit: Optional[bool] = False
+        self,
+        loss: torch.Tensor,
+        data_point: Dict[str, Any],
+        aux: Dict[str, Any],
+        batch_id: int,
+        modality: str,
+        commit: Optional[bool] = False,
     ):
 
         logging_step = (

@@ -1,18 +1,20 @@
 import argparse
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import rich
 import torch
 from torch.utils.data import DataLoader
 
 from src.commons.model_utils import hypo2utterance
-from src.data.dataloaders import (AbstractDataset, ListenerDataset, SpeakerDataset,
-                                  Vocab)
+from src.data.dataloaders import AbstractDataset, ListenerDataset, SpeakerDataset, Vocab
 
 
-def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None, unary_val_bs: Optional[bool] = True) -> \
-        Tuple[
-            DataLoader, DataLoader, DataLoader]:
+def get_dataloaders(
+    args: argparse.Namespace,
+    vocab: Vocab,
+    domain: str = None,
+    unary_val_bs: Optional[bool] = True,
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load dataloaders based on args
     Parameters
@@ -39,7 +41,7 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None, 
             "subset_size": args.subset_size,
             "image_size": args.image_size,
             "img2dom_file": args.img2dom_file,
-            "data_dir": args.data_path
+            "data_dir": args.data_path,
         }
 
         if domain is not None:
@@ -79,21 +81,21 @@ def get_dataloaders(args: argparse.Namespace, vocab: Vocab, domain: str = None, 
 
 
 def speaker_augmented_dataloader(
-        dataloader: DataLoader,
-        vocab: Vocab,
-        speak_model: torch.nn.Module,
-        batch_size: int,
-        split_name: str,
-        shuffle: Optional[bool] = False,
+    dataloader: DataLoader,
+    vocab: Vocab,
+    speak_model: torch.nn.Module,
+    batch_size: int,
+    split_name: str,
+    shuffle: Optional[bool] = False,
 ) -> DataLoader:
     """
     Augment the canon dataloader with speaker generated utterances and embeddings
 
     """
     for ii, data in rich.progress.track(
-            enumerate(dataloader),
-            total=len(dataloader),
-            description=f"Generating hypotesis for split '{split_name}'",
+        enumerate(dataloader),
+        total=len(dataloader),
+        description=f"Generating hypotesis for split '{split_name}'",
     ):
         # get datapoints
         target_img_feats = data["target_img_feats"]
@@ -102,15 +104,18 @@ def speaker_augmented_dataloader(
         visual_context = data["concat_context"]
 
         # generate hypo with speaker
-        hypo, _, h1 = speak_model.generate_hypothesis(prev_utterance, prev_utt_lengths, visual_context,
-                                                      target_img_feats)
+        hypo, _, h1 = speak_model.generate_hypothesis(
+            prev_utterance, prev_utt_lengths, visual_context, target_img_feats
+        )
         utterance = hypo2utterance(hypo, vocab)
 
         dataloader.dataset.data[ii]["speak_utterance"] = utterance.squeeze().tolist()
         dataloader.dataset.data[ii]["speak_h1embed"] = h1.squeeze().tolist()
 
     dp = next(iter(dataloader)).keys()
-    assert "speak_utterance" in dp and "speak_h1embed" in dp, "dataloader update did not work"
+    assert (
+        "speak_utterance" in dp and "speak_h1embed" in dp
+    ), "dataloader update did not work"
 
     load_params = {
         "batch_size": batch_size,

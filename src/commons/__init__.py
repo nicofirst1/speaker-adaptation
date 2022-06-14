@@ -1,8 +1,13 @@
 from .data_utils import get_dataloaders
-from .model_utils import (get_domain_accuracy, hypo2utterance,
-                          load_wandb_checkpoint, mask_attn, save_model)
-from .Params import parse_args
 from .EarlyStopping import EarlyStopping
+from .model_utils import (
+    get_domain_accuracy,
+    hypo2utterance,
+    load_wandb_checkpoint,
+    mask_attn,
+    save_model,
+)
+from .Params import parse_args
 
 __all__ = [
     "get_dataloaders",
@@ -25,10 +30,10 @@ LISTENER_CHK_DICT = dict(
     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v274",
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
 )
-SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel:v203"
-SIM_ALL_CHK= "adaptive-speaker/simulator-pretrain/SimulatorModel_all:v89"
+SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
+SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_all:v89"
 
-SIM_DOMAIN_CHK=dict(
+SIM_DOMAIN_CHK = dict(
     # epoch 83
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_food:v200",
     # epoch 50
@@ -37,5 +42,4 @@ SIM_DOMAIN_CHK=dict(
     indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_indoor:v12",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_outdoor:v104",
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_vehicles:v110",
-
 )

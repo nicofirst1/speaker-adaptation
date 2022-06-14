@@ -7,7 +7,14 @@ import torch.nn.functional as F
 
 class ListenerModel_no_hist(nn.Module):
     def __init__(
-        self, vocab_size, embedding_dim, hidden_dim, img_dim, att_dim, dropout_prob, device
+        self,
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        att_dim,
+        dropout_prob,
+        device,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -15,7 +22,7 @@ class ListenerModel_no_hist(nn.Module):
         self.hidden_dim = hidden_dim
         self.img_dim = img_dim
         self.attention_dim = att_dim
-        self.device=device
+        self.device = device
 
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(
@@ -94,14 +101,14 @@ class ListenerModel_no_hist(nn.Module):
         masks = masks.to(self.device)
 
         representations = self.embeddings(text)
-        #[32,33,786]
+        # [32,33,786]
 
         batch_size = representations.shape[0]  # effective batch size
 
         # utterance representations are processed
         representations = self.dropout(representations)
         input_reps = self.relu(self.lin_emb2hid(representations))
-        #[32,33,512]
+        # [32,33,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)

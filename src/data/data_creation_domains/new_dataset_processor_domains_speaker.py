@@ -10,7 +10,7 @@ from Vocab import Vocab
 tweet_tokenizer = TweetTokenizer(preserve_case=False)
 min_freq = 0
 
-vocab_csv_path = '../../../data/speaker/vocab.csv'
+vocab_csv_path = "../../../data/speaker/vocab.csv"
 
 
 def process_data(data, split):
@@ -21,15 +21,15 @@ def process_data(data, split):
     chain_dataset = []
     utterance_dataset = defaultdict()
 
-    chains_path = '../../../data/speaker/' + split + '_text_chains.json'
-    utterances_path = '../../../data/speaker/' + split + '_text_utterances.pickle'
+    chains_path = "../../../data/speaker/" + split + "_text_chains.json"
+    utterances_path = "../../../data/speaker/" + split + "_text_utterances.pickle"
 
     chain_count = 0
     utterance_count = 0
 
     for img_file in sorted(data):
 
-        img_id = str(int(img_file.split('/')[1].split('.')[0].split('_')[2]))
+        img_id = str(int(img_file.split("/")[1].split(".")[0].split("_")[2]))
         # img path in the form of 'person_bed/COCO_train2014_000000318646.jpg'
         # but also like 'bowl_dining_table/COCO_train2014_000000086285.jpg'
 
@@ -45,9 +45,9 @@ def process_data(data, split):
             for m in range(len(chain_data)):
 
                 utterance_data = chain_data[m]
-                message = utterance_data['Message_Text']
-                message_nr = utterance_data['Message_Nr']
-                round_nr = utterance_data['Round_Nr']
+                message = utterance_data["Message_Text"]
+                message_nr = utterance_data["Message_Nr"]
+                round_nr = utterance_data["Round_Nr"]
 
                 tokenized_message = tweet_tokenizer.tokenize(message)
 
@@ -56,34 +56,44 @@ def process_data(data, split):
                 # - / * AND SO ON punctuation marks are they in the dataset? vocab of bert?
                 # INCLUDES * AND STUFF FOR CENSORING
 
-                speaker = utterance_data['Message_Speaker']
+                speaker = utterance_data["Message_Speaker"]
 
                 # visual context is the round images of the person who uttered the message
-                if speaker == 'A':
+                if speaker == "A":
 
-                    visual_context = utterance_data['Round_Images_A']
+                    visual_context = utterance_data["Round_Images_A"]
 
-                elif speaker == 'B':
+                elif speaker == "B":
 
-                    visual_context = utterance_data['Round_Images_B']
+                    visual_context = utterance_data["Round_Images_B"]
 
                 visual_context_ids = []
 
                 for v in visual_context:
 
-                    v_id = str(int(v.split('/')[1].split('.')[0].split('_')[2]))
+                    v_id = str(int(v.split("/")[1].split(".")[0].split("_")[2]))
 
                     visual_context_ids.append(v_id)
 
                 visual_context_ids = sorted(visual_context_ids)  # SORTED VISUAL CONTEXT
 
-                utt_length = len(tokenized_message) + 2  # WARNING!! ALREADY INCLUDING sos eos into the length
+                utt_length = (
+                    len(tokenized_message) + 2
+                )  # WARNING!! ALREADY INCLUDING sos eos into the length
                 # utterance information
-                utterance = {'utterance': tokenized_message, 'image_set': visual_context_ids,
-                             'target': [visual_context_ids.index(img_id)], 'length': utt_length, 'game_id': game_id,
-                             'round_nr': round_nr, 'message_nr': message_nr}
+                utterance = {
+                    "utterance": tokenized_message,
+                    "image_set": visual_context_ids,
+                    "target": [visual_context_ids.index(img_id)],
+                    "length": utt_length,
+                    "game_id": game_id,
+                    "round_nr": round_nr,
+                    "message_nr": message_nr,
+                }
 
-                utterance_dataset[(game_id, round_nr, message_nr, img_id)] = utterance # add to the full dataset
+                utterance_dataset[
+                    (game_id, round_nr, message_nr, img_id)
+                ] = utterance  # add to the full dataset
 
                 utterance_lengths.append(utt_length)
                 utt_ids.append((game_id, round_nr, message_nr, img_id))
@@ -93,24 +103,29 @@ def process_data(data, split):
                     print(utterance_count)
 
             # chain information
-            chain = {'game_id': game_id, 'chain_id': chain_count, 'utterances': utt_ids, 'target': img_id,
-                     'lengths': utterance_lengths}  # utterance lengths
+            chain = {
+                "game_id": game_id,
+                "chain_id": chain_count,
+                "utterances": utt_ids,
+                "target": img_id,
+                "lengths": utterance_lengths,
+            }  # utterance lengths
 
             chain_dataset.append(chain)
             chain_count += 1
 
     # dump the text versions of the chains and utterances
 
-    with open(chains_path, 'w') as f:
+    with open(chains_path, "w") as f:
         json.dump(chain_dataset, f)
 
-    with open(utterances_path, 'wb') as f:
+    with open(utterances_path, "wb") as f:
         pickle.dump(utterance_dataset, f)
 
     return split_full_vocab
 
 
-domains = ['indoor', 'outdoor', 'food', 'vehicles', 'appliances']  #, 'speaker']
+domains = ["indoor", "outdoor", "food", "vehicles", "appliances"]  # , 'speaker']
 
 train = dict()
 test = dict()
@@ -120,33 +135,33 @@ for domain in domains:
 
     print(domain)
 
-    domain_path = '../../../data/chains-domain-specific/{}/'.format(domain)
+    domain_path = "../../../data/chains-domain-specific/{}/".format(domain)
 
-    with open('{}train.json'.format(domain_path), 'r') as f:
+    with open("{}train.json".format(domain_path), "r") as f:
         train_dm = json.load(f)
 
-    with open('{}val.json'.format(domain_path), 'r') as f:
+    with open("{}val.json".format(domain_path), "r") as f:
         val_dm = json.load(f)
 
-    with open('{}test.json'.format(domain_path), 'r') as f:
+    with open("{}test.json".format(domain_path), "r") as f:
         test_dm = json.load(f)
 
     print(len(train_dm))
     print(len(val_dm))
     print(len(test_dm))
-    
+
     train.update(train_dm)
     test.update(test_dm)
     val.update(val_dm)
 
-print('processing train...')
-train_full_tokens = process_data(train, 'train')
+print("processing train...")
+train_full_tokens = process_data(train, "train")
 
-print('processing val...')
-val_full_tokens = process_data(val, 'val')
+print("processing val...")
+val_full_tokens = process_data(val, "val")
 
-print('processing test...')
-test_full_tokens = process_data(test, 'test')
+print("processing test...")
+test_full_tokens = process_data(test, "test")
 
 full_vocab = train_full_tokens + val_full_tokens + test_full_tokens
 
@@ -161,22 +176,22 @@ for word, freq in vocab_ordered:
 
 with open(vocab_csv_path, "w") as f:
 
-    writer = csv.writer(f, delimiter=',', quotechar='|')
+    writer = csv.writer(f, delimiter=",", quotechar="|")
     writer.writerows(full_word_list)
 
 
 # Convert from text to IDs
 
-with open('../../../data/speaker/train_text_utterances.pickle', 'rb') as f:
+with open("../../../data/speaker/train_text_utterances.pickle", "rb") as f:
     train_utterances = pickle.load(f)
 
-with open('../../../data/speaker/val_text_utterances.pickle', 'rb') as f:
+with open("../../../data/speaker/val_text_utterances.pickle", "rb") as f:
     val_utterances = pickle.load(f)
 
-with open('../../../data/speaker/test_text_utterances.pickle', 'rb') as f:
+with open("../../../data/speaker/test_text_utterances.pickle", "rb") as f:
     test_utterances = pickle.load(f)
 
-vocab = Vocab('../../../data/speaker/vocab.csv')
+vocab = Vocab("../../../data/speaker/vocab.csv")
 
 
 def convert2indices(dataset, vocab, split):
@@ -185,23 +200,23 @@ def convert2indices(dataset, vocab, split):
 
         utt = dataset[tup]
 
-        text = utt['utterance']
+        text = utt["utterance"]
 
-        ids = [vocab['<sos>']] + [vocab[t] for t in text] + [vocab['<eos>']]
+        ids = [vocab["<sos>"]] + [vocab[t] for t in text] + [vocab["<eos>"]]
 
-        utt['utterance'] = ids  # length was already +2 so ne need to add again
+        utt["utterance"] = ids  # length was already +2 so ne need to add again
 
-    new_file_name = '../../../data/speaker/' + split + '_ids_utterances.pickle'
+    new_file_name = "../../../data/speaker/" + split + "_ids_utterances.pickle"
 
-    with open(new_file_name, 'wb') as f:
+    with open(new_file_name, "wb") as f:
         pickle.dump(dataset, f)
 
 
-print('converting train...')
-convert2indices(train_utterances, vocab, 'train')
+print("converting train...")
+convert2indices(train_utterances, vocab, "train")
 
-print('converting val...')
-convert2indices(val_utterances, vocab, 'val')
+print("converting val...")
+convert2indices(val_utterances, vocab, "val")
 
-print('converting test...')
-convert2indices(test_utterances, vocab, 'test')
+print("converting test...")
+convert2indices(test_utterances, vocab, "test")

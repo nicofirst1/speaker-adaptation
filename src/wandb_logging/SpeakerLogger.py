@@ -28,7 +28,9 @@ class SpeakerLogger(WandbLogger):
         self.img_id2path = imgid2path(data_path)
 
         # create a dict from img_id to domain
-        self.img_id2domain, self.domains = load_imgid2domain(kwargs['opts']['img2dom_file'])
+        self.img_id2domain, self.domains = load_imgid2domain(
+            kwargs["opts"]["img2dom_file"]
+        )
 
         ### datapoint table
 
@@ -173,11 +175,11 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(metrics, commit=True)
 
     def on_eval_end(
-            self,
-            metrics: Dict[str, Any],
-            model_params: Dict[str, Any],
-            model_out: Dict[str, Any],
-            data_point: Dict[str, Any],
+        self,
+        metrics: Dict[str, Any],
+        model_params: Dict[str, Any],
+        model_out: Dict[str, Any],
+        data_point: Dict[str, Any],
     ):
 
         # get and log domain accuracy table
@@ -187,12 +189,12 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-            self,
-            loss: torch.Tensor,
-            data_point: Dict[str, Any],
-            aux: Dict[str, Any],
-            batch_id: int,
-            modality: str,
+        self,
+        loss: torch.Tensor,
+        data_point: Dict[str, Any],
+        aux: Dict[str, Any],
+        batch_id: int,
+        modality: str,
     ):
 
         logging_step = (
