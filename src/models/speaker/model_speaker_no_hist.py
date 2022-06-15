@@ -162,7 +162,7 @@ class SpeakerModel_no_hist(nn.Module):
 
         empty_utt = torch.full(prev_utterance.shape, pad_val)
         empty_utt[:, 0] = nohs_val
-        prev_utterance = empty_utt
+        prev_utterance = empty_utt.to(self.device)
 
         # previous utterance is embedded
         embeds_words = self.dropout(self.embedding(prev_utterance))  # b, l, d
