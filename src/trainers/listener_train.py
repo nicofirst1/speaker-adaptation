@@ -226,6 +226,7 @@ if __name__ == "__main__":
         img_dim,
         att_dim,
         dropout_prob,
+        args.domain,
         device=args.device,
     ).to(args.device)
 

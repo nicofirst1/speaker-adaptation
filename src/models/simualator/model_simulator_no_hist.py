@@ -4,9 +4,10 @@ import torch
 import torch.nn.functional as F
 
 from src.models.listener.ListenerModel_hist import ListenerModel_hist
+from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
 
 
-class SimulatorModel_no_hist(ListenerModel_hist):
+class SimulatorModel_no_hist(ListenerModel_no_hist):
     def __init__(
         self,
         vocab_size,
@@ -15,6 +16,7 @@ class SimulatorModel_no_hist(ListenerModel_hist):
         img_dim,
         att_dim,
         dropout_prob,
+        domain,
         device,
     ):
         super(SimulatorModel_no_hist, self).__init__(
@@ -24,6 +26,7 @@ class SimulatorModel_no_hist(ListenerModel_hist):
             img_dim,
             att_dim,
             dropout_prob,
+            domain,
             device,
         )
 

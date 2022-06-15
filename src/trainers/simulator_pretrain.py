@@ -167,13 +167,15 @@ if __name__ == "__main__":
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-    list_model = ListenerModel_hist(
+    model = get_model("list", list_args.model_type)
+    list_model = model(
         len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
+        list_args.domain,
         device=device,
     ).to(device)
 
@@ -193,7 +195,9 @@ if __name__ == "__main__":
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
     # init speak model and load state
-    speaker_model = SpeakerModel_hist(
+
+    model = get_model("speak", speak_p.model_type)
+    speaker_model = model(
         speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
@@ -204,6 +208,8 @@ if __name__ == "__main__":
         speak_p.max_len,
         device=device,
     ).to(device)
+
+
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
@@ -237,6 +243,7 @@ if __name__ == "__main__":
         img_dim,
         sim_p.attention_dim,
         sim_p.dropout_prob,
+        sim_p.domain,
         sim_p.device,
     ).to(device)
 

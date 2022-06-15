@@ -322,7 +322,14 @@ class SimulatorArguments(Params):
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
 
+    #########################
+    #   Other
+    #########################
+
     metric: Optional[str] = "accs"
+    s:Optional[int] = 1
+    alpha:Optional[int] = 0.1
+
 
     def __init__(self):
         super(SimulatorArguments, self).__init__()

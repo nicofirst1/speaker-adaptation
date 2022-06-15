@@ -249,6 +249,7 @@ if __name__ == "__main__":
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
+        list_args.train_domain,
         device,
     )
 

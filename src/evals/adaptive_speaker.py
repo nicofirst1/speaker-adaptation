@@ -1,6 +1,8 @@
 import datetime
+from typing import List
 
 import numpy as np
+import pandas as pd
 import rich.progress
 import torch
 import wandb
@@ -22,6 +24,31 @@ from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
 
+def generate_table(data:List,target_domain:List,s:int)-> wandb.Table:
+    # unflatten inner lists
+    new_data = []
+    for row,tg in zip(data,target_domain):
+        new_row = [tg]
+        for elem in row:
+            if isinstance(elem, list):
+                new_row += elem
+            else:
+                new_row.append(elem)
+        new_data.append(new_row)
+    data = new_data
+
+    table_columns = [
+        "target domain",
+        "original hypo",
+        "original guess",
+    ]
+    table_columns += [f"adapted hypo {i}" for i in range(s)]
+    table_columns += [f"adapted guess {i}" for i in range(s)]
+    table_columns += [f"diff {i}" for i in range(s)]
+
+    table = wandb.Table(columns=table_columns, data=data)
+    return table
+
 
 def evaluate(
     data_loader: DataLoader,
@@ -31,13 +58,25 @@ def evaluate(
     criterion,
     split: str,
     lr: float = 0.1,
-):
+    s: int =1,
+)->pd.DataFrame:
     """
-    Evaluate model on either in/out_domain dataloader
-    :param data_loader:
-    :param model:
-    :param in_domain: when out_domain also estimate per domain accuracy
-    :return:
+    Perform evaluation of given split
+    Parameters
+    ----------
+    data_loader
+    speak_model
+    sim_model
+    list_model
+    criterion
+    split
+    lr
+    s
+
+    Returns
+    -------
+    dataloader for analysis
+
     """
     original_accs = []
     original_hypos = []
@@ -45,6 +84,10 @@ def evaluate(
     modified_accs = []
     modified_hypos = []
 
+    h0s=[]
+    csv_data=[]
+
+    target_domain=[]
     for ii, data in rich.progress.track(
         enumerate(data_loader),
         total=len(data_loader),
@@ -60,21 +103,25 @@ def evaluate(
         targets = data["target"]
         prev_hist = data["prev_histories"]
 
+        max_length_tensor = prev_utterance.shape[1]
+        speak_masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
+
         # generate hypothesis
-        hypo, logs, decoder_hid = speak_model.generate_hypothesis(
+        origin_hypo, logs, decoder_hid = speak_model.generate_hypothesis(
             prev_utterance,
             prev_utt_lengths,
             context_concat,
             target_img_feats,
         )
 
-        original_hypos.append(hypo)
+        original_hypos.append(origin_hypo)
+        history_att = logs["history_att"]
 
         ################################################
         #   Get results with original hypo
         ################################################
         # translate utt to ids and feed to listener
-        utterance = hypo2utterance(hypo, speak_model.vocab)
+        utterance = hypo2utterance(origin_hypo, speak_model.vocab)
         lengths = [utterance.shape[1]]
         max_length_tensor = utterance.shape[1]
 
@@ -95,56 +142,106 @@ def evaluate(
         h0 = decoder_hid.clone().detach().requires_grad_(True)
         optimizer = torch.optim.Adam([h0], lr=lr)
 
-        sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
+        # repeat for s interations
+        s_hypo=[]
+        s_accs=[]
+        s_h0=[]
 
-        # compute loss and perform backprop
-        loss = criterion(sim_out, targets)
-        loss.backward()
-        optimizer.step()
+        # perform loop
+        for i in range(s):
 
-        # get modified hypo
-        history_att = logs["history_att"]
-        max_length_tensor = prev_utterance.shape[1]
-        masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
-        hypo = speak_model.beam_serach(h0, history_att, masks)
-        modified_hypos.append(hypo)
+            s_h0.append(h0[0].clone().detach().tolist())
 
-        # translate utt to ids and feed to listener
-        utterance = hypo2utterance(hypo, speak_model.vocab)
-        lengths = [utterance.shape[1]]
-        max_length_tensor = utterance.shape[1]
+            sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
-        masks = mask_attn(lengths, max_length_tensor, device)
+            # compute loss and perform backprop
+            loss = criterion(sim_out, targets)
+            loss.backward()
+            optimizer.step()
 
-        list_out = list_model(
-            utterance, context_separate, context_concat, prev_hist, masks
-        )
+            # get modified hypo
+            hypo = speak_model.beam_serach(h0, history_att, speak_masks)
+            s_hypo.append(hypo)
 
-        # get  accuracy
-        list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
-        list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
-        modified_accs.append(list_target_accuracy)
+            # translate utt to ids and feed to listener
+            utterance = hypo2utterance(hypo, speak_model.vocab)
+            lengths = [utterance.shape[1]]
+            max_length_tensor = utterance.shape[1]
 
-    # make wandb table
-    data = list(
+            masks = mask_attn(lengths, max_length_tensor, device)
+
+            list_out = list_model(
+                utterance, context_separate, context_concat, prev_hist, masks
+            )
+
+            # get  accuracy
+            list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
+            list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
+            s_accs.append(list_target_accuracy)
+
+        modified_hypos.append(s_hypo)
+        modified_accs.append(s_accs)
+        h0s.append([decoder_hid]+s_h0)
+        target_domain.append(data['domain'][0])
+
+        ##########################
+        # CSV generation
+        ##########################
+
+        # -----------------
+        # extract info from datapoint
+        # -----------------
+
+        target_img_path = data['image_set'][0][data['target'][0]]
+        # remove target from set
+        data['image_set'][0].remove(target_img_path)
+        distractors_img_path = data['image_set'][0]
+        # cast to str
+        target_img_path=str(target_img_path)
+        distractors_img_path=[str(x) for x in distractors_img_path]
+        # get path
+        target_img_path = logger.img_id2path[target_img_path]
+        distractors_img_path = [logger.img_id2path[x] for x in distractors_img_path]
+
+        # -----------------
+        # fill in rows
+        # -----------------
+
+        row = [data['domain'][0], list_model.domain, sim_model.domain, target_img_path]
+        row += distractors_img_path
+        row += [data['orig_utterance'][0], origin_hypo]
+        row += s_hypo
+        row+= [decoder_hid[0].tolist()]
+        row+=s_h0
+
+        csv_data.append(row)
+
+    # Generate data for wandb table
+    table_data = list(
         list(
             zip(
                 original_hypos,
-                modified_hypos,
                 original_accs,
+                modified_hypos,
                 modified_accs,
-                [x != y for x, y in zip(original_accs, modified_accs)],
+                [[x != y1 for y1 in y] for x, y in zip(original_accs, modified_accs)],
             )
         )
     )
-    table_columns = [
-        "original hypo",
-        "adapted_hypo",
-        "original guess",
-        "adapted guess",
-        "diff",
-    ]
-    talbe = wandb.Table(columns=table_columns, data=data)
+
+    table=generate_table(table_data,target_domain, s)
+
+    ## csv columns
+    columns = ["target domain", "listener domain", "simulator domain", "target img path"]
+    columns += [f"distractor img path #{x}" for x in range(5)]
+    columns += ["golden utt", "original utt"]
+    columns += [f"adapted utt s{i}" for i in range(s)]
+    columns += ["original h0"]
+    columns += [f"adapted h0 s{i}" for i in range(s)]
+
+    df=pd.DataFrame(columns=columns,data=csv_data)
+
+
 
     original_accs = np.mean(original_accs)
     modified_accs = np.mean(modified_accs)
@@ -152,12 +249,12 @@ def evaluate(
     metrics = dict(
         original_accs=original_accs,
         modified_accs=modified_accs,
-        hypo_table=talbe,
+        hypo_table=table,
     )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
 
-    return original_accs
+    return df
 
 
 if __name__ == "__main__":
@@ -204,6 +301,7 @@ if __name__ == "__main__":
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
+        list_args.train_domain,
         device=device,
     ).to(device)
 
@@ -252,6 +350,8 @@ if __name__ == "__main__":
     # for debug
     sim_p.subset_size = common_p.subset_size
     sim_p.debug = common_p.debug
+    sim_p.s=common_p.s
+    sim_p.alpha=common_p.alpha
 
     sim_p.reset_paths()
 
@@ -263,6 +363,7 @@ if __name__ == "__main__":
         img_dim,
         sim_p.attention_dim,
         sim_p.dropout_prob,
+        sim_p.train_domain,
         sim_p.device,
     ).to(device)
 
@@ -292,7 +393,8 @@ if __name__ == "__main__":
     bs = sim_p.batch_size
     # need batchsize =1 for generating hypothesis
     sim_p.batch_size = 1
-    training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
+    train_dl_dom, _, val_dl_dom = get_dataloaders(sim_p, speak_vocab, domain)
+    train_dl_all, _, val_dl_all = get_dataloaders(sim_p, speak_vocab, domain="all")
 
     ###################################
     ##  LOSS
@@ -311,26 +413,88 @@ if __name__ == "__main__":
 
     sim_model.eval()
 
-    print(f"\nEvaluation on train")
-    evaluate(
-        training_loader,
+    print(f"\nEvaluation on train for domain {domain}")
+    df=evaluate(
+        train_dl_dom,
         speaker_model,
         sim_model,
         list_model,
         criterion=cel,
-        split="train",
+        split="in_domain_train",
         lr=common_p.learning_rate,
+        s=sim_p.s,
     )
 
-    print(f"\nEvaluation on eval")
-    evaluate(
-        val_loader,
+    ### saving df
+    file_name="tmp.csv"
+    df.to_csv(file_name)
+
+    logger.log_artifact( file_name,
+        f"adaptive_speak_train_{domain}",
+        "csv",
+        metadata=sim_p,)
+
+    print(f"\nEvaluation on val for domain {domain}")
+    df = evaluate(
+        val_dl_dom,
         speaker_model,
         sim_model,
         list_model,
         criterion=cel,
-        split="val",
+        split="in_domain_val",
         lr=common_p.learning_rate,
+        s=sim_p.s,
     )
+
+    ### saving df
+    file_name = "tmp.csv"
+    df.to_csv(file_name)
+
+    logger.log_artifact(file_name,
+                        f"adaptive_speak_eval_{domain}",
+                        "csv",
+                        metadata=sim_p, )
+
+    print(f"\nEvaluation on train for domain all")
+    df = evaluate(
+        train_dl_all,
+        speaker_model,
+        sim_model,
+        list_model,
+        criterion=cel,
+        split="out_domain_train",
+        lr=common_p.learning_rate,
+        s=sim_p.s,
+    )
+
+    ### saving df
+    file_name = "tmp.csv"
+    df.to_csv(file_name)
+
+    logger.log_artifact(file_name,
+                        f"adaptive_speak_train_all",
+                        "csv",
+                        metadata=sim_p, )
+
+    print(f"\nEvaluation on val for domain all")
+    df = evaluate(
+        val_dl_all,
+        speaker_model,
+        sim_model,
+        list_model,
+        criterion=cel,
+        split="out_domain_val",
+        lr=common_p.learning_rate,
+        s=sim_p.s,
+    )
+
+    ### saving df
+    file_name = "tmp.csv"
+    df.to_csv(file_name)
+
+    logger.log_artifact(file_name,
+                        f"adaptive_speak_eval_all",
+                        "csv",
+                        metadata=sim_p, )
 
     logger.on_train_end({}, epoch_id=0)

@@ -14,6 +14,7 @@ class ListenerModel_no_hist(nn.Module):
         img_dim,
         att_dim,
         dropout_prob,
+        domain,
         device,
     ):
         super().__init__()
@@ -23,6 +24,7 @@ class ListenerModel_no_hist(nn.Module):
         self.img_dim = img_dim
         self.attention_dim = att_dim
         self.device = device
+        self.domain=domain
 
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(

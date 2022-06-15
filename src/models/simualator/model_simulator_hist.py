@@ -15,6 +15,7 @@ class SimulatorModel_hist(ListenerModel_hist):
         img_dim,
         att_dim,
         dropout_prob,
+            domain,
         device,
     ):
         super(SimulatorModel_hist, self).__init__(
@@ -24,6 +25,7 @@ class SimulatorModel_hist(ListenerModel_hist):
             img_dim,
             att_dim,
             dropout_prob,
+            domain,
             device,
         )
 
