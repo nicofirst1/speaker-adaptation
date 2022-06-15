@@ -175,7 +175,7 @@ if __name__ == "__main__":
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
-        list_args.domain,
+        list_args.train_domain,
         device=device,
     ).to(device)
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         img_dim,
         sim_p.attention_dim,
         sim_p.dropout_prob,
-        sim_p.domain,
+        sim_p.train_domain,
         sim_p.device,
     ).to(device)
 

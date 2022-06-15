@@ -135,7 +135,7 @@ def evaluate_trained_model(
 
     # log image\hypo and utterance
     img = data["image_set"][0][data["target"][0]]
-    img = logger.img_id2path[img]
+    img = logger.img_id2path[str(img)]
     origin_utt = data["orig_utterance"][0]
     utt = hypo if speak_model is not None else origin_utt
 
