@@ -288,7 +288,7 @@ if __name__ == "__main__":
     ###################################
     ##  Get speaker dataloader
     ###################################
-    bs = sim_p.batch_size
+    bs = common_p.batch_size
     # need batchsize =1 for generating the new dataloaders
     sim_p.batch_size = 1
     training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
