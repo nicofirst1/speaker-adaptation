@@ -23,6 +23,39 @@ from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
+def log_table(golden_metrics, gen_metrics):
+    golden_aux = golden_metrics.pop("aux")
+    gen_aux = gen_metrics.pop("aux")
+    # define difference between golden and generated out_domain metrics
+    diff_dict = dict_diff(golden_metrics, gen_metrics)
+
+    # reappend aux
+    gen_metrics["aux"] = gen_aux
+    golden_metrics["aux"] = golden_aux
+    diff_dict["aux"] = golden_aux
+
+    # define table data rows
+    data = []
+    data.append(
+        generate_table_data(
+            list_args.train_domain, "golden", table_columns, golden_metrics
+        )
+    )
+    data.append(
+        generate_table_data(
+            list_args.train_domain, "gen", table_columns, gen_metrics
+        )
+    )
+    data.append(
+        generate_table_data(
+            list_args.train_domain, "diff", table_columns, diff_dict
+        )
+    )
+
+    # create table and log
+    table = wandb.Table(columns=table_columns, data=data)
+    return table
+
 def dict_diff(golden_dict, gen_dict):
     res = {}
     for k, v1 in golden_dict.items():
@@ -285,7 +318,7 @@ if __name__ == "__main__":
         print(f"Eval on '{list_args.train_domain}' domain")
         _, _, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
 
-        evaluate_trained_model(
+        gen_metrics=evaluate_trained_model(
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
@@ -295,13 +328,16 @@ if __name__ == "__main__":
         )
 
         print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
-        evaluate_trained_model(
+        golden_metrics=evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
         )
+
+        table = log_table(golden_metrics, gen_metrics)
+        logger.log_to_wandb(dict(in_domain=table), commit=True)
 
         print(f"Eval on 'all' domain")
         _, _, val_loader = get_dataloaders(list_args, vocab, "all")
@@ -324,36 +360,7 @@ if __name__ == "__main__":
             logger=logger,
         )
 
-        golden_aux = golden_metrics.pop("aux")
-        gen_aux = gen_metrics.pop("aux")
-        # define difference between golden and generated out_domain metrics
-        diff_dict = dict_diff(golden_metrics, gen_metrics)
-
-        # reappend aux
-        gen_metrics["aux"] = gen_aux
-        golden_metrics["aux"] = golden_aux
-        diff_dict["aux"] = golden_aux
-
-        # define table data rows
-        data = []
-        data.append(
-            generate_table_data(
-                list_args.train_domain, "golden", table_columns, golden_metrics
-            )
-        )
-        data.append(
-            generate_table_data(
-                list_args.train_domain, "gen", table_columns, gen_metrics
-            )
-        )
-        data.append(
-            generate_table_data(
-                list_args.train_domain, "diff", table_columns, diff_dict
-            )
-        )
-
-        # create table and log
-        table = wandb.Table(columns=table_columns, data=data)
+        table=log_table(golden_metrics, gen_metrics)
         logger.log_to_wandb(dict(out_domain=table), commit=True)
 
         logger.wandb_close()

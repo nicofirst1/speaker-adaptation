@@ -228,7 +228,7 @@ class ListenerLogger(WandbLogger):
 
             # transform list into histograms
             if isinstance(v, list):
-                logs[k] = wandb.Histogram(v)
+                logs[k] = wandb.Histogram(v,num_bins=max(v))
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}
