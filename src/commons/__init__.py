@@ -30,7 +30,11 @@ LISTENER_CHK_DICT = dict(
     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v274",
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
 )
-SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
+
+#SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
+
+SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel_no_hist:v20"
+
 SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_all:v89"
 
 SIM_DOMAIN_CHK = dict(
