@@ -23,11 +23,17 @@ from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
-def log_table(golden_metrics, gen_metrics):
+def log_table(golden_metrics, gen_metrics, in_domain=True):
     golden_aux = golden_metrics.pop("aux")
     gen_aux = gen_metrics.pop("aux")
     # define difference between golden and generated out_domain metrics
     diff_dict = dict_diff(golden_metrics, gen_metrics)
+
+    ### datapoint table
+    table_columns = ["list_domain", "modality", "mrr", "accuracy"]
+    if not in_domain:
+        table_columns += [f"{dom}" for dom in logger.domains]
+    table_columns += ["target", "utt"]
 
     # reappend aux
     gen_metrics["aux"] = gen_aux
@@ -199,7 +205,7 @@ def generate_table_data(
             continue
         elif key in metrics.keys():
             data.append(metrics[key])
-        elif key in metrics["domain_accuracy"].keys():
+        elif "domain_accuracy" in metrics.keys() and key in metrics["domain_accuracy"].keys():
             data.append(metrics["domain_accuracy"][key])
         elif key in metrics["aux"].keys():
             data.append(metrics["aux"][key])
@@ -307,10 +313,7 @@ if __name__ == "__main__":
     # todo: log captions
     # todo make table
 
-    ### datapoint table
-    table_columns = ["list_domain", "modality", "mrr", "accuracy"]
-    table_columns += [f"{dom}" for dom in logger.domains]
-    table_columns += ["target", "utt"]
+
 
     with torch.no_grad():
         list_model.eval()
