@@ -1,4 +1,5 @@
 import argparse
+import copy
 from typing import Optional, Tuple
 
 import rich
@@ -92,6 +93,9 @@ def speaker_augmented_dataloader(
     Augment the canon dataloader with speaker generated utterances and embeddings
 
     """
+
+    new_data=copy.deepcopy(dataloader.dataset.data)
+
     for ii, data in rich.progress.track(
         enumerate(dataloader),
         total=len(dataloader),
@@ -109,9 +113,12 @@ def speaker_augmented_dataloader(
         )
         utterance = hypo2utterance(hypo, vocab)
 
-        dataloader.dataset.data[ii]["speak_utterance"] = utterance.squeeze().tolist()
-        dataloader.dataset.data[ii]["speak_h1embed"] = h1.squeeze().tolist()
+        new_data[ii]["speak_utterance"] = utterance.squeeze().tolist()
+        new_data[ii]["speak_h1embed"] = h1.squeeze().tolist()
 
+        assert dataloader.dataset.data[ii]['orig_utterance']==new_data[ii]['orig_utterance']
+
+    dataloader.dataset.data=new_data
     dp = next(iter(dataloader)).keys()
     assert (
         "speak_utterance" in dp and "speak_h1embed" in dp
