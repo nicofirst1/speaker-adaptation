@@ -24,10 +24,11 @@ from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
 
-def generate_table(data:List,target_domain:List,s:int)-> wandb.Table:
+
+def generate_table(data: List, target_domain: List, s: int) -> wandb.Table:
     # unflatten inner lists
     new_data = []
-    for row,tg in zip(data,target_domain):
+    for row, tg in zip(data, target_domain):
         new_row = [tg]
         for elem in row:
             if isinstance(elem, list):
@@ -51,15 +52,15 @@ def generate_table(data:List,target_domain:List,s:int)-> wandb.Table:
 
 
 def evaluate(
-    data_loader: DataLoader,
-    speak_model: SpeakerModel_hist,
-    sim_model: SimulatorModel_hist,
-    list_model: ListenerModel_hist,
-    criterion,
-    split: str,
-    lr: float = 0.1,
-    s: int =1,
-)->pd.DataFrame:
+        data_loader: DataLoader,
+        speak_model: SpeakerModel_hist,
+        sim_model: SimulatorModel_hist,
+        list_model: ListenerModel_hist,
+        criterion,
+        split: str,
+        lr: float = 0.1,
+        s: int = 1,
+) -> pd.DataFrame:
     """
     Perform evaluation of given split
     Parameters
@@ -78,20 +79,24 @@ def evaluate(
     dataloader for analysis
 
     """
-    original_accs = []
-    original_hypos = []
 
-    modified_accs = []
+    adapted_list_outs = []
+    adapted_sim_outs = []
+
+    original_accs = []
+    adapted_accs = []
+
+    original_hypos = []
     modified_hypos = []
 
-    h0s=[]
-    csv_data=[]
+    h0s = []
+    csv_data = []
 
-    target_domain=[]
+    target_domain = []
     for ii, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"Evaluating on split {split}",
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"Evaluating on split {split}",
     ):
 
         ## extract data
@@ -102,6 +107,7 @@ def evaluate(
         target_img_feats = data["target_img_feats"]
         targets = data["target"]
         prev_hist = data["prev_histories"]
+        original_utt_ids = data['utterance']
 
         max_length_tensor = prev_utterance.shape[1]
         speak_masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
@@ -117,6 +123,24 @@ def evaluate(
         original_hypos.append(origin_hypo)
         history_att = logs["history_att"]
 
+        ##################
+        # Analysis only
+        ##################
+        lengths = [original_utt_ids.shape[1]]
+        max_length_tensor = original_utt_ids.shape[1]
+        masks = mask_attn(lengths, max_length_tensor, device)
+
+        golden_list_out = list_model(
+            original_utt_ids, context_separate, context_concat, prev_hist, masks
+        )
+        golden_list_out.squeeze(dim=0)
+        golden_list_acc = torch.argmax(golden_list_out.squeeze(dim=-1), dim=1)
+        golden_list_acc = torch.eq(golden_list_acc, targets.squeeze()).double().item()
+
+        ##################
+        # Analysis only
+        ##################
+
         ################################################
         #   Get results with original hypo
         ################################################
@@ -130,6 +154,7 @@ def evaluate(
         list_out = list_model(
             utterance, context_separate, context_concat, prev_hist, masks
         )
+        original_list_out=list_out.squeeze(dim=0)
 
         # get  accuracy
         list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
@@ -143,16 +168,18 @@ def evaluate(
         optimizer = torch.optim.Adam([h0], lr=lr)
 
         # repeat for s interations
-        s_hypo=[]
-        s_accs=[]
-        s_h0=[]
+        s_hypo = []
+        s_accs = []
+        s_h0 = []
+        s_adapted_list_outs = []
+        s_adapted_sim_outs = []
 
         # perform loop
         for i in range(s):
-
             s_h0.append(h0[0].clone().detach().tolist())
 
             sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
+            s_adapted_sim_outs.append(sim_out.squeeze(dim=0).tolist())
 
             # compute loss and perform backprop
             loss = criterion(sim_out, targets)
@@ -173,15 +200,18 @@ def evaluate(
             list_out = list_model(
                 utterance, context_separate, context_concat, prev_hist, masks
             )
+            s_adapted_list_outs.append(list_out.squeeze(dim=0).tolist())
 
             # get  accuracy
             list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
             list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
             s_accs.append(list_target_accuracy)
 
+        adapted_sim_outs.append(s_adapted_sim_outs)
+        adapted_list_outs.append(s_adapted_list_outs)
         modified_hypos.append(s_hypo)
-        modified_accs.append(s_accs)
-        h0s.append([decoder_hid]+s_h0)
+        adapted_accs.append(s_accs)
+        h0s.append([decoder_hid] + s_h0)
         target_domain.append(data['domain'][0])
 
         ##########################
@@ -197,8 +227,8 @@ def evaluate(
         data['image_set'][0].remove(target_img_path)
         distractors_img_path = data['image_set'][0]
         # cast to str
-        target_img_path=str(target_img_path)
-        distractors_img_path=[str(x) for x in distractors_img_path]
+        target_img_path = str(target_img_path)
+        distractors_img_path = [str(x) for x in distractors_img_path]
         # get path
         target_img_path = logger.img_id2path[target_img_path]
         distractors_img_path = [logger.img_id2path[x] for x in distractors_img_path]
@@ -206,13 +236,40 @@ def evaluate(
         # -----------------
         # fill in rows
         # -----------------
+        # the informations to log are:
+        # 1. target domain X 1
+        # 2. list domain X 1
+        # 3. simulator domain X 1
+        # 4. target img path X 1
+        # 5. distractor img paths X 5
+        # 6. golden captions X 1
+        # 7. original hypo  X 1
+        # 8. adapted utterances (s) x s
+        # 9. original h0 (decoder_hid) x 1
+        # 10. each h0 after a backprop (s h0s) x s
+        # 11. the listener's output distribution given the golden caption x1
+        # 12. the listener's output distribution given the non-adapted/original utterance x1
+
+        # 14. the listener's output distribution given the adapted utterance (for each backprop step) xs
+        # 15. the simulator's output distribution given h0 x1
+        # 16. the simulator's output distribution given h0' (for each backprop step) xs
+        # 17. whether the listener makes a correct guess given the original utterance x1
+        # 18. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
+
+        # size formula : 15+5s
 
         row = [data['domain'][0], list_model.domain, sim_model.domain, target_img_path]
         row += distractors_img_path
         row += [data['orig_utterance'][0], origin_hypo]
         row += s_hypo
-        row+= [decoder_hid[0].tolist()]
-        row+=s_h0
+        row += [decoder_hid[0].tolist()]
+        row += s_h0
+        row += [golden_list_out.squeeze(dim=0).tolist()]
+        row += [original_list_out.tolist()]
+        row += s_adapted_list_outs
+        row += s_adapted_sim_outs
+        row += [golden_list_acc]
+        row += s_accs
 
         csv_data.append(row)
 
@@ -223,13 +280,13 @@ def evaluate(
                 original_hypos,
                 original_accs,
                 modified_hypos,
-                modified_accs,
-                [[x != y1 for y1 in y] for x, y in zip(original_accs, modified_accs)],
+                adapted_accs,
+                [[x != y1 for y1 in y] for x, y in zip(original_accs, adapted_accs)],
             )
         )
     )
 
-    table=generate_table(table_data,target_domain, s)
+    table = generate_table(table_data, target_domain, s)
 
     ## csv columns
     columns = ["target domain", "listener domain", "simulator domain", "target img path"]
@@ -238,17 +295,21 @@ def evaluate(
     columns += [f"adapted utt s{i}" for i in range(s)]
     columns += ["original h0"]
     columns += [f"adapted h0 s{i}" for i in range(s)]
+    columns += ["golden_list_out", "original_list_out"]
+    columns += [f"adapted_list_out_s{i}" for i in range(s)]
+    columns += ["original_sim_out"]
+    columns += [f"adapted_sim_out_s{i}" for i in range(s-1)]
+    columns += [f"original_acc"]
+    columns += [f"adapted_accuracy_s{i}" for i in range(s)]
 
-    df=pd.DataFrame(columns=columns,data=csv_data)
-
-
+    df = pd.DataFrame(columns=columns, data=csv_data)
 
     original_accs = np.mean(original_accs)
-    modified_accs = np.mean(modified_accs)
+    adapted_accs = np.mean(adapted_accs)
 
     metrics = dict(
         original_accs=original_accs,
-        modified_accs=modified_accs,
+        modified_accs=adapted_accs,
         hypo_table=table,
     )
 
@@ -350,8 +411,8 @@ if __name__ == "__main__":
     # for debug
     sim_p.subset_size = common_p.subset_size
     sim_p.debug = common_p.debug
-    sim_p.s=common_p.s
-    sim_p.alpha=common_p.alpha
+    sim_p.s = common_p.s
+    sim_p.alpha = common_p.alpha
 
     sim_p.reset_paths()
 
@@ -404,7 +465,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     ###################################
@@ -414,7 +475,7 @@ if __name__ == "__main__":
     sim_model.eval()
 
     print(f"\nEvaluation on train for domain {domain}")
-    df=evaluate(
+    df = evaluate(
         train_dl_dom,
         speaker_model,
         sim_model,
@@ -426,13 +487,13 @@ if __name__ == "__main__":
     )
 
     ### saving df
-    file_name="tmp.csv"
+    file_name = "tmp.csv"
     df.to_csv(file_name)
 
-    logger.log_artifact( file_name,
-        f"adaptive_speak_train_{domain}",
-        "csv",
-        metadata=sim_p,)
+    logger.log_artifact(file_name,
+                        f"adaptive_speak_train_{domain}",
+                        "csv",
+                        metadata=sim_p, )
 
     print(f"\nEvaluation on val for domain {domain}")
     df = evaluate(
