@@ -36,7 +36,7 @@ class Vocab:
 
         if add_special_tokens:
             encoded.append(self.word2index["<eos>"])
-            encoded.insert(self.word2index["<sos>"], 0)
+            encoded.insert(0,self.word2index["<sos>"],)
 
         encoded = torch.as_tensor(encoded)
 

@@ -50,7 +50,6 @@ def get_predictions(
     max_length_tensor = utterance.shape[1]
     batch_size = utterance.shape[0]
     masks = mask_attn(lengths, max_length_tensor, device)
-    #todo: check for end of sentence in utterance
 
     # get outputs
     list_out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
@@ -341,9 +340,9 @@ if __name__ == "__main__":
             accuracies.append(accuracy)
 
             # optimizer
+            sim_model.zero_grad()
             loss.backward()
             optimizer.step()
-            #todo: add zero_grad
 
             # logs
             logger.on_batch_end(
