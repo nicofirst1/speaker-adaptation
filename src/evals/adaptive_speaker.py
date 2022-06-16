@@ -165,6 +165,7 @@ def evaluate(
         #   Get results with adapted hypo
         ################################################
         h0 = decoder_hid.clone().detach().requires_grad_(True)
+        #todo: move optim out of loop (?)
         optimizer = torch.optim.Adam([h0], lr=lr)
 
         # repeat for s interations
@@ -222,15 +223,10 @@ def evaluate(
         # extract info from datapoint
         # -----------------
 
-        target_img_path = data['image_set'][0][data['target'][0]]
+        target_img_idx = data['target'][0].item()
         # remove target from set
-        data['image_set'][0].remove(target_img_path)
         distractors_img_path = data['image_set'][0]
-        # cast to str
-        target_img_path = str(target_img_path)
         distractors_img_path = [str(x) for x in distractors_img_path]
-        # get path
-        target_img_path = logger.img_id2path[target_img_path]
         distractors_img_path = [logger.img_id2path[x] for x in distractors_img_path]
 
         # -----------------
@@ -240,8 +236,8 @@ def evaluate(
         # 1. target domain X 1
         # 2. list domain X 1
         # 3. simulator domain X 1
-        # 4. target img path X 1
-        # 5. distractor img paths X 5
+        # 4. target index X 1
+        # 5. distractor+target img paths X 6
         # 6. golden captions X 1
         # 7. original hypo  X 1
         # 8. adapted utterances (s) x s
@@ -249,16 +245,15 @@ def evaluate(
         # 10. each h0 after a backprop (s h0s) x s
         # 11. the listener's output distribution given the golden caption x1
         # 12. the listener's output distribution given the non-adapted/original utterance x1
-
         # 14. the listener's output distribution given the adapted utterance (for each backprop step) xs
         # 15. the simulator's output distribution given h0 x1
         # 16. the simulator's output distribution given h0' (for each backprop step) xs
         # 17. whether the listener makes a correct guess given the original utterance x1
         # 18. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
 
-        # size formula : 15+5s
+        # size formula : 16+5s
 
-        row = [data['domain'][0], list_model.domain, sim_model.domain, target_img_path]
+        row = [data['domain'][0], list_model.domain, sim_model.domain, target_img_idx]
         row += distractors_img_path
         row += [data['orig_utterance'][0], origin_hypo]
         row += s_hypo
@@ -289,8 +284,8 @@ def evaluate(
     table = generate_table(table_data, target_domain, s)
 
     ## csv columns
-    columns = ["target domain", "listener domain", "simulator domain", "target img path"]
-    columns += [f"distractor img path #{x}" for x in range(5)]
+    columns = ["target domain", "listener domain", "simulator domain", "target img idx"]
+    columns += [f"img path #{x}" for x in range(6)]
     columns += ["golden utt", "original utt"]
     columns += [f"adapted utt s{i}" for i in range(s)]
     columns += ["original h0"]
