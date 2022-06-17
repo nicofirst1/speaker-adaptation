@@ -112,9 +112,11 @@ def speaker_augmented_dataloader(
             prev_utterance, prev_utt_lengths, visual_context, target_img_feats
         )
         utterance = hypo2utterance(hypo, vocab)
+        utterance=utterance.squeeze().tolist()
+        h1=h1.squeeze().tolist()
 
-        new_data[ii]["speak_utterance"] = utterance.squeeze().tolist()
-        new_data[ii]["speak_h1embed"] = h1.squeeze().tolist()
+        new_data[ii]["speak_utterance"] = utterance
+        new_data[ii]["speak_h1embed"] = h1
 
         assert dataloader.dataset.data[ii]['orig_utterance']==new_data[ii]['orig_utterance']
 
