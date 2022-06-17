@@ -16,10 +16,10 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-common_args=( --dropout 0.5 --batch_size 64   --model_type no_hist --metric accs --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle --embedding_dim 1024 --epochs 5)
+common_args=( --dropout 0.25 --batch_size 64   --model_type no_hist --metric accs --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle --embedding_dim 1024 --epochs 30)
 
 # restore the simulator
-#common_args=("${common_args[@]}" "${restore_arg[@]}")
+#common_args=("${common_args[@]}" --resume_train true )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/simulator_pretrain.py"
 out_file="simulator_pretrain_${SLURM_ARRAY_TASK_ID}.log"
