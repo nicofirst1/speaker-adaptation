@@ -1,4 +1,5 @@
 import csv
+import re
 from typing import List
 
 import torch
@@ -36,11 +37,22 @@ class Vocab:
 
         if add_special_tokens:
             encoded.append(self.word2index["<eos>"])
-            encoded.insert(0,self.word2index["<sos>"],)
+            encoded.insert(0, self.word2index["<sos>"], )
 
         encoded = torch.as_tensor(encoded)
 
         return encoded
+
+    def decode(self, encoded_ids: torch.Tensor) -> str:
+
+        decodes=" ".join([self.index2word[t.item()] for t in encoded_ids])
+        # for i in range(encoded_ids.shape[0]):
+        #     batch=encoded_ids[i]
+        #     decodes.append(" ".join([self.index2word[t.item()] for t in batch]))
+
+        rg=r" <[a-z]+>"
+        decodes=re.sub(rg,"", decodes)
+        return decodes
 
     def __len__(self):
         return len(self.word2index)
