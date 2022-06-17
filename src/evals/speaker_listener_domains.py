@@ -81,6 +81,7 @@ def evaluate_trained_model(
     vocab: Vocab,
     domain: str,
     logger: WandbLogger,
+    split: str,
     speak_model: Optional[torch.nn.Module] = None,
 ):
     accuracies = []
@@ -89,10 +90,11 @@ def evaluate_trained_model(
     fake_loss = torch.as_tensor([0])
     in_domain = domain == dataloader.dataset.domain
 
+    modality=split
     if in_domain:
-        modality = "in_domain"
+        modality += "/in_domain"
     else:
-        modality = "out_domain"
+        modality += "/out_domain"
 
     if speak_model is None:
         modality += "_golden"
@@ -321,7 +323,31 @@ if __name__ == "__main__":
         #todo: add train dataset
 
         print(f"Eval on '{list_args.train_domain}' domain")
-        _, _, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
+        train_loader, _, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
+
+        gen_metrics = evaluate_trained_model(
+            dataloader=train_loader,
+            speak_model=speaker_model,
+            list_model=list_model,
+            vocab=speak_vocab,
+            domain=dom,
+            logger=logger,
+            split="train",
+        )
+
+        print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
+        golden_metrics = evaluate_trained_model(
+            dataloader=train_loader,
+            list_model=list_model,
+            vocab=speak_vocab,
+            domain=dom,
+            logger=logger,
+            split="train",
+
+        )
+
+        table = log_table(golden_metrics, gen_metrics)
+        logger.log_to_wandb(dict(in_domain=table), commit=True)
 
         gen_metrics=evaluate_trained_model(
             dataloader=val_loader,
@@ -330,6 +356,8 @@ if __name__ == "__main__":
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
+            split="eval",
+
         )
 
         print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
@@ -339,6 +367,8 @@ if __name__ == "__main__":
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
+            split="eval",
+
         )
 
         table = log_table(golden_metrics, gen_metrics)
@@ -354,6 +384,8 @@ if __name__ == "__main__":
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
+            split="eval",
+
         )
 
         print(f"Eval on 'all' domain with golden caption")
@@ -363,6 +395,8 @@ if __name__ == "__main__":
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
+            split="eval",
+
         )
 
         table=log_table(golden_metrics, gen_metrics)
