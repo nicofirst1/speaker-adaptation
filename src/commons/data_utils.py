@@ -115,6 +115,9 @@ def speaker_augmented_dataloader(
         utterance=utterance.squeeze().tolist()
         h1=h1.squeeze().tolist()
 
+        if not isinstance(utterance,list):
+            utterance=[utterance]
+
         new_data[ii]["speak_utterance"] = utterance
         new_data[ii]["speak_h1embed"] = h1
 
