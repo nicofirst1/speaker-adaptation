@@ -320,7 +320,6 @@ if __name__ == "__main__":
     with torch.no_grad():
         list_model.eval()
 
-        #todo: add train dataset
 
         print(f"Eval on '{list_args.train_domain}' domain")
         train_loader, _, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)

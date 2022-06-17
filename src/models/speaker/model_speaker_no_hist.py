@@ -340,7 +340,6 @@ class SpeakerModel_no_hist(nn.Module):
 
         history_att = self.lin2att_hist(outputs)
 
-        # todo: for adaptive speak h1 should have grad, also in eval
         h1_sim = decoder_hid
 
         model_params = dict(

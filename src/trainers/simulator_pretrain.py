@@ -1,11 +1,13 @@
 import datetime
 import operator
 import os
+import random
 from typing import Dict, Tuple
 
 import numpy as np
 import rich.progress
 import torch
+import wandb
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
@@ -29,10 +31,11 @@ from src.wandb_logging import ListenerLogger
 
 def get_predictions(
     data: DataLoader,
-    list_model: ListenerModel_hist,
-    sim_model: SimulatorModel_hist,
-    criterion,
-    cel,
+    list_model: torch.nn.Module,
+    sim_model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    cel: torch.nn.Module,
+    speak_vocab :Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -80,7 +83,13 @@ def get_predictions(
     list_preds = list_preds.tolist()
     sim_preds = sim_preds.tolist()
 
-    #todo: add generated utterances and target
+    # logging
+    rnd_idx=random.randint(0,batch_size-1)
+    hypo=speak_vocab.decode(utterance[rnd_idx])
+    target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    target=logger.img_id2path[str(target)]
+    target=wandb.Image(target, caption=hypo)
+
     aux = dict(
         sim_preds=sim_preds,
         list_preds=list_preds,
@@ -90,6 +99,7 @@ def get_predictions(
         list_loss=list_loss,
         sim_list_loss=sim_list_loss,
         sim_loss=sim_loss,
+        target=target
     )
 
     return loss, sim_list_accuracy, aux
@@ -114,7 +124,7 @@ def evaluate(
 
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, criterion, cel
+            data, list_model, sim_model, criterion, cel,speak_vocab=speak_vocab
         )
 
         losses.append(loss.item())
@@ -333,7 +343,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, criterion, cel
+                data, list_model, sim_model, criterion, cel, speak_vocab
             )
 
             losses.append(loss.item())
