@@ -87,15 +87,22 @@ def get_predictions(
 
     # logging
     rnd_idx=np.random.randint(0,batch_size)
-    for rnd_idx in range(batch_size):
-        hypo=list_vocab.decode(utterance[rnd_idx])
-        caption=data['orig_utterance'][rnd_idx]
-        target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
-        target=logger.img_id2path[str(target)]
-        target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
-        show_img(data, logger.img_id2path,f"modified_train", hypo=hypo)
+    hypo = list_vocab.decode(utterance[rnd_idx])
+    caption = data['orig_utterance'][rnd_idx]
+    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    target = logger.img_id2path[str(target)]
+    target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
-    a=1
+    # for rnd_idx in range(batch_size):
+    #     hypo=list_vocab.decode(utterance[rnd_idx])
+    #     caption=data['orig_utterance'][rnd_idx]
+    #     target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    #     target=logger.img_id2path[str(target)]
+    #     target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    #     d={k:v[rnd_idx:rnd_idx+1] for k,v in data.items()}
+    #     #show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
+    #
+    #     a=1
 
     aux = dict(
         sim_preds=sim_preds,
