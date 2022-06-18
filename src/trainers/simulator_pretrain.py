@@ -86,9 +86,10 @@ def get_predictions(
     # logging
     rnd_idx=random.randint(0,batch_size-1)
     hypo=speak_vocab.decode(utterance[rnd_idx])
+    caption=data['orig_utterance'][rnd_idx]
     target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
     target=logger.img_id2path[str(target)]
-    target=wandb.Image(target, caption=hypo)
+    target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
     aux = dict(
         sim_preds=sim_preds,
@@ -305,10 +306,10 @@ if __name__ == "__main__":
     training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
 
     speak_train_dl = speaker_augmented_dataloader(
-        training_loader, speak_vocab, speaker_model, batch_size=bs, split_name="train"
+        training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train"
     )
     speak_val_dl = speaker_augmented_dataloader(
-        val_loader, speak_vocab, speaker_model, batch_size=bs, split_name="val"
+        val_loader, list_vocab, speaker_model, batch_size=bs, split_name="val"
     )
 
     ###################################
