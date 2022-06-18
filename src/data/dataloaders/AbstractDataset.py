@@ -6,7 +6,35 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
+from PIL import Image,ImageDraw,ImageFont
 from torch.utils.data import Dataset
+
+
+def show_img(data,id2path,split_name,hypo=""):
+
+    log_dir=f"img_hypo_captions/{split_name}"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    batch_size=data['target'].shape[0]
+    rnd_idx = np.random.randint(0, batch_size)
+
+    caption = data['orig_utterance'][rnd_idx]
+    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    target_id=target
+
+    target = id2path[str(target)]
+
+    img = Image.open(target)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("Arial.ttf", 16)
+    draw.rectangle([0, 0, img.size[0], 50], fill=(0,0,0))
+    draw.text((0, 0), f"Hypo :{hypo}\nCaption : {caption}", (255, 255, 255), font=font)
+    img.show()
+
+    # img_id=uuid.uuid4()
+    # img.save(os.path.join(log_dir,f"{target_id}_{img_id}.png"))
+
 
 
 class AbstractDataset(Dataset):
@@ -39,6 +67,7 @@ class AbstractDataset(Dataset):
 
         self.data_dir = data_dir
         self.split = split
+
 
         # Load a PhotoBook utterance chain dataset
         with open(os.path.join(self.data_dir, chain_file), "r") as file:
@@ -242,6 +271,9 @@ class AbstractDataset(Dataset):
                     "domain": domain,
                 }
 
+    def change_data(self, new_data:Dict):
+        self.data=new_data
+
     @staticmethod
     def get_collate_fn(device, SOS, EOS, NOHS):
         def collate_fn(data):
@@ -264,9 +296,7 @@ class AbstractDataset(Dataset):
                         # print('utt', padded)
                     elif key == "speak_utterance":
 
-                        padded = sample[key] + [0] * (
-                            max_speak_length - len(sample[key])
-                        )
+                        padded = sample[key] + [0] * (  max_speak_length - len(sample[key])  )
 
                     elif key == "prev_utterance":
 
@@ -339,6 +369,12 @@ class AbstractDataset(Dataset):
 
     def __getitem__(self, index):
         return self.data[index]
+
+
+class ModifiedDataset(AbstractDataset):
+
+    def __init__(self, data):
+        self.data=data
 
 
 def imgid2path(data_path: str) -> Dict[str, str]:

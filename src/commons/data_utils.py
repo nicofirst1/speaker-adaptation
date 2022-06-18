@@ -1,13 +1,54 @@
 import argparse
 import copy
+import os.path
+import uuid
 from typing import Optional, Tuple
 
+import numpy as np
+import psutil
 import rich
 import torch
+from PIL import ImageFont, ImageDraw,Image
 from torch.utils.data import DataLoader
 
 from src.commons.model_utils import hypo2utterance
-from src.data.dataloaders import AbstractDataset, ListenerDataset, SpeakerDataset, Vocab
+from src.data.dataloaders import AbstractDataset, ListenerDataset, SpeakerDataset, Vocab, ModifiedDataset
+
+
+def show_img(data,id2path,split_name,hypo="",idx=-1):
+
+    log_dir=f"img_hypo_captions/{split_name}"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    batch_size=data['target'].shape[0]
+    rnd_idx = np.random.randint(0, batch_size)
+
+    caption = data['orig_utterance'][rnd_idx]
+    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    target_id=target
+    img_set=data['image_set'][rnd_idx]
+    speak_utt=data['speak_utterance'][rnd_idx]
+
+    if isinstance(speak_utt,torch.Tensor):
+        speak_utt=speak_utt.tolist()
+
+    target = id2path[str(target)]
+
+    img = Image.open(target)
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("Arial.ttf", 16)
+    draw.rectangle([0, 0, img.size[0], 50], fill=(0,0,0))
+
+    to_write=f"Hypo :{hypo}\nCaption : {caption}\n Speak ids :{speak_utt}\n Img_set: {img_set}"
+
+    draw.text((0, 0),to_write , (255, 255, 255), font=font)
+    img.show()
+
+    if idx<0:
+        idx=len([name for name in os.listdir(log_dir) if os.path.isfile(os.path.join(log_dir, name))])
+    #img.save(os.path.join(log_dir,f"{idx}_{target_id}.png"))
+
 
 
 def get_dataloaders(
@@ -121,10 +162,13 @@ def speaker_augmented_dataloader(
         new_data[ii]["speak_utterance"] = utterance
         new_data[ii]["speak_h1embed"] = h1
 
-        assert dataloader.dataset.data[ii]['orig_utterance']==new_data[ii]['orig_utterance']
 
-    dataloader.dataset.data=new_data
-    dp = next(iter(dataloader)).keys()
+        #show_img(data, dataloader.dataset.img_id2path,f"original_{split_name}", hypo=hypo,idx=ii)
+        assert data['orig_utterance'][0]==new_data[ii]['orig_utterance']
+
+
+    new_dataset=ModifiedDataset(new_data)
+    dp = next(iter(new_dataset)).keys()
     assert (
         "speak_utterance" in dp and "speak_h1embed" in dp
     ), "dataloader update did not work"
@@ -137,6 +181,6 @@ def speaker_augmented_dataloader(
         ),
     }
 
-    dataloader = torch.utils.data.DataLoader(dataloader.dataset, **load_params)
+    dataloader = torch.utils.data.DataLoader(new_dataset, **load_params)
 
     return dataloader

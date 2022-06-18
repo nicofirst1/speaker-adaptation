@@ -3,6 +3,7 @@ from .AbstractDataset import (
     generate_imgid2domain,
     imgid2path,
     load_imgid2domain,
+ModifiedDataset,
 )
 from .ListenerDataset import ListenerDataset
 from .SpeakerDataset import SpeakerDataset
@@ -16,4 +17,5 @@ __all__ = [
     "load_imgid2domain",
     "imgid2path",
     "Vocab",
+    "ModifiedDataset",
 ]

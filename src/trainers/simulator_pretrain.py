@@ -1,3 +1,4 @@
+import copy
 import datetime
 import operator
 import os
@@ -22,7 +23,7 @@ from src.commons import (
     save_model,
     SIM_ALL_CHK,
 )
-from src.commons.data_utils import speaker_augmented_dataloader
+from src.commons.data_utils import speaker_augmented_dataloader, show_img
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -35,7 +36,7 @@ def get_predictions(
     sim_model: torch.nn.Module,
     criterion: torch.nn.Module,
     cel: torch.nn.Module,
-    speak_vocab :Vocab,
+    list_vocab :Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -52,6 +53,7 @@ def get_predictions(
     speak_embds = data["speak_h1embed"]
     max_length_tensor = utterance.shape[1]
     batch_size = utterance.shape[0]
+
     masks = mask_attn(lengths, max_length_tensor, device)
 
     # get outputs
@@ -84,12 +86,16 @@ def get_predictions(
     sim_preds = sim_preds.tolist()
 
     # logging
-    rnd_idx=random.randint(0,batch_size-1)
-    hypo=speak_vocab.decode(utterance[rnd_idx])
-    caption=data['orig_utterance'][rnd_idx]
-    target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
-    target=logger.img_id2path[str(target)]
-    target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    rnd_idx=np.random.randint(0,batch_size)
+    for rnd_idx in range(batch_size):
+        hypo=list_vocab.decode(utterance[rnd_idx])
+        caption=data['orig_utterance'][rnd_idx]
+        target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
+        target=logger.img_id2path[str(target)]
+        target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+        show_img(data, logger.img_id2path,f"modified_train", hypo=hypo)
+
+    a=1
 
     aux = dict(
         sim_preds=sim_preds,
@@ -125,7 +131,7 @@ def evaluate(
 
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, criterion, cel,speak_vocab=speak_vocab
+            data, list_model, sim_model, criterion, cel,list_vocab=list_vocab
         )
 
         losses.append(loss.item())
@@ -303,6 +309,7 @@ if __name__ == "__main__":
     bs = common_p.batch_size
     # need batchsize =1 for generating the new dataloaders
     sim_p.batch_size = 1
+    bs=32
     training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
 
     speak_train_dl = speaker_augmented_dataloader(
