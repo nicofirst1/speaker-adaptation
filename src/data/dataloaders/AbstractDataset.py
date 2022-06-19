@@ -371,10 +371,7 @@ class AbstractDataset(Dataset):
         return self.data[index]
 
 
-class ModifiedDataset(AbstractDataset):
 
-    def __init__(self, data):
-        self.data=data
 
 
 def imgid2path(data_path: str) -> Dict[str, str]:

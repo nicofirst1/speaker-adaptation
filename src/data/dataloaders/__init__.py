@@ -3,9 +3,8 @@ from .AbstractDataset import (
     generate_imgid2domain,
     imgid2path,
     load_imgid2domain,
-ModifiedDataset,
 )
-from .ListenerDataset import ListenerDataset
+from .ListenerDataset import ListenerDataset,ModifiedDataset
 from .SpeakerDataset import SpeakerDataset
 from .Vocab import Vocab
 

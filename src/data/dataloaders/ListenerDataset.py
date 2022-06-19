@@ -12,3 +12,11 @@ class ListenerDataset(AbstractDataset):
         super(ListenerDataset, self).__init__(**kwargs)
 
         self.domain = domain
+
+
+
+class ModifiedDataset(ListenerDataset):
+
+    def __init__(self, data, domain):
+        self.data=data
+        self.domain=domain
