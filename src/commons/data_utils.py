@@ -167,7 +167,7 @@ def speaker_augmented_dataloader(
         assert data['orig_utterance'][0]==new_data[ii]['orig_utterance']
 
 
-    new_dataset=ModifiedDataset(new_data)
+    new_dataset=ModifiedDataset(new_data,dataloader.dataset.domain)
     dp = next(iter(new_dataset)).keys()
     assert (
         "speak_utterance" in dp and "speak_h1embed" in dp
