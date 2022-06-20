@@ -84,23 +84,23 @@ def get_predictions(
     sim_preds = sim_preds.tolist()
 
     # logging
-    # rnd_idx = np.random.randint(0, batch_size)
-    # hypo = list_vocab.decode(utterance[rnd_idx])
-    # caption = data['orig_utterance'][rnd_idx]
-    # target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
-    # target = logger.img_id2path[str(target)]
-    # target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    rnd_idx = np.random.randint(0, batch_size)
+    hypo = list_vocab.decode(utterance[rnd_idx])
+    caption = data['orig_utterance'][rnd_idx]
+    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    target = logger.img_id2path[str(target)]
+    target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
-    if split=="eval":
-        for rnd_idx in range(batch_size):
-            hypo=list_vocab.decode(utterance[rnd_idx])
-            caption=data['orig_utterance'][rnd_idx]
-            target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
-            target=logger.img_id2path[str(target)]
-            target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
-            d={k:v[rnd_idx:rnd_idx+1] for k,v in data.items()}
-            show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
-            a=1
+    # if split=="eval":
+    #     for rnd_idx in range(batch_size):
+    #         hypo=list_vocab.decode(utterance[rnd_idx])
+    #         caption=data['orig_utterance'][rnd_idx]
+    #         target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    #         target=logger.img_id2path[str(target)]
+    #         target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    #         d={k:v[rnd_idx:rnd_idx+1] for k,v in data.items()}
+    #         show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
+    #         a=1
 
     aux = dict(
         sim_preds=sim_preds,
@@ -111,7 +111,7 @@ def get_predictions(
         list_loss=list_loss,
         sim_list_loss=sim_list_loss,
         sim_loss=sim_loss,
-       # target=target
+        target=target
     )
 
     return loss, sim_list_accuracy, aux
