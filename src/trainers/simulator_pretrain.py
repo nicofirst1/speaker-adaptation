@@ -34,7 +34,6 @@ def get_predictions(
         criterion: torch.nn.Module,
         cel: torch.nn.Module,
         list_vocab: Vocab,
-        split:str,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -121,7 +120,7 @@ def evaluate(
         data_loader: DataLoader,
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
-        list_vocab,
+        list_vocab: Vocab,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -137,7 +136,7 @@ def evaluate(
 
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, criterion, cel, list_vocab=list_vocab, split="eval"
+            data, list_model, sim_model, criterion, cel, list_vocab=list_vocab
         )
 
         losses.append(loss.item())
@@ -357,7 +356,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, criterion, cel, list_vocab, split="train"
+                data, list_model, sim_model, criterion, cel, list_vocab
             )
 
             losses.append(loss.item())
