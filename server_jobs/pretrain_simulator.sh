@@ -16,7 +16,8 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-common_args=( --dropout 0.25 --batch_size 64   --model_type no_hist --metric accs --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle --embedding_dim 1024 --epochs 30)
+common_args=( --dropout 0.25 --batch_size 64   --model_type no_hist --metric accs --reduction sum --subset_size -1
+--seed 42 --learning_rate 0.0001 -shuffle --embedding_dim 1024 --epochs 100)
 
 # restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )

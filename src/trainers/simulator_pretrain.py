@@ -1,8 +1,5 @@
-import copy
 import datetime
 import operator
-import os
-import random
 from typing import Dict, Tuple
 
 import numpy as np
@@ -23,20 +20,19 @@ from src.commons import (
     save_model,
     SIM_ALL_CHK,
 )
-from src.commons.data_utils import speaker_augmented_dataloader, show_img
+from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
-from src.models.speaker.model_speaker_hist import SpeakerModel_hist
+from src.models import get_model
 from src.wandb_logging import ListenerLogger
 
 
 def get_predictions(
-    data: DataLoader,
-    list_model: torch.nn.Module,
-    sim_model: torch.nn.Module,
-    criterion: torch.nn.Module,
-    cel: torch.nn.Module,
-    list_vocab :Vocab,
+        data: DataLoader,
+        list_model: torch.nn.Module,
+        sim_model: torch.nn.Module,
+        criterion: torch.nn.Module,
+        cel: torch.nn.Module,
+        list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -86,12 +82,12 @@ def get_predictions(
     sim_preds = sim_preds.tolist()
 
     # logging
-    rnd_idx=np.random.randint(0,batch_size)
+    rnd_idx = np.random.randint(0, batch_size)
     hypo = list_vocab.decode(utterance[rnd_idx])
     caption = data['orig_utterance'][rnd_idx]
     target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
     target = logger.img_id2path[str(target)]
-    target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
     # for rnd_idx in range(batch_size):
     #     hypo=list_vocab.decode(utterance[rnd_idx])
@@ -120,9 +116,9 @@ def get_predictions(
 
 
 def evaluate(
-    data_loader: DataLoader,
-    sim_model: torch.nn.Module,
-    list_model: torch.nn.Module,
+        data_loader: DataLoader,
+        sim_model: torch.nn.Module,
+        list_model: torch.nn.Module,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -138,7 +134,7 @@ def evaluate(
 
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, criterion, cel,list_vocab=list_vocab
+            data, list_model, sim_model, criterion, cel, list_vocab=list_vocab
         )
 
         losses.append(loss.item())
@@ -234,8 +230,6 @@ if __name__ == "__main__":
         device=device,
     ).to(device)
 
-
-
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
 
@@ -316,11 +310,14 @@ if __name__ == "__main__":
     bs = common_p.batch_size
     # need batchsize =1 for generating the new dataloaders
     sim_p.batch_size = 1
-    bs=32
+    sim_p.shuffle = False
+
+    bs = 32
+    shuffle = common_p.shuffle
     training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
 
     speak_train_dl = speaker_augmented_dataloader(
-        training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train"
+        training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train", shuffle=shuffle
     )
     speak_val_dl = speaker_augmented_dataloader(
         val_loader, list_vocab, speaker_model, batch_size=bs, split_name="val"
@@ -332,7 +329,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(sim_p.epochs):
@@ -343,7 +340,7 @@ if __name__ == "__main__":
         accuracies = []
 
         sim_model.train()
-        #torch.enable_grad()
+        # torch.enable_grad()
 
         count = 0
 
@@ -352,9 +349,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.progress.track(
-            enumerate(speak_train_dl),
-            total=len(speak_train_dl),
-            description=f"Training epoch {epoch}",
+                enumerate(speak_train_dl),
+                total=len(speak_train_dl),
+                description=f"Training epoch {epoch}",
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
