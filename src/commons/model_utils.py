@@ -116,7 +116,7 @@ def save_model(
     print("Model saved and logged to wandb")
 
 
-def load_wandb_checkpoint(url: str, device: str) -> Tuple[Dict, str]:
+def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]:
     """
     Download a wandb model artifact and extract checkpoint with torch
     Parameters
@@ -128,10 +128,12 @@ def load_wandb_checkpoint(url: str, device: str) -> Tuple[Dict, str]:
     -------
 
     """
-    api = wandb.Api()
-    artifact = api.artifact(url)
 
-    datadir = artifact.download()
+    if datadir=="":
+        api = wandb.Api()
+        artifact = api.artifact(url)
+
+        datadir = artifact.download()
 
     files = [f for f in os.listdir(datadir) if isfile(join(datadir, f))]
 

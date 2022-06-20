@@ -12,7 +12,7 @@ from PIL import ImageFont, ImageDraw,Image
 from torch.utils.data import DataLoader
 
 from src.commons.model_utils import hypo2utterance
-from src.data.dataloaders import AbstractDataset, ListenerDataset, SpeakerDataset, Vocab, ModifiedDataset
+from src.data.dataloaders import AbstractDataset, ListenerDataset, SpeakerDataset, Vocab, SpeakerUttDataset
 
 
 def show_img(data,id2path,split_name,hypo="",idx=-1):
@@ -167,7 +167,7 @@ def speaker_augmented_dataloader(
         assert data['orig_utterance'][0]==new_data[ii]['orig_utterance']
 
 
-    new_dataset=ModifiedDataset(new_data,dataloader.dataset.domain)
+    new_dataset=SpeakerUttDataset(new_data, dataloader.dataset.domain)
     dp = next(iter(new_dataset)).keys()
     assert (
         "speak_utterance" in dp and "speak_h1embed" in dp

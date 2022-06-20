@@ -15,7 +15,7 @@ class ListenerDataset(AbstractDataset):
 
 
 
-class ModifiedDataset(ListenerDataset):
+class SpeakerUttDataset(ListenerDataset):
 
     def __init__(self, data, domain):
         self.data=data

@@ -1,5 +1,6 @@
 import datetime
 import operator
+from os.path import join
 from typing import Dict, Tuple
 
 import numpy as np
@@ -20,19 +21,20 @@ from src.commons import (
     save_model,
     SIM_ALL_CHK,
 )
-from src.commons.data_utils import speaker_augmented_dataloader
+from src.commons.data_utils import speaker_augmented_dataloader, show_img
 from src.data.dataloaders import Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
 
 
 def get_predictions(
-        data: DataLoader,
+        data: Dict,
         list_model: torch.nn.Module,
         sim_model: torch.nn.Module,
         criterion: torch.nn.Module,
         cel: torch.nn.Module,
         list_vocab: Vocab,
+        split:str,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -82,23 +84,23 @@ def get_predictions(
     sim_preds = sim_preds.tolist()
 
     # logging
-    rnd_idx = np.random.randint(0, batch_size)
-    hypo = list_vocab.decode(utterance[rnd_idx])
-    caption = data['orig_utterance'][rnd_idx]
-    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
-    target = logger.img_id2path[str(target)]
-    target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    # rnd_idx = np.random.randint(0, batch_size)
+    # hypo = list_vocab.decode(utterance[rnd_idx])
+    # caption = data['orig_utterance'][rnd_idx]
+    # target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    # target = logger.img_id2path[str(target)]
+    # target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
-    # for rnd_idx in range(batch_size):
-    #     hypo=list_vocab.decode(utterance[rnd_idx])
-    #     caption=data['orig_utterance'][rnd_idx]
-    #     target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
-    #     target=logger.img_id2path[str(target)]
-    #     target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
-    #     d={k:v[rnd_idx:rnd_idx+1] for k,v in data.items()}
-    #     #show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
-    #
-    #     a=1
+    if split=="eval":
+        for rnd_idx in range(batch_size):
+            hypo=list_vocab.decode(utterance[rnd_idx])
+            caption=data['orig_utterance'][rnd_idx]
+            target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
+            target=logger.img_id2path[str(target)]
+            target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+            d={k:v[rnd_idx:rnd_idx+1] for k,v in data.items()}
+            show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
+            a=1
 
     aux = dict(
         sim_preds=sim_preds,
@@ -109,7 +111,7 @@ def get_predictions(
         list_loss=list_loss,
         sim_list_loss=sim_list_loss,
         sim_loss=sim_loss,
-        target=target
+       # target=target
     )
 
     return loss, sim_list_accuracy, aux
@@ -119,6 +121,7 @@ def evaluate(
         data_loader: DataLoader,
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
+        list_vocab,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -134,7 +137,7 @@ def evaluate(
 
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, criterion, cel, list_vocab=list_vocab
+            data, list_model, sim_model, criterion, cel, list_vocab=list_vocab, split="eval"
         )
 
         losses.append(loss.item())
@@ -164,7 +167,7 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device)
+    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device, datadir=join("./artifacts",LISTENER_CHK_DICT[domain].split("/")[-1]))
     list_args = list_checkpoint["args"]
 
     # update list args
@@ -208,7 +211,7 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device,datadir=join("./artifacts",SPEAKER_CHK.split("/")[-1]))
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -312,7 +315,6 @@ if __name__ == "__main__":
     sim_p.batch_size = 1
     sim_p.shuffle = False
 
-    bs = 32
     shuffle = common_p.shuffle
     training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
 
@@ -355,7 +357,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, criterion, cel, speak_vocab
+                data, list_model, sim_model, criterion, cel, list_vocab, split="train"
             )
 
             losses.append(loss.item())
@@ -398,7 +400,7 @@ if __name__ == "__main__":
             isValidation = True
             print(f"\nEvaluation")
             current_accuracy, current_loss = evaluate(
-                speak_val_dl, sim_model, list_model
+                speak_val_dl, sim_model, list_model, list_vocab
             )
 
             print(

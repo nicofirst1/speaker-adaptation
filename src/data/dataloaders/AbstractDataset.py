@@ -10,33 +10,6 @@ from PIL import Image,ImageDraw,ImageFont
 from torch.utils.data import Dataset
 
 
-def show_img(data,id2path,split_name,hypo=""):
-
-    log_dir=f"img_hypo_captions/{split_name}"
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-
-    batch_size=data['target'].shape[0]
-    rnd_idx = np.random.randint(0, batch_size)
-
-    caption = data['orig_utterance'][rnd_idx]
-    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
-    target_id=target
-
-    target = id2path[str(target)]
-
-    img = Image.open(target)
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("Arial.ttf", 16)
-    draw.rectangle([0, 0, img.size[0], 50], fill=(0,0,0))
-    draw.text((0, 0), f"Hypo :{hypo}\nCaption : {caption}", (255, 255, 255), font=font)
-    img.show()
-
-    # img_id=uuid.uuid4()
-    # img.save(os.path.join(log_dir,f"{target_id}_{img_id}.png"))
-
-
-
 class AbstractDataset(Dataset):
     def __init__(
         self,
