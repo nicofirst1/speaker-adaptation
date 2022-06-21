@@ -33,6 +33,7 @@ class Vocab:
 
     def encode(self, text: List[str], add_special_tokens=False) -> torch.Tensor:
 
+        text=[t for t in text if t]
         encoded = [self.word2index[t] for t in text]
 
         if add_special_tokens:
