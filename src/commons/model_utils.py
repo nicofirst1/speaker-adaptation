@@ -38,6 +38,7 @@ def hypo2utterance(hypo, vocab):
 
     utterance = vocab.encode(hypo.strip().split(" "), add_special_tokens=False)
     utterance = utterance.unsqueeze(dim=0)
+    utterance = utterance.long()
 
     return utterance
 
