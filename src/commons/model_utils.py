@@ -36,7 +36,7 @@ def hypo2utterance(hypo, vocab):
     #     # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
     #     raise ValueError()
 
-    utterance = vocab.encode(hypo.split(" "), add_special_tokens=False)
+    utterance = vocab.encode(hypo.strip().split(" "), add_special_tokens=False)
     utterance = utterance.unsqueeze(dim=0)
 
     return utterance

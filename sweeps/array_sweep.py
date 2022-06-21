@@ -14,5 +14,5 @@ if __name__ == '__main__':
     sweep_config['parameters'].update(dict(
         train_domain=dict(value=common_p.train_domain)
     ))
-    sweepid = wandb.sweep(sweep_config)
+    sweepid = wandb.sweep(sweep_config,project=sweep_config['project'])
     wandb.agent(sweepid)

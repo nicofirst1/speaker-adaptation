@@ -56,6 +56,7 @@ def evaluate(
         speak_model: SpeakerModel_hist,
         sim_model: SimulatorModel_hist,
         list_model: ListenerModel_hist,
+        list_vocab:Vocab,
         criterion,
         split: str,
         lr: float = 0.1,
@@ -145,7 +146,7 @@ def evaluate(
         #   Get results with original hypo
         ################################################
         # translate utt to ids and feed to listener
-        utterance = hypo2utterance(origin_hypo, speak_model.vocab)
+        utterance = hypo2utterance(origin_hypo, list_vocab)
         lengths = [utterance.shape[1]]
         max_length_tensor = utterance.shape[1]
 
@@ -192,7 +193,7 @@ def evaluate(
             s_hypo.append(hypo)
 
             # translate utt to ids and feed to listener
-            utterance = hypo2utterance(hypo, speak_model.vocab)
+            utterance = hypo2utterance(hypo, list_vocab)
             lengths = [utterance.shape[1]]
             max_length_tensor = utterance.shape[1]
 
@@ -470,26 +471,28 @@ if __name__ == "__main__":
 
     sim_model.eval()
 
-    print(f"\nEvaluation on train for domain {domain}")
-    df = evaluate(
-        train_dl_dom,
-        speaker_model,
-        sim_model,
-        list_model,
-        criterion=cel,
-        split="in_domain_train",
-        lr=sweep_config.learning_rate,
-        s=sweep_config.s,
-    )
+    if common_p.log_train:
+        print(f"\nEvaluation on train for domain {domain}")
+        df = evaluate(
+            train_dl_dom,
+            speaker_model,
+            sim_model,
+            list_model,
+            list_vocab,
+            criterion=cel,
+            split="in_domain_train",
+            lr=sweep_config.learning_rate,
+            s=sweep_config.s,
+        )
 
-    ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
+        ### saving df
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
 
-    logger.log_artifact(file_name,
-                        f"adaptive_speak_train_{domain}",
-                        "csv",
-                        metadata=sim_p, )
+        logger.log_artifact(file_name,
+                            f"adaptive_speak_train_{domain}",
+                            "csv",
+                            metadata=sim_p, )
 
     print(f"\nEvaluation on val for domain {domain}")
     df = evaluate(
@@ -497,6 +500,7 @@ if __name__ == "__main__":
         speaker_model,
         sim_model,
         list_model,
+        list_vocab,
         criterion=cel,
         split="in_domain_val",
         lr=sweep_config.learning_rate,
@@ -512,26 +516,28 @@ if __name__ == "__main__":
                         "csv",
                         metadata=sim_p, )
 
-    print(f"\nEvaluation on train for domain all")
-    df = evaluate(
-        train_dl_all,
-        speaker_model,
-        sim_model,
-        list_model,
-        criterion=cel,
-        split="out_domain_train",
-        lr=sweep_config.learning_rate,
-        s=sweep_config.s,
-    )
+    if common_p.log_train:
+        print(f"\nEvaluation on train for domain all")
+        df = evaluate(
+            train_dl_all,
+            speaker_model,
+            sim_model,
+            list_model,
+            list_vocab,
+            criterion=cel,
+            split="out_domain_train",
+            lr=sweep_config.learning_rate,
+            s=sweep_config.s,
+        )
 
-    ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
+        ### saving df
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
 
-    logger.log_artifact(file_name,
-                        f"adaptive_speak_train_all",
-                        "csv",
-                        metadata=sim_p, )
+        logger.log_artifact(file_name,
+                            f"adaptive_speak_train_all",
+                            "csv",
+                            metadata=sim_p, )
 
     print(f"\nEvaluation on val for domain all")
     df = evaluate(
@@ -539,6 +545,7 @@ if __name__ == "__main__":
         speaker_model,
         sim_model,
         list_model,
+        list_vocab,
         criterion=cel,
         split="out_domain_val",
         lr=sweep_config.learning_rate,
