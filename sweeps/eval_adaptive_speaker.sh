@@ -16,10 +16,10 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # perform sweep
-common_args=( --sweep_file ../wandb_sweeps/adaptive_sweep.json)
+common_args=( --sweep_file ./adaptive_sweep.json)
 
 
-trainers_file="${HOME}/pb_speaker_adaptation/sweeps/slurm_array_sweep.py"
+trainers_file="${HOME}/pb_speaker_adaptation/sweeps/array_sweep.py"
 out_file="adaptive_speaker_${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
