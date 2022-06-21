@@ -5,17 +5,51 @@
 \label{sec:data}
 %==========================================
 
-\note{1 column}\\
-\note{Mario}
+\note{1 column -- Mario}
 
-\begin{itemize}
-\item The PhotoBook dataset \citep{haber2019photobook} is a collection of task-oriented visually grounded English dialogues between two participants...
-For every given PhotoBook dialogue and target image \emph{i}, \citet{takmaz-etal-2020-refer} obtained a reference chain made up of the referring utterances that refer to \emph{i} in the dialogue. The extraction procedure has a precision of 0.86 and a recall of 0.61, and the extracted chains are very similar to the human-annotated ones in terms of chain and utterance length. The dataset is made up of 41,340 referring utterances and 16,525 chains (i.e., there are 16,525 first descriptions and 24,815 subsequent references). The median number of utterances in a chain is 3.
-\item The original images are taken from the Microsoft COCO dataset [cite] and belong to 30 different image domains. We cluster the image domains according based on vocabulary vectors constructed by counting word frequencies in the referring utterances targeting images from a given domain. We obtain a set of 5 macro-domains (indoor, outdoor, food, vehicles, appliances), selected so that the domain vocabularies have little overlap. 
-For each cluster of image domains, we extract the PhotoBook reference chains produced in the corresponding visual contexts. We then split these into training, validation, and test set. The test set is made up for two thirds of referring utterances targeting images seen in training (\textit{test seen}) and for one third of utterances targeting unseen images (\textit{test unseen}). 
-Listeners are trained on the 5 domain-specific datasets. The proficient speaker is trained on the union of the domain-specific datasets (the training set is the union of the 5 domain-specific datasets, the test unseen set is the union of the 5 domain-specific datasets, and so forth).
-\item The task is set up as an image reference game. Given a visual context, the speaker produces a referring utterance that describes the target image. The listener selects an image among those in the visual context and is rewarded when it correctly resolves the speaker's reference.
-\end{itemize}
+As a basis for our experiments, we use the PhotoBook dataset~\citep{haber2019photobook}, a collection of task-oriented visually grounded English dialogues between pairs of participants. In a PhotoBook game, two participants see their own private sets (`photobooks') of images and the goal of the interaction is for them to find out which images they have in common; they do so via a synchronous written chat. Each game consists of 5 rounds. In each round the participants see different photobooks belonging to the same visual domain, with some images appearing in multiple rounds. This is an important feature of the dataset, eliciting the production of multiple subsequent referential expressions targeting the same image referent. \mar{We may want to skip this if we use no-history models.}
+% \textit{chains} of referring utterances.
+
+In our experiments, we focus on the generation of referring utterances.
+% and discard other types of dialogue contributions. 
+We use the \textit{reference chain dataset} extracted by \citet{takmaz-etal-2020-refer} from PhotoBook: for every PhotoBook game and image, this datasets provides the list of referring utterances in the game which target the image, a \textit{reference chain}. The dataset includes 41,340 referring utterances and 16,525 chains.
+% \footnote{Referring utterances are extracted automatically. The extraction procedure has a precision of 0.86 and a recall of 0.61, and the extracted chains are similar to a set of human-annotated ones in terms of chain and utterance length~\citep{takmaz-etal-2020-refer}.}
+An example chain is shown in Figure~\ref{todo} (Appendix~\ref{todo}): it consists of $n$ referring utterances (one for each round in which the image is referred to) and $n$ visual contexts---i.e., $n$ sets of 6 images (1 target, 5 distractors) from the same visual domain. 
+% \mar{Should we actually have such a figure in the main paper? Or leave it for the appendix?}\ece{I think it would be nice if we have space for a figure that shows the adaptive pipeline with annotations using the data, but maybe a full chain example can be put in the appendix?}
+
+To model speaker adaptation to different semantic domains, we split the reference chain dataset according to the visual domain of each PhotoBook game. The original images are taken from the Microsoft COCO dataset~\citep{lin2014coco} and belong to 30 different visual domains (e.g., \textit{`person-umbrella'}, \textit{`car-motorcycle'}). We cluster the image domains as a function of the similarity between their vocabulary vectors, constructed by counting word frequencies in the referring utterances targeting a given domain. We obtain a set of 5 macro-domains (\textit{appliances}, \textit{food}, \textit{indoor}, \textit{outdoor}, \textit{vehicles}), selected so that the domain vocabularies have minimal overlap.\footnote{The average vocabulary overlap is 17.7\%. The maximum overlap occurs between \textit{outdoor} and \textit{vehicles} and it amounts to 22\%. Example shared words are \textit{`left'}, \textit{`black'}, \textit{`driving'}, and \textit{`glasses'}.}
+For each cluster of visual domains, we extract the corresponding PhotoBook reference chains. We then randomly split these into training (70\%), validation (15\%), and test set (15\%),
+% (based on game identifier)
+the test set consisting for two thirds of utterances referring to images seen in training (\textit{test seen}) and for one third of utterances targeting unseen images (\textit{test unseen}). We also merge the 5 domain-specific datasets into an \textit{`all-domains'} dataset to be used as described in Sections~\ref{sec:problem}
+and \ref{sec:models}. The most relevant data properties are summarised in Table~\ref{tab:data-stats}. 
+% \mar{Are the stats in the table interesting? Any other relevant ones?} \san{these ones are certainly interesting. Maybe: proportion of data by each domain in ALL?} \mar{Good one. Based on Ece's plots, I think it could also be interesting to have a \textit{visual} overlap column.}
 
 
+\begin{table}[]
+    \centering
+    \resizebox{\columnwidth}{!}{
+    \begin{tabular}{c|cccccc}
+    \toprule
+        \textbf{Domain} & \textbf{Prop} & \textbf{$N$} & \textbf{$|V|$}  & \textbf{Images} & \textbf{Specific} & \textbf{Overlap}\\ \midrule
+        \textit{Appliances} & \ 9.4\%  & \ 4,310 & 1,271  & \ 36 & 29.5\% & 23.2\% (\textit{Ind})\\
+        \textit{Food}       & 12.4\%   & \ 5,682 &  1,646 & \ 36 & 43.3\% & 22.9\% (\textit{App}) \\
+        \textit{Indoor}     & 26.4\%   & 12,088  &  2,477 & \ 96 & 44.3\% & 26.0\% (\textit{Out})\\
+        \textit{Outdoor}    & 35.9\%   & 16,427  &  2,858 & 108  & 47.0\% & 26.2\% (\textit{Veh})\\
+        \textit{Vehicles}   & 15.8\%   & \ 7,234 &  1,738 & \ 48 & 36.0\% & 26.2\% (\textit{Out}) \\
+        \textit{All}        & \ 100\%  & 45,741  &  6,038 & 324  & - & - \\\bottomrule
+    \end{tabular}
+    }
+    \caption{Statistics of the domain-specific reference chain datasets:number of utterances ($N$) and proportion with respect to the entire dataset (Prop), vocabulary size ($|V|$), number of unique images (Images), proportion of domain-specific vocabulary (Specific), and maximum overlap with another visual domain (Overlap). \mar{Add visual overlap column?}}
+    \label{tab:data-stats}
+\end{table}
+
+\begin{comment}
+    \begin{itemize}
+        \item The PhotoBook dataset \citep{haber2019photobook} is a collection of task-oriented visually grounded English dialogues between two participants...
+        For every given PhotoBook dialogue and target image \emph{i}, \citet{takmaz-etal-2020-refer} obtained a reference chain made up of the referring utterances that refer to \emph{i} in the dialogue. The extraction procedure has a precision of 0.86 and a recall of 0.61, and the extracted chains are very similar to the human-annotated ones in terms of chain and utterance length. The dataset is made up of 41,340 referring utterances and 16,525 chains (i.e., there are 16,525 first descriptions and 24,815 subsequent references). The median number of utterances in a chain is 3.
+        \item The original images are taken from the Microsoft COCO dataset [cite] and belong to 30 different image domains. We cluster the image domains according based on vocabulary vectors constructed by counting word frequencies in the referring utterances targeting images from a given domain. We obtain a set of 5 macro-domains (indoor, outdoor, food, vehicles, appliances), selected so that the domain vocabularies have little overlap. 
+        For each cluster of image domains, we extract the PhotoBook reference chains produced in the corresponding visual contexts. We then split these into training, validation, and test set. The test set is made up for two thirds of referring utterances targeting images seen in training (\textit{test seen}) and for one third of utterances targeting unseen images (\textit{test unseen}). 
+        Listeners are trained on the 5 domain-specific datasets. The proficient speaker is trained on the union of the domain-specific datasets (the training set is the union of the 5 domain-specific datasets, the test unseen set is the union of the 5 domain-specific datasets, and so forth).
+    \end{itemize}
+\end{comment}
 
