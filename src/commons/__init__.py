@@ -34,7 +34,7 @@ LISTENER_CHK_DICT = dict(
 #SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
 
 SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel_no_hist:v20"
-SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v30"
+SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v250"
 
 SIM_DOMAIN_CHK = dict(
     # epoch 83
