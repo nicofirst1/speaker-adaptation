@@ -246,6 +246,7 @@ if __name__ == "__main__":
         sim_p = sim_check["args"]
         sim_p.train_domain = domain
         sim_p.device = device
+        sim_p.resume_train=common_p.resume_train
 
         # for debug
         sim_p.subset_size = common_p.subset_size
