@@ -226,3 +226,6 @@ speaker_outputs/
 
 *.csv
 *.png
+
+wandb*/
+

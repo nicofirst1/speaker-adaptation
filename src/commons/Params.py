@@ -85,6 +85,8 @@ class Params:
 
     # Vision feature to use. Either vectors from resnet or clip
     vectors_file: Optional[str] = "vectors.json"
+
+    sweep_file :Optional[str] = ""
     ############################################
     # Listener
     ############################################

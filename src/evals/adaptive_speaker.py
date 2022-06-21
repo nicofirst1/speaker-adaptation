@@ -442,6 +442,7 @@ if __name__ == "__main__":
     )
 
     metric = sim_p.metric
+    sweep_config = wandb.config
 
     ###################################
     ##  Get speaker dataloader
@@ -477,8 +478,8 @@ if __name__ == "__main__":
         list_model,
         criterion=cel,
         split="in_domain_train",
-        lr=common_p.learning_rate,
-        s=sim_p.s,
+        lr=sweep_config.learning_rate,
+        s=sweep_config.s,
     )
 
     ### saving df
@@ -498,8 +499,8 @@ if __name__ == "__main__":
         list_model,
         criterion=cel,
         split="in_domain_val",
-        lr=common_p.learning_rate,
-        s=sim_p.s,
+        lr=sweep_config.learning_rate,
+        s=sweep_config.s,
     )
 
     ### saving df
@@ -519,8 +520,8 @@ if __name__ == "__main__":
         list_model,
         criterion=cel,
         split="out_domain_train",
-        lr=common_p.learning_rate,
-        s=sim_p.s,
+        lr=sweep_config.learning_rate,
+        s=sweep_config.s,
     )
 
     ### saving df
@@ -540,8 +541,8 @@ if __name__ == "__main__":
         list_model,
         criterion=cel,
         split="out_domain_val",
-        lr=common_p.learning_rate,
-        s=sim_p.s,
+        lr=sweep_config.learning_rate,
+        s=sweep_config.s,
     )
 
     ### saving df

@@ -21,6 +21,10 @@ common_args=( --seed 42 --learning_rate 0.1 --s 1)
 # restore the simulator
 #common_args=("${common_args[@]}" "${restore_arg[@]}")
 
+# perform sweep
+common_args=("${common_args[@]}" --sweep_file ../wandb_sweeps/adaptive_sweep.json)
+
+
 trainers_file="${HOME}/pb_speaker_adaptation/src/evals/adaptive_speaker.py"
 out_file="adaptive_speaker_${SLURM_ARRAY_TASK_ID}.log"
 

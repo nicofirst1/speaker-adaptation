@@ -1,0 +1,28 @@
+early_terminate:
+  eta: 3
+  min_iter: 10
+  type: hyperband
+method: bayes
+metric:
+  goal: maximize
+  name: in_domain_val/modified_accs
+  target: 1.0
+project: speaker-influence
+
+parameters:
+    learning_rate:
+        distribution: uniform
+        max: 1
+        min: 0.0001
+
+    s:
+        distribution: int_uniform
+        max: 5
+        min: 1
+
+
+
+
+
+
+program: ../src/evals/adaptive_speaker.py
