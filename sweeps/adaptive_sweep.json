@@ -20,6 +20,14 @@ parameters:
         max: 8
         min: 1
 
+    top_k:
+        distribution: uniform
+        max: 1.0
+        min: 0.3
+
+
+
+
 
 
 

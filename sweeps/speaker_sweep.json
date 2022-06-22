@@ -7,7 +7,7 @@ metric:
   goal: maximize
   name: eval/sweep_metric
   target: 10.0
-project: speaker
+project: speaker-sweep
 
 parameters:
     learning_rate:
