@@ -5,9 +5,9 @@ early_terminate:
 method: bayes
 metric:
   goal: maximize
-  name: in_domain_val/modified_accs
+  name: out_domain_val/modified_accs
   target: 1.0
-project: speaker-influence
+project: speaker-influence-sweep
 
 parameters:
     learning_rate:

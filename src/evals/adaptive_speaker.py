@@ -490,7 +490,7 @@ if __name__ == "__main__":
         df.to_csv(file_name)
 
         logger.log_artifact(file_name,
-                            f"adaptive_speak_train_{domain}",
+                            f"adaptive_speak_train_in_domain_{domain}",
                             "csv",
                             metadata=sim_p, )
 
@@ -512,7 +512,7 @@ if __name__ == "__main__":
     df.to_csv(file_name)
 
     logger.log_artifact(file_name,
-                        f"adaptive_speak_eval_{domain}",
+                        f"adaptive_speak_eval_in_domain_{domain}",
                         "csv",
                         metadata=sim_p, )
 
@@ -535,7 +535,7 @@ if __name__ == "__main__":
         df.to_csv(file_name)
 
         logger.log_artifact(file_name,
-                            f"adaptive_speak_train_all",
+                            f"adaptive_speak_train_out_domain_{domain}",
                             "csv",
                             metadata=sim_p, )
 
@@ -557,7 +557,7 @@ if __name__ == "__main__":
     df.to_csv(file_name)
 
     logger.log_artifact(file_name,
-                        f"adaptive_speak_eval_all",
+                        f"adaptive_speak_eval_out_domain_{domain}",
                         "csv",
                         metadata=sim_p, )
 
