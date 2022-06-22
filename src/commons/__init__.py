@@ -34,12 +34,12 @@ LISTENER_CHK_DICT = dict(
 #SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
 
 SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel_no_hist:v20"
-SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v250"
+SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v523"
 
 SIM_DOMAIN_CHK = dict(
     # epoch 83
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v380",
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v250",
+    all="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v523",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v420",
     indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v360",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v323",
