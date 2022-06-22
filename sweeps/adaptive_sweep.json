@@ -12,13 +12,13 @@ project: speaker-influence-sweep
 parameters:
     learning_rate:
         distribution: uniform
-        max: 1
+        max: 0.1
         min: 0.0001
 
     s:
         distribution: int_uniform
-        max: 5
-        min: 1
+        max: 8
+        min: 0
 
 
 
