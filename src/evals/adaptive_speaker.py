@@ -376,6 +376,7 @@ if __name__ == "__main__":
     speak_p.reset_paths()
 
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
+    common_speak_p = parse_args("speak")
 
     model = get_model("speak", speak_p.model_type)
     speaker_model = model(
@@ -385,12 +386,12 @@ if __name__ == "__main__":
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
-        speak_p.beam_size,
+        common_speak_p.beam_size,
         speak_p.max_len,
-        speak_p.top_k,
-        speak_p.top_p,
-        device,
-        use_beam=speak_p.use_beam,
+        common_speak_p.top_k,
+        common_speak_p.top_p,
+        device=device,
+        use_beam=common_speak_p.use_beam
     )
 
 
