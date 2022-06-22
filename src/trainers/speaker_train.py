@@ -190,14 +190,17 @@ if __name__ == "__main__":
     model = get_model("speak", model_type)
     model = model(
         vocab,
-        embedding_dim,
-        hidden_dim,
+        speak_p.embedding_dim,
+        speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
-        att_dim,
+        speak_p.attention_dim,
         speak_p.beam_size,
         speak_p.max_len,
+        speak_p.top_k,
+        speak_p.top_p,
         speak_p.device,
+        use_beam=speak_p.use_beam,
     ).to(speak_p.device)
 
     ###################################

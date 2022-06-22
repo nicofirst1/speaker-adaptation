@@ -387,8 +387,12 @@ if __name__ == "__main__":
         speak_p.attention_dim,
         speak_p.beam_size,
         speak_p.max_len,
-        device=device,
-    ).to(device)
+        speak_p.top_k,
+        speak_p.top_p,
+        device,
+        use_beam=speak_p.use_beam,
+    )
+
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)

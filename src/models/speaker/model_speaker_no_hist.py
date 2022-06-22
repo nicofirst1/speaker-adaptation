@@ -3,23 +3,26 @@ from typing import Optional, Dict, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
 
 from src.commons import mask_attn
 
 
 class SpeakerModel_no_hist(nn.Module):
     def __init__(
-        self,
-        vocab,
-        embedding_dim,
-        hidden_dim,
-        img_dim,
-        dropout_prob,
-        attention_dim,
-        beam_k,
-        max_len,
-        device,
+            self,
+            vocab,
+            embedding_dim,
+            hidden_dim,
+            img_dim,
+            dropout_prob,
+            attention_dim,
+            beam_k,
+            max_len,
+            top_k,
+            top_p,
+            device,
+            use_beam=False,
+
     ):
         super().__init__()
         self.vocab = vocab
@@ -30,6 +33,9 @@ class SpeakerModel_no_hist(nn.Module):
         self.vocab_size = vocab_len
         self.beam_k = beam_k
         self.max_len = max_len
+        self.top_k = top_k
+        self.top_p = top_p
+        self.use_beam = use_beam
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -113,19 +119,19 @@ class SpeakerModel_no_hist(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def forward(
-        self,
-        utterance,
-        lengths,
-        prev_utterance,
-        prev_utt_lengths,
-        visual_context_sep,
-        visual_context,
-        target_img_feats,
-        targets,
-        prev_hist,
-        prev_hist_len,
-        normalize,
-        masks,
+            self,
+            utterance,
+            lengths,
+            prev_utterance,
+            prev_utt_lengths,
+            visual_context_sep,
+            visual_context,
+            target_img_feats,
+            targets,
+            prev_hist,
+            prev_hist_len,
+            normalize,
+            masks,
     ):
 
         """
@@ -246,11 +252,11 @@ class SpeakerModel_no_hist(nn.Module):
         return predictions
 
     def generate_hypothesis(
-        self,
-        prev_utterance: torch.Tensor,
-        prev_utt_lengths: torch.Tensor,
-        visual_context: torch.Tensor,
-        target_img_feats: torch.Tensor,
+            self,
+            prev_utterance: torch.Tensor,
+            prev_utt_lengths: torch.Tensor,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
     ) -> Tuple[str, Dict, torch.Tensor]:
         """
         Generate an hypothesis (natural language sentence) based on the current output
@@ -272,16 +278,19 @@ class SpeakerModel_no_hist(nn.Module):
         max_length_tensor = prev_utterance.shape[1]
         masks = mask_attn(prev_utt_lengths, max_length_tensor, self.device)
 
-        hypos = self.beam_serach(decoder_hid, history_att, masks, model_params)
+        if self.use_beam:
+            hypos = self.beam_serach(decoder_hid, history_att, masks, model_params)
+        else:
+            hypos = self.nucleus_sampling(decoder_hid, history_att, masks, top_p=self.top_p, top_k=self.top_k)
 
         return hypos, model_params, decoder_hid
 
     def partial_forward(
-        self,
-        prev_utterance: torch.Tensor,
-        prev_utt_lengths: torch.Tensor,
-        visual_context: torch.Tensor,
-        target_img_feats: torch.Tensor,
+            self,
+            prev_utterance: torch.Tensor,
+            prev_utt_lengths: torch.Tensor,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
         # todo: need better name
 
@@ -340,8 +349,6 @@ class SpeakerModel_no_hist(nn.Module):
 
         history_att = self.lin2att_hist(outputs)
 
-        h1_sim = decoder_hid
-
         model_params = dict(
             embeds_words=embeds_words,
             target_img_hid=target_img_hid,
@@ -350,12 +357,106 @@ class SpeakerModel_no_hist(nn.Module):
 
         return decoder_hid, history_att, model_params
 
+    def nucleus_sampling(self, decoder_hid, history_att, masks, top_k=0, top_p=0.0, filter_value=-float('Inf')):
+        """ Filter a distribution of logits using top-k and/or nucleus (top-p) filtering
+            Args:
+                logits: logits distribution shape (vocabulary size)
+                top_k >0: keep only top k tokens with highest probability (top-k filtering).
+                top_p >0.0: keep the top tokens with cumulative probability >= top_p (nucleus filtering).
+                    Nucleus filtering is described in Holtzman et al. (http://arxiv.org/abs/1904.09751)
+        """
+
+        completed_sentences = []
+
+        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
+        eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
+
+        # multiple copies of the decoder
+        h1, c1 = decoder_hid, decoder_hid
+        h1 = h1.squeeze(dim=0)
+        c1 = c1.squeeze(dim=0)
+        # ***** beam search *****
+
+        gen_len = 0
+
+        decoder_input = sos_token  # beam_k sos copies
+
+        gen_sentences_k = sos_token.unsqueeze(dim=0)  # all start off with sos now
+
+        while True:
+
+            # EOS?
+
+            if gen_len > self.max_len:
+                break  # very long sentence generated
+
+            # generate
+
+            # sos segment eos
+            # base self with visual input
+
+            decoder_embeds = self.embedding(decoder_input)
+
+            h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
+
+            h1_att = self.lin2att_hid(h1)
+
+            attention_out = self.attention(self.tanh(history_att + h1_att))
+
+            attention_out = attention_out.masked_fill_(masks, float("-inf"))
+
+            att_weights = self.softmax(attention_out)
+
+            att_context_vector = (history_att * att_weights).sum(dim=1)
+
+            word_pred = F.log_softmax(
+                self.lin2voc(torch.cat((h1.unsqueeze(dim=0), att_context_vector), dim=1)), dim=1
+            )
+
+            word_pred = word_pred.squeeze()
+            top_k = min(top_k, word_pred.size(-1))  # Safety check
+            if top_k > 0:
+                # Remove all tokens with a probability less than the last token of the top-k
+                indices_to_remove = word_pred < torch.topk(word_pred, top_k)[0][..., -1, None]
+                word_pred[indices_to_remove] = filter_value
+
+            if top_p > 0.0:
+                sorted_logits, sorted_indices = torch.sort(word_pred, descending=True)
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+                # Remove tokens with cumulative probability above the threshold
+                sorted_indices_to_remove = cumulative_probs > top_p
+                # Shift the indices to the right to keep also the first token above the threshold
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+
+                indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                word_pred[indices_to_remove] = filter_value
+
+            probabilities = F.softmax(word_pred, dim=-1)
+            next_token = torch.multinomial(probabilities, 1)
+            next_token = next_token.squeeze()
+            decoder_input = next_token
+
+            word_index = next_token % (len(self.vocab) - 1)  # predicted word
+
+            if word_index == eos_token:
+                break
+
+            gen_len += 1
+
+            completed_sentences.append(word_index)
+
+        completed_sentences = self.vocab.decode(completed_sentences)
+
+        return completed_sentences
+
     def beam_serach(
-        self,
-        decoder_hid: torch.Tensor,
-        history_att: torch.Tensor,
-        masks: torch.Tensor,
-        model_params: Optional[Dict] = {},
+            self,
+            decoder_hid: torch.Tensor,
+            history_att: torch.Tensor,
+            masks: torch.Tensor,
+            model_params: Optional[Dict] = {},
     ) -> str:
         completed_sentences = []
         completed_scores = []
@@ -426,7 +527,7 @@ class SpeakerModel_no_hist(nn.Module):
 
             # self.vocab - 1 to exclude <NOHS>
             sentence_index = top_words // (
-                len(self.vocab) - 1
+                    len(self.vocab) - 1
             )  # which sentence it will be added to
             word_index = top_words % (len(self.vocab) - 1)  # predicted word
 
@@ -496,11 +597,11 @@ class SpeakerModel_no_hist(nn.Module):
             self.vocab.index2word[w]
             for w in best_seq
             if w
-            not in [
-                self.vocab.word2index["<sos>"],
-                self.vocab.word2index["<eos>"],
-                self.vocab.word2index["<pad>"],
-            ]
+               not in [
+                   self.vocab.word2index["<sos>"],
+                   self.vocab.word2index["<eos>"],
+                   self.vocab.word2index["<pad>"],
+               ]
         ]
         # remove sos and pads # I want to check eos
         hypothesis_string = " ".join(hypothesis)

@@ -387,6 +387,9 @@ class SpeakerArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
+    top_p:Optional[float] = 0.9
+    top_k:Optional[float] = 0.0
+    use_beam:Optional[bool] = False
 
     metric: Optional[str] = "cider"
 

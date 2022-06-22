@@ -21,7 +21,7 @@ from src.commons import (
     save_model,
     SIM_ALL_CHK,
 )
-from src.commons.data_utils import speaker_augmented_dataloader, show_img
+from src.commons.data_utils import speaker_augmented_dataloader
 from src.data.dataloaders import Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -166,7 +166,8 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device, datadir=join("./artifacts",LISTENER_CHK_DICT[domain].split("/")[-1]))
+    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device,
+                                               datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
     list_args = list_checkpoint["args"]
 
     # update list args
@@ -210,7 +211,7 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device,datadir=join("./artifacts",SPEAKER_CHK.split("/")[-1]))
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device, datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -229,7 +230,10 @@ if __name__ == "__main__":
         speak_p.attention_dim,
         speak_p.beam_size,
         speak_p.max_len,
+        speak_p.top_k,
+        speak_p.top_p,
         device=device,
+        use_beam=speak_p.use_beam
     ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
@@ -246,7 +250,7 @@ if __name__ == "__main__":
         sim_p = sim_check["args"]
         sim_p.train_domain = domain
         sim_p.device = device
-        sim_p.resume_train=common_p.resume_train
+        sim_p.resume_train = common_p.resume_train
 
         # for debug
         sim_p.subset_size = common_p.subset_size
