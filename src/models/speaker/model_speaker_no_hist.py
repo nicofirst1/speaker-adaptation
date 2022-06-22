@@ -281,6 +281,7 @@ class SpeakerModel_no_hist(nn.Module):
         if self.use_beam:
             hypos = self.beam_serach(decoder_hid, history_att, masks, model_params)
         else:
+            #todo: add nucleus sampling with sentence hist
             hypos = self.nucleus_sampling(decoder_hid, history_att, masks, top_p=self.top_p, top_k=self.top_k)
 
         return hypos, model_params, decoder_hid

@@ -301,7 +301,7 @@ def evaluate(
     df = pd.DataFrame(columns=columns, data=csv_data)
 
     original_accs = np.mean(original_accs)
-    adapted_accs = np.mean(adapted_accs)
+    adapted_accs = np.mean([x[-1] for x in adapted_accs])
 
     metrics = dict(
         original_accs=original_accs,
@@ -412,7 +412,7 @@ if __name__ == "__main__":
     # for debug
     sim_p.subset_size = common_p.subset_size
     sim_p.debug = common_p.debug
-    sim_p.s = common_p.s
+    sim_p.s_iter = common_p.s_iter
     sim_p.alpha = common_p.alpha
 
     sim_p.reset_paths()
@@ -487,7 +487,7 @@ if __name__ == "__main__":
             criterion=cel,
             split="in_domain_train",
             lr=sweep_config.learning_rate,
-            s=sweep_config.s,
+            s=sweep_config.s_iter,
         )
 
         ### saving df
@@ -509,7 +509,7 @@ if __name__ == "__main__":
         criterion=cel,
         split="in_domain_val",
         lr=sweep_config.learning_rate,
-        s=sweep_config.s,
+        s=sweep_config.s_iter,
     )
 
     ### saving df
@@ -532,7 +532,7 @@ if __name__ == "__main__":
             criterion=cel,
             split="out_domain_train",
             lr=sweep_config.learning_rate,
-            s=sweep_config.s,
+            s=sweep_config.s_iter,
         )
 
         ### saving df
@@ -554,7 +554,7 @@ if __name__ == "__main__":
         criterion=cel,
         split="out_domain_val",
         lr=sweep_config.learning_rate,
-        s=sweep_config.s,
+        s=sweep_config.s_iter,
     )
 
     ### saving df

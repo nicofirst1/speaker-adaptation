@@ -329,7 +329,7 @@ class SimulatorArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s:Optional[int] = 1
+    s_iter:Optional[int] = 1
     alpha:Optional[int] = 0.1
     log_train:Optional[bool]=False
 
