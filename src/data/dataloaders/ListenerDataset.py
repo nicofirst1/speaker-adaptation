@@ -17,6 +17,8 @@ class ListenerDataset(AbstractDataset):
 
 class SpeakerUttDataset(ListenerDataset):
 
+    #todo: shuffle target
+
     def __init__(self, data, domain):
         self.data=data
         self.domain=domain

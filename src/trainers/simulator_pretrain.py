@@ -62,7 +62,7 @@ def get_predictions(
 
     # Losses and preds
     list_loss = cel(list_out, targets)
-    sim_list_loss = cel(list_out, sim_out)
+    sim_list_loss = cel(sim_out, list_out)
     sim_loss = cel(sim_out, targets)
     loss = sim_list_loss
 
