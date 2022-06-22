@@ -217,6 +217,7 @@ if __name__ == "__main__":
     speak_p.reset_paths()
 
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
+    common_speak_p = parse_args("speak")
 
     # init speak model and load state
 
@@ -228,12 +229,12 @@ if __name__ == "__main__":
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
-        speak_p.beam_size,
+        common_speak_p.beam_size,
         speak_p.max_len,
-        speak_p.top_k,
-        speak_p.top_p,
+        common_speak_p.top_k,
+        common_speak_p.top_p,
         device=device,
-        use_beam=speak_p.use_beam
+        use_beam=common_speak_p.use_beam
     ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
