@@ -105,6 +105,7 @@ def eval_beam_histatt(
     logs["precision"] = P.mean().numpy()
     logs["recal"] = R.mean().numpy()
     logs["Fscore"] = Fs.mean().numpy()
+    logs['sweep_metric']=sum(logs.values())
 
     model_out = dict(
         hypotheses=hypo,
