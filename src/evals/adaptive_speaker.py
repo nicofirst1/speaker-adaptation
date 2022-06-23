@@ -364,7 +364,7 @@ if __name__ == "__main__":
     list_args.debug = common_p.debug
 
     # for reproducibility
-    seed = list_args.seed
+    seed = common_p.seed
     torch.manual_seed(seed)
     np.random.seed(seed)
     torch.backends.cudnn.benchmark = False
@@ -439,6 +439,7 @@ if __name__ == "__main__":
     sim_p.debug = common_p.debug
     sim_p.s_iter = common_p.s_iter
     sim_p.alpha = common_p.alpha
+    sim_p.seed=seed
 
     sim_p.reset_paths()
 
