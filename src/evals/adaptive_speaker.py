@@ -80,7 +80,7 @@ def evaluate(
     dataloader for analysis
 
     """
-
+    s=20
     adapted_list_outs = []
     adapted_sim_outs = []
 
@@ -89,7 +89,7 @@ def evaluate(
 
     original_hypos = []
     modified_hypos = []
-
+    losses=[]
     h0s = []
     csv_data = []
 
@@ -170,28 +170,30 @@ def evaluate(
         optimizer = torch.optim.Adam([h0], lr=lr)
 
         # repeat for s interations
-        s_hypo = []
-        s_accs = []
-        s_h0 = []
-        s_adapted_list_outs = []
-        s_adapted_sim_outs = []
+        s_hypo = ["" for _ in range(s)]
+        s_accs = [-1 for _ in range(s)]
+        s_h0 = [-1 for _ in range(s)]
+        s_adapted_list_outs = [-1 for _ in range(s)]
+        s_adapted_sim_outs = [-1 for _ in range(s)]
+        s_loss = [-1 for _ in range(s)]
+
 
         # perform loop
-        for i in range(s):
-
+        i=0
+        while i<s:
             sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
-            s_adapted_sim_outs.append(sim_out.squeeze(dim=0).tolist())
+            s_adapted_sim_outs[i]=sim_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
             loss = criterion(sim_out, targets)
+            s_loss[i]=loss.detach().item()
             loss.backward()
             optimizer.step()
-            s_h0.append(h0[0].clone().detach().tolist())
-
+            s_h0[i]=h0[0].clone().detach().tolist()
 
             # get modified hypo
-            hypo = speak_model.beam_serach(h0, history_att, speak_masks)
-            s_hypo.append(hypo)
+            hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+            s_hypo[i]=hypo
 
             # translate utt to ids and feed to listener
             utterance = hypo2utterance(hypo, list_vocab)
@@ -203,12 +205,16 @@ def evaluate(
             list_out = list_model(
                 utterance, context_separate, context_concat, prev_hist, masks
             )
-            s_adapted_list_outs.append(list_out.squeeze(dim=0).tolist())
+            s_adapted_list_outs[i]=list_out.squeeze(dim=0).tolist()
 
             # get  accuracy
             list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
             list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
-            s_accs.append(list_target_accuracy)
+            s_accs[i]=list_target_accuracy
+
+            if list_target_accuracy:
+                break
+            i+=1
 
         adapted_sim_outs.append(s_adapted_sim_outs)
         adapted_list_outs.append(s_adapted_list_outs)
@@ -216,6 +222,7 @@ def evaluate(
         adapted_accs.append(s_accs)
         h0s.append([decoder_hid] + s_h0)
         target_domain.append(data['domain'][0])
+        losses.append(s_loss)
 
         ##########################
         # CSV generation
@@ -245,15 +252,16 @@ def evaluate(
         # 8. adapted utterances (s) x s
         # 9. original h0 (decoder_hid) x 1
         # 10. each h0 after a backprop (s h0s) x s
-        # 11. the listener's output distribution given the golden caption x1
-        # 12. the listener's output distribution given the non-adapted/original utterance x1
+        # 11. each loss after a backprop (s h0s) x s
+        # 12. the listener's output distribution given the golden caption x1
+        # 13. the listener's output distribution given the non-adapted/original utterance x1
         # 14. the listener's output distribution given the adapted utterance (for each backprop step) xs
         # 15. the simulator's output distribution given h0 x1
         # 16. the simulator's output distribution given h0' (for each backprop step) xs
         # 17. whether the listener makes a correct guess given the original utterance x1
         # 18. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
 
-        # size formula : 16+5s
+        # size formula : 16+6s
 
         row = [data['domain'][0], list_model.domain, sim_model.domain, target_img_idx]
         row += distractors_img_path
@@ -261,6 +269,7 @@ def evaluate(
         row += s_hypo
         row += [decoder_hid[0].tolist()]
         row += s_h0
+        row += s_loss
         row += [golden_list_out.squeeze(dim=0).tolist()]
         row += [original_list_out.tolist()]
         row += s_adapted_list_outs
@@ -292,6 +301,7 @@ def evaluate(
     columns += [f"adapted utt s{i}" for i in range(s)]
     columns += ["original h0"]
     columns += [f"adapted h0 s{i}" for i in range(s)]
+    columns += [f"loss s{i}" for i in range(s)]
     columns += ["golden_list_out", "original_list_out"]
     columns += [f"adapted_list_out_s{i}" for i in range(s)]
     columns += ["original_sim_out"]
@@ -302,12 +312,16 @@ def evaluate(
     df = pd.DataFrame(columns=columns, data=csv_data)
 
     original_accs = np.mean(original_accs)
-    adapted_accs = np.mean([x[-1] for x in adapted_accs])
+    modified_accs=[[y for y in x if y!=-1]  for x in adapted_accs]
+    modified_accs = np.mean([x[-1] for x in modified_accs])
+    loss=[[y for y in x if y!=-1]  for x in losses]
+    loss = np.mean(loss)
 
     metrics = dict(
         original_accs=original_accs,
-        modified_accs=adapted_accs,
+        modified_accs=modified_accs,
         hypo_table=table,
+        loss=loss
     )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)

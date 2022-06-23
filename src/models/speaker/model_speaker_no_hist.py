@@ -283,6 +283,7 @@ class SpeakerModel_no_hist(nn.Module):
         else:
             #todo: add nucleus sampling with sentence hist
             hypos = self.nucleus_sampling(decoder_hid, history_att, masks, top_p=self.top_p, top_k=self.top_k)
+            #hypos1 = self.nucleus_sampling_hist(decoder_hid, history_att, masks, top_p=self.top_p, top_k=self.top_k)
 
         return hypos, model_params, decoder_hid
 
@@ -451,6 +452,105 @@ class SpeakerModel_no_hist(nn.Module):
         completed_sentences = self.vocab.decode(completed_sentences)
 
         return completed_sentences
+
+    def nucleus_sampling_hist(self, decoder_hid, history_att, masks, top_k=0, top_p=0.0, filter_value=-float('Inf')):
+        """ Filter a distribution of logits using top-k and/or nucleus (top-p) filtering
+            Args:
+                logits: logits distribution shape (vocabulary size)
+                top_k >0: keep only top k tokens with highest probability (top-k filtering).
+                top_p >0.0: keep the top tokens with cumulative probability >= top_p (nucleus filtering).
+                    Nucleus filtering is described in Holtzman et al. (http://arxiv.org/abs/1904.09751)
+        """
+
+        completed_sentences = []
+
+        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
+        eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
+
+        # expand to match max len
+        h1, c1 = decoder_hid, decoder_hid
+        h1 = h1.repeat((self.max_len,1))
+        c1 = c1.repeat((self.max_len,1))
+
+        # take only last hist
+        history_att=history_att[:,-1,:]
+
+        gen_len = 0
+
+        decoder_input=torch.zeros(self.max_len).long()
+        decoder_input[0]=sos_token
+
+        masks=torch.ones((self.max_len,1)).bool()
+
+        while True:
+
+            # EOS?
+
+            if gen_len >= self.max_len:
+                break  # very long sentence generated
+
+            # generate
+
+            # sos segment eos
+            # base self with visual input
+
+            decoder_embeds = self.embedding(decoder_input)
+
+            h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
+
+            h1_att = self.lin2att_hid(h1)
+
+            attention_out = self.attention(self.tanh(history_att + h1_att))
+
+            masks[gen_len]=False
+            attention_out = attention_out.masked_fill_(masks, float("-inf"))
+
+            att_weights = self.softmax(attention_out)
+
+            att_context_vector = (history_att.repeat((self.max_len,1)) * att_weights)
+
+            word_pred = F.log_softmax(
+                self.lin2voc(torch.cat((h1, att_context_vector),dim=1)), dim=1 )
+
+            word_pred = word_pred[gen_len]
+            top_k = min(top_k, word_pred.size(-1))  # Safety check
+            if top_k > 0:
+                # Remove all tokens with a probability less than the last token of the top-k
+                indices_to_remove = word_pred < torch.topk(word_pred, top_k)[0][..., -1, None]
+                word_pred[indices_to_remove] = filter_value
+
+            if top_p > 0.0:
+                sorted_logits, sorted_indices = torch.sort(word_pred, descending=True)
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+                # Remove tokens with cumulative probability above the threshold
+                sorted_indices_to_remove = cumulative_probs > top_p
+                # Shift the indices to the right to keep also the first token above the threshold
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 0] = 0
+
+                indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                word_pred[indices_to_remove] = filter_value
+
+            probabilities = F.softmax(word_pred, dim=-1)
+            next_token = torch.multinomial(probabilities, 1)
+            next_token = next_token.squeeze()
+
+            decoder_input[gen_len+1]=next_token
+
+            word_index = next_token % (len(self.vocab) - 1)  # predicted word
+
+            if word_index == eos_token:
+                break
+
+            gen_len += 1
+
+            completed_sentences.append(word_index)
+
+        completed_sentences = self.vocab.decode(completed_sentences)
+
+        return completed_sentences
+
 
     def beam_serach(
             self,
