@@ -178,7 +178,6 @@ def evaluate(
 
         # perform loop
         for i in range(s):
-            s_h0.append(h0[0].clone().detach().tolist())
 
             sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
             s_adapted_sim_outs.append(sim_out.squeeze(dim=0).tolist())
@@ -187,6 +186,8 @@ def evaluate(
             loss = criterion(sim_out, targets)
             loss.backward()
             optimizer.step()
+            s_h0.append(h0[0].clone().detach().tolist())
+
 
             # get modified hypo
             hypo = speak_model.beam_serach(h0, history_att, speak_masks)
