@@ -277,7 +277,7 @@ def evaluate(
         row += [decoder_hid[0].tolist()]
         row += s_h0
         row += s_loss
-        row += s_grad
+        #row += s_grad
         row += [golden_list_out.squeeze(dim=0).tolist()]
         row += [original_list_out.tolist()]
         row += s_adapted_list_outs
@@ -310,7 +310,7 @@ def evaluate(
     columns += ["original h0"]
     columns += [f"adapted h0 s{i}" for i in range(s)]
     columns += [f"loss s{i}" for i in range(s)]
-    columns += [f"grad s{i}" for i in range(s)]
+    #columns += [f"grad s{i}" for i in range(s)]
     columns += ["golden_list_out", "original_list_out"]
     columns += [f"adapted_list_out_s{i}" for i in range(s)]
     columns += ["original_sim_out"]
@@ -331,7 +331,7 @@ def evaluate(
         modified_accs=modified_accs,
         hypo_table=table,
         loss=loss,
-        grads=grads
+        #grads=grads
     )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
