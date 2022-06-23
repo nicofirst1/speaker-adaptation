@@ -91,6 +91,9 @@ def evaluate(
     modified_hypos = []
     losses=[]
     h0s = []
+    grads=[]
+
+
     csv_data = []
 
     target_domain = []
@@ -176,6 +179,7 @@ def evaluate(
         s_adapted_list_outs = [-1 for _ in range(s)]
         s_adapted_sim_outs = [-1 for _ in range(s)]
         s_loss = [-1 for _ in range(s)]
+        s_grad = [-1 for _ in range(s)]
 
 
         # perform loop
@@ -190,6 +194,7 @@ def evaluate(
             loss.backward()
             optimizer.step()
             s_h0[i]=h0[0].clone().detach().tolist()
+            s_grad[i]=h0.grad[0].clone().detach().tolist()
 
             # get modified hypo
             hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
@@ -223,6 +228,7 @@ def evaluate(
         h0s.append([decoder_hid] + s_h0)
         target_domain.append(data['domain'][0])
         losses.append(s_loss)
+        grads.append(s_grad)
 
         ##########################
         # CSV generation
@@ -253,6 +259,7 @@ def evaluate(
         # 9. original h0 (decoder_hid) x 1
         # 10. each h0 after a backprop (s h0s) x s
         # 11. each loss after a backprop (s h0s) x s
+        # 11. each grad after a backprop (s h0s) x s
         # 12. the listener's output distribution given the golden caption x1
         # 13. the listener's output distribution given the non-adapted/original utterance x1
         # 14. the listener's output distribution given the adapted utterance (for each backprop step) xs
@@ -270,6 +277,7 @@ def evaluate(
         row += [decoder_hid[0].tolist()]
         row += s_h0
         row += s_loss
+        row += s_grad
         row += [golden_list_out.squeeze(dim=0).tolist()]
         row += [original_list_out.tolist()]
         row += s_adapted_list_outs
@@ -302,6 +310,7 @@ def evaluate(
     columns += ["original h0"]
     columns += [f"adapted h0 s{i}" for i in range(s)]
     columns += [f"loss s{i}" for i in range(s)]
+    columns += [f"grad s{i}" for i in range(s)]
     columns += ["golden_list_out", "original_list_out"]
     columns += [f"adapted_list_out_s{i}" for i in range(s)]
     columns += ["original_sim_out"]
@@ -321,7 +330,8 @@ def evaluate(
         original_accs=original_accs,
         modified_accs=modified_accs,
         hypo_table=table,
-        loss=loss
+        loss=loss,
+        grads=grads
     )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
