@@ -351,6 +351,7 @@ if __name__ == "__main__":
         table = log_table(golden_metrics, gen_metrics)
         logger.log_to_wandb(dict(test_in_domain=table), commit=True)
 
+        print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
         gen_metrics=evaluate_trained_model(
             dataloader=val_loader,
             speak_model=speaker_model,
@@ -362,7 +363,6 @@ if __name__ == "__main__":
 
         )
 
-        print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
         golden_metrics=evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
@@ -402,7 +402,7 @@ if __name__ == "__main__":
 
         )
 
-        table = log_table(golden_metrics, gen_metrics)
+        table = log_table(golden_metrics, gen_metrics, in_domain=False)
         logger.log_to_wandb(dict(eval_out_domain=table), commit=True)
 
         print(f"Test on 'all' domain")
@@ -429,7 +429,7 @@ if __name__ == "__main__":
 
         )
 
-        table = log_table(golden_metrics, gen_metrics)
+        table = log_table(golden_metrics, gen_metrics, in_domain=False)
         logger.log_to_wandb(dict(test_out_domain=table), commit=True)
 
         logger.wandb_close()
