@@ -54,7 +54,7 @@ class Params:
     )
 
     # If empty string then no resume. Else use wandb model checkpoints
-    resume_train: str = ""
+    resume_train: bool = False
 
     batch_size: Optional[int] = 32
 

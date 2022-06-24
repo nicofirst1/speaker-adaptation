@@ -18,7 +18,7 @@ source activate uvapb
 #create output directory
 echo "Creating output directory..."
 common_args=( --dropout 0.3 --batch_size 32 --model_type no_hist --metric bert --beam_size 3 --reduction sum --subset_size -1 --seed 33 --learning_rate 0.0001 -shuffle --embedding_dim 1024)
-restore_arg=( --resume_train "adaptive-speaker/speaker/SpeakerModelHistAtt:latest" )
+restore_arg=( -resume_train )
 
 #running the actual code
 echo "Starting the process..."

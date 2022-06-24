@@ -180,11 +180,12 @@ class SpeakerLogger(WandbLogger):
         model_params: Dict[str, Any],
         model_out: Dict[str, Any],
         data_point: Dict[str, Any],
+            split:str,
     ):
 
         # get and log domain accuracy table
 
-        logs = {f"eval/{k}": v for k, v in metrics.items()}
+        logs = {f"{split}/{k}": v for k, v in metrics.items()}
 
         self.log_to_wandb(logs, commit=False)
 

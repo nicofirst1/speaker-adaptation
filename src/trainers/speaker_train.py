@@ -17,7 +17,7 @@ from src.commons import (
     mask_attn,
     parse_args,
     save_model,
-    EarlyStopping,
+    EarlyStopping, SIM_ALL_CHK, SPEAKER_CHK,
 )
 from src.data.dataloaders import Vocab
 from src.models import SpeakerModel_hist, get_model
@@ -48,6 +48,7 @@ def eval_beam_histatt(
     args,
     nlgeval_obj,
     logger,
+        split:str,
 ):
     """
     Evaluation
@@ -111,8 +112,8 @@ def eval_beam_histatt(
         hypotheses=hypo,
     )
 
-    logger.on_eval_end(logs, model_params, model_out, data)
-    logger.log_datapoint(data, preds=[hypo], modality="eval")
+    logger.on_eval_end(logs, model_params, model_out, data, split)
+    logger.log_datapoint(data, preds=[hypo], modality=split)
 
     if args.metric == "cider":
         selected_metric_score = metrics_dict["CIDEr"]
@@ -180,7 +181,7 @@ if __name__ == "__main__":
         opts=vars(speak_p),
         train_logging_step=20,
         val_logging_step=1,
-        resume=speak_p.resume_train != "",
+        resume=speak_p.resume_train,
     )
 
     ###################################
@@ -219,8 +220,8 @@ if __name__ == "__main__":
     ##  RESTORE MODEL
     ###################################
 
-    if speak_p.resume_train != "":
-        checkpoint, file = load_wandb_checkpoint(speak_p.resume_train, speak_p.device)
+    if speak_p.resume_train:
+        checkpoint, file = load_wandb_checkpoint(SPEAKER_CHK, speak_p.device)
         # logger.run.restore(file)
 
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -230,6 +231,11 @@ if __name__ == "__main__":
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
         print(f"Resumed run at epoch {epoch}")
+
+        # todo: remove for train
+        training_loader=[]
+        speak_p.epochs=1
+
 
     logger.watch_model([model])
 
@@ -351,6 +357,16 @@ if __name__ == "__main__":
                 args=speak_p,
                 nlgeval_obj=nlge,
                 logger=logger,
+                split="eval"
+            )
+
+            eval_beam_histatt(
+                split_data_loader=test_loader,
+                model=model,
+                args=speak_p,
+                nlgeval_obj=nlge,
+                logger=logger,
+                split="test"
             )
 
             save_model(
