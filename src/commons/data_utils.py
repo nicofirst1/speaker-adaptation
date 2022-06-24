@@ -135,6 +135,10 @@ def speaker_augmented_dataloader(
 
     """
 
+    if len(dataloader)==0:
+        print("Empty dataloader")
+        return dataloader
+
     new_data=copy.deepcopy(dataloader.dataset.data)
 
     for ii, data in rich.progress.track(
