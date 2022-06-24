@@ -325,26 +325,26 @@ if __name__ == "__main__":
 
 
         print(f"Eval on '{list_args.train_domain}' domain")
-        train_loader, _, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
+        train_loader, test_loader, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
 
         gen_metrics = evaluate_trained_model(
-            dataloader=train_loader,
+            dataloader=test_loader,
             speak_model=speaker_model,
             list_model=list_model,
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
-            split="train",
+            split="test",
         )
 
         print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
         golden_metrics = evaluate_trained_model(
-            dataloader=train_loader,
+            dataloader=test_loader,
             list_model=list_model,
             vocab=speak_vocab,
             domain=dom,
             logger=logger,
-            split="train",
+            split="test",
 
         )
 
