@@ -324,7 +324,7 @@ if __name__ == "__main__":
         list_model.eval()
 
 
-        print(f"Eval on '{list_args.train_domain}' domain")
+        print(f"Test on '{list_args.train_domain}' domain")
         train_loader, test_loader, val_loader = get_dataloaders(list_args, vocab, list_args.train_domain)
 
         gen_metrics = evaluate_trained_model(
@@ -337,7 +337,7 @@ if __name__ == "__main__":
             split="test",
         )
 
-        print(f"Eval on '{list_args.train_domain}' domain with golden caption ")
+        print(f"Test on '{list_args.train_domain}' domain with golden caption ")
         golden_metrics = evaluate_trained_model(
             dataloader=test_loader,
             list_model=list_model,
@@ -349,7 +349,7 @@ if __name__ == "__main__":
         )
 
         table = log_table(golden_metrics, gen_metrics)
-        logger.log_to_wandb(dict(in_domain=table), commit=True)
+        logger.log_to_wandb(dict(test_in_domain=table), commit=True)
 
         gen_metrics=evaluate_trained_model(
             dataloader=val_loader,
@@ -374,10 +374,11 @@ if __name__ == "__main__":
         )
 
         table = log_table(golden_metrics, gen_metrics)
-        logger.log_to_wandb(dict(in_domain=table), commit=True)
+        logger.log_to_wandb(dict(eval_in_domain=table), commit=True)
+
+        _, test_loader, val_loader = get_dataloaders(list_args, vocab, "all")
 
         print(f"Eval on 'all' domain")
-        _, _, val_loader = get_dataloaders(list_args, vocab, "all")
 
         gen_metrics = evaluate_trained_model(
             dataloader=val_loader,
@@ -401,7 +402,34 @@ if __name__ == "__main__":
 
         )
 
-        table=log_table(golden_metrics, gen_metrics)
-        logger.log_to_wandb(dict(out_domain=table), commit=True)
+        table = log_table(golden_metrics, gen_metrics)
+        logger.log_to_wandb(dict(eval_out_domain=table), commit=True)
+
+        print(f"Test on 'all' domain")
+
+        gen_metrics = evaluate_trained_model(
+            dataloader=test_loader,
+            speak_model=speaker_model,
+            list_model=list_model,
+            vocab=speak_vocab,
+            domain=dom,
+            logger=logger,
+            split="test",
+
+        )
+
+        print(f"Test on 'all' domain with golden caption")
+        golden_metrics = evaluate_trained_model(
+            dataloader=test_loader,
+            list_model=list_model,
+            vocab=speak_vocab,
+            domain=dom,
+            logger=logger,
+            split="test",
+
+        )
+
+        table = log_table(golden_metrics, gen_metrics)
+        logger.log_to_wandb(dict(test_out_domain=table), commit=True)
 
         logger.wandb_close()
