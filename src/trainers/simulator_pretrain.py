@@ -121,6 +121,7 @@ def evaluate(
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
         list_vocab: Vocab,
+        split:str,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -132,7 +133,7 @@ def evaluate(
     losses = []
     accuracies = []
 
-    flag = "eval"
+    flag = f"{split}"
 
     for ii, data in enumerate(data_loader):
         loss, accuracy, aux = get_predictions(
@@ -321,13 +322,23 @@ if __name__ == "__main__":
     sim_p.shuffle = False
 
     shuffle = common_p.shuffle
-    training_loader, _, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
+    training_loader, test_loader, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
+
+    if common_p.is_test:
+        training_loader=[]
+        sim_p.epochs=1
+    else:
+        test_loader=[]
 
     speak_train_dl = speaker_augmented_dataloader(
         training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train", shuffle=shuffle
     )
     speak_val_dl = speaker_augmented_dataloader(
         val_loader, list_vocab, speaker_model, batch_size=bs, split_name="val"
+    )
+
+    test_val_dl = speaker_augmented_dataloader(
+        val_loader, list_vocab, speaker_model, batch_size=bs, split_name="test"
     )
 
     ###################################
@@ -412,21 +423,29 @@ if __name__ == "__main__":
                 f"Evaluation loss {current_loss:.6f}, accuracy {current_accuracy:.3f} "
             )
 
-            save_model(
-                model=sim_model,
-                model_type="Simulator",
-                epoch=epoch,
-                accuracy=current_accuracy,
-                optimizer=optimizer,
-                args=sim_p,
-                timestamp=timestamp,
-                logger=logger,
-                loss=current_loss,
+            print(f"\nTest")
+            evaluate(
+                test_val_dl, sim_model, list_model, list_vocab
             )
 
-            # check for early stopping
-            metric_val = current_loss if sim_p.metric == "loss" else current_accuracy
-            if es.should_stop(metric_val):
-                break
+
+
+        if not common_p.is_test:
+                save_model(
+                    model=sim_model,
+                    model_type="Simulator",
+                    epoch=epoch,
+                    accuracy=current_accuracy,
+                    optimizer=optimizer,
+                    args=sim_p,
+                    timestamp=timestamp,
+                    logger=logger,
+                    loss=current_loss,
+                )
+
+        # check for early stopping
+        metric_val = current_loss if sim_p.metric == "loss" else current_accuracy
+        if es.should_stop(metric_val):
+            break
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)
