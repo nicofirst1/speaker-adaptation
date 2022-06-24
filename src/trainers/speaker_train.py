@@ -64,7 +64,10 @@ def eval_beam_histatt(
     references = []
     hypotheses = []
 
-    for i, data in enumerate(split_data_loader):
+    for i, data in rich.progress.track(
+            enumerate(split_data_loader),
+            total=len(split_data_loader),
+            description=f"Processing {split}...", ):
         # print(i)
 
         ref = data["reference_chain"][
@@ -232,7 +235,7 @@ if __name__ == "__main__":
 
         print(f"Resumed run at epoch {epoch}")
 
-        # todo: remove for train
+    if speak_p.is_test:
         training_loader=[]
         speak_p.epochs=1
 
@@ -266,6 +269,8 @@ if __name__ == "__main__":
 
         model.train()
         torch.enable_grad()
+        data={}
+        out=[]
 
         for i, data in rich.progress.track(
             enumerate(training_loader),

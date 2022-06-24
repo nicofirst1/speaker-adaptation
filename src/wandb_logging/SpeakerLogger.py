@@ -63,6 +63,11 @@ class SpeakerLogger(WandbLogger):
         :param preds: prediction of model, after argmax
         :return:
         """
+
+        if len(data_point)==0:
+            print("empty datapoint")
+            return
+
         # get random idx for logging
         batch_size = len(data_point["image_set"])
         idx = random.randint(0, batch_size - 1)
