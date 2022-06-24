@@ -440,6 +440,7 @@ if __name__ == "__main__":
     sim_p.debug = common_p.debug
     sim_p.s_iter = common_p.s_iter
     sim_p.alpha = common_p.alpha
+    sim_p.learning_rate=common_p.learning_rate
     sim_p.seed=seed
 
     sim_p.reset_paths()
