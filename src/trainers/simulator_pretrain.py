@@ -354,11 +354,12 @@ if __name__ == "__main__":
 
         losses = []
         accuracies = []
+        data={}
 
         sim_model.train()
         # torch.enable_grad()
 
-        count = 0
+        i = 0
 
         ###################################
         ##  TRAIN LOOP
