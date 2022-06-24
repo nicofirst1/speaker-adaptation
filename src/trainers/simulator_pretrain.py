@@ -327,7 +327,7 @@ if __name__ == "__main__":
     if common_p.is_test:
         training_loader=[]
         sim_p.epochs=1
-   
+
     speak_train_dl = speaker_augmented_dataloader(
         training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train", shuffle=shuffle
     )
@@ -414,7 +414,7 @@ if __name__ == "__main__":
             isValidation = True
             print(f"\nEvaluation")
             current_accuracy, current_loss = evaluate(
-                speak_val_dl, sim_model, list_model, list_vocab
+                speak_val_dl, sim_model, list_model, list_vocab,split="eval"
             )
 
             print(
@@ -423,7 +423,7 @@ if __name__ == "__main__":
 
             print(f"\nTest")
             evaluate(
-                test_val_dl, sim_model, list_model, list_vocab
+                test_val_dl, sim_model, list_model, list_vocab, split="test"
             )
 
 
