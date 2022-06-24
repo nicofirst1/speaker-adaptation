@@ -327,9 +327,7 @@ if __name__ == "__main__":
     if common_p.is_test:
         training_loader=[]
         sim_p.epochs=1
-    else:
-        test_loader=[]
-
+   
     speak_train_dl = speaker_augmented_dataloader(
         training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train", shuffle=shuffle
     )
