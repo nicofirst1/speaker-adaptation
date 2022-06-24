@@ -217,8 +217,8 @@ def evaluate(
             list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
             s_accs[i]=list_target_accuracy
 
-            if list_target_accuracy:
-                break
+            # if list_target_accuracy:
+            #     break
             i+=1
 
         adapted_sim_outs.append(s_adapted_sim_outs)

@@ -16,7 +16,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-common_args=( --seed 69 --learning_rate 0.001 --s_iter 10 )
+common_args=( --seed 69 --learning_rate 0.003 --s_iter 10 )
 
 # restore the simulator
 #common_args=("${common_args[@]}" "${restore_arg[@]}")
