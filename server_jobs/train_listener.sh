@@ -28,6 +28,9 @@ source activate uvapb
 
 # define variables
 common_args=( --dropout 0.0 --batch_size 64 --model_type no_hist --embed_type scratch --vectors_file vectors.json --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle -log_data)
+restore_arg=( -resume_train -is_test)
+#common_args=("${common_args[@]}" "${restore_arg[@]}")
+
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/listener_train.py"
 out_file="listener_train_${SLURM_ARRAY_TASK_ID}.log"

@@ -16,7 +16,7 @@ from src.commons import (
     mask_attn,
     parse_args,
     save_model,
-    EarlyStopping,
+    EarlyStopping, load_wandb_checkpoint, LISTENER_CHK_DICT,
 )
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, ListenerModel_no_hist, get_model
@@ -29,7 +29,7 @@ import datetime
 global logger
 
 
-def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
+def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split:str):
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
@@ -45,7 +45,7 @@ def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool):
     count = 0
 
     domain_accuracy = {}
-    flag = "eval/"
+    flag = f"{split}/"
     flag += "in_domain" if in_domain else "out_domain"
 
     for ii, data in enumerate(data_loader):
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     training_loader, test_loader, val_loader = get_dataloaders(
         args, vocab, domain, unary_val_bs=False
     )
-    _, _, val_loader_speaker = get_dataloaders(
+    _, test_loader_speaker, val_loader_speaker = get_dataloaders(
         args, vocab, domain="all", unary_val_bs=False
     )
 
@@ -230,7 +230,6 @@ if __name__ == "__main__":
         device=args.device,
     ).to(args.device)
 
-    logger.watch_model([model])
 
     ###################################
     ##  LOSS AND OPTIMIZER
@@ -241,6 +240,27 @@ if __name__ == "__main__":
 
     reduction_method = args.reduction
     criterion = nn.CrossEntropyLoss(reduction=reduction_method)
+
+    ###################################
+    ##  RESTORE MODEL
+    ###################################
+
+    if args.resume_train:
+        checkpoint, file = load_wandb_checkpoint(LISTENER_CHK_DICT[args.train_domain], args.device)
+
+        model.load_state_dict(checkpoint["model_state_dict"])
+        model = model.to(args.device)
+        epoch = checkpoint["epoch"]
+
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+        print(f"Resumed run at epoch {epoch}")
+
+    if args.is_test:
+        training_loader = []
+        args.epochs = 1
+
+    logger.watch_model([model])
 
     ###################################
     ##  EPOCHS START
@@ -267,11 +287,16 @@ if __name__ == "__main__":
 
         if epoch > 0:
             # load datasets again to shuffle the image sets to avoid biases
-            training_loader, _, val_loader = get_dataloaders(
+            training_loader, test_loader, val_loader = get_dataloaders(
                 args, vocab, domain, unary_val_bs=False
             )
 
+            if args.is_test:
+                training_loader=[]
+
         losses = []
+        data={}
+        preds=[]
 
         model.train()
         torch.enable_grad()
@@ -328,27 +353,35 @@ if __name__ == "__main__":
         with torch.no_grad():
             model.eval()
 
-            isValidation = True
-            print(f'\nVal Eval on domain "{domain}"')
+            print(f'\nEval on domain "{domain}"')
             current_accuracy, current_loss, current_MRR = evaluate(
-                val_loader, model, in_domain=True
+                val_loader, model, in_domain=True, split="eval"
             )
 
-            print(f"\nVal Eval on all domains")
-            evaluate(val_loader_speaker, model, in_domain=False)
+            print(f"\nEval on all domains")
+            evaluate(val_loader_speaker, model, in_domain=False, split="eval")
 
-            save_model(
-                model=model,
-                model_type=model_type,
-                epoch=epoch,
-                accuracy=current_accuracy,
-                optimizer=optimizer,
-                args=args,
-                timestamp=timestamp,
-                logger=logger,
-                loss=current_loss,
-                mrr=current_MRR,
+            print(f'\nTest on domain "{domain}"')
+            current_accuracy, current_loss, current_MRR = evaluate(
+                test_loader, model, in_domain=True, split="test"
             )
+
+            print(f"\nTest on all domains")
+            evaluate(test_loader_speaker, model, in_domain=False, split="test")
+
+            if not args.is_test:
+                save_model(
+                    model=model,
+                    model_type=model_type,
+                    epoch=epoch,
+                    accuracy=current_accuracy,
+                    optimizer=optimizer,
+                    args=args,
+                    timestamp=timestamp,
+                    logger=logger,
+                    loss=current_loss,
+                    mrr=current_MRR,
+                )
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)
 

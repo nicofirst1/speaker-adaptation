@@ -228,7 +228,7 @@ if __name__ == "__main__":
         # logger.run.restore(file)
 
         model.load_state_dict(checkpoint["model_state_dict"])
-        speaker_model = model.to(speak_p.device)
+        model = model.to(speak_p.device)
         epoch = checkpoint["epoch"]
 
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
@@ -373,17 +373,17 @@ if __name__ == "__main__":
                 logger=logger,
                 split="test"
             )
-
-            save_model(
-                model=model,
-                model_type=model_type,
-                epoch=epoch,
-                accuracy=current_score,
-                optimizer=optimizer,
-                args=speak_p,
-                timestamp=timestamp,
-                logger=logger,
-            )
+            if not speak_p.is_test:
+                save_model(
+                    model=model,
+                    model_type=model_type,
+                    epoch=epoch,
+                    accuracy=current_score,
+                    optimizer=optimizer,
+                    args=speak_p,
+                    timestamp=timestamp,
+                    logger=logger,
+                )
 
             ################################################################
             # Early stopping
