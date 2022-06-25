@@ -527,49 +527,49 @@ if __name__ == "__main__":
                             "csv",
                             metadata=sim_p, )
 
-    print(f"\nEvaluation for domain {domain}")
-    df = evaluate(
-        val_dl_dom,
-        speaker_model,
-        sim_model,
-        list_model,
-        list_vocab,
-        criterion=cel,
-        split="in_domain_val",
-        lr=sweep_config.learning_rate,
-        s=sweep_config.s_iter,
-    )
+        print(f"\nEvaluation for domain {domain}")
+        df = evaluate(
+            val_dl_dom,
+            speaker_model,
+            sim_model,
+            list_model,
+            list_vocab,
+            criterion=cel,
+            split="in_domain_val",
+            lr=sweep_config.learning_rate,
+            s=sweep_config.s_iter,
+        )
 
-    ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
+        ### saving df
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
 
-    logger.log_artifact(file_name,
-                        f"adaptive_speak_eval_in_domain_{domain}",
-                        "csv",
-                        metadata=sim_p, )
+        logger.log_artifact(file_name,
+                            f"adaptive_speak_eval_in_domain_{domain}",
+                            "csv",
+                            metadata=sim_p, )
 
-    print(f"\nTest for domain {domain}")
-    df = evaluate(
-        test_dl_dom,
-        speaker_model,
-        sim_model,
-        list_model,
-        list_vocab,
-        criterion=cel,
-        split="in_domain_test",
-        lr=sweep_config.learning_rate,
-        s=sweep_config.s_iter,
-    )
+        print(f"\nTest for domain {domain}")
+        df = evaluate(
+            test_dl_dom,
+            speaker_model,
+            sim_model,
+            list_model,
+            list_vocab,
+            criterion=cel,
+            split="in_domain_test",
+            lr=sweep_config.learning_rate,
+            s=sweep_config.s_iter,
+        )
 
-    ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
+        ### saving df
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
 
-    logger.log_artifact(file_name,
-                        f"adaptive_speak_test_in_domain_{domain}",
-                        "csv",
-                        metadata=sim_p, )
+        logger.log_artifact(file_name,
+                            f"adaptive_speak_test_in_domain_{domain}",
+                            "csv",
+                            metadata=sim_p, )
 
     if common_p.log_train:
         print(f"\nEvaluation on train for domain all")
