@@ -17,7 +17,7 @@ from src.commons import (
     hypo2utterance,
     load_wandb_checkpoint,
     mask_attn,
-    parse_args,
+    parse_args, SIM_ALL_CHK,
 )
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
@@ -527,7 +527,7 @@ if __name__ == "__main__":
                             "csv",
                             metadata=sim_p, )
 
-    print(f"\nEvaluation on val for domain {domain}")
+    print(f"\nEvaluation for domain {domain}")
     df = evaluate(
         val_dl_dom,
         speaker_model,
@@ -549,7 +549,7 @@ if __name__ == "__main__":
                         "csv",
                         metadata=sim_p, )
 
-    print(f"\nTest on val for domain {domain}")
+    print(f"\nTest for domain {domain}")
     df = evaluate(
         test_dl_dom,
         speaker_model,
@@ -594,7 +594,7 @@ if __name__ == "__main__":
                             "csv",
                             metadata=sim_p, )
 
-    print(f"\nEvaluation on val for domain all")
+    print(f"\nEvaluation for domain all")
     df = evaluate(
         val_dl_all,
         speaker_model,
@@ -616,7 +616,7 @@ if __name__ == "__main__":
                         "csv",
                         metadata=sim_p, )
 
-    print(f"\nTest on val for domain all")
+    print(f"\nTest for domain all")
     df = evaluate(
         test_dl_all,
         speaker_model,
