@@ -429,7 +429,7 @@ if __name__ == "__main__":
     ##########################
     # SIMULATOR
     ##########################
-    sim_check, _ = load_wandb_checkpoint(SIM_ALL_CHK, device)
+    sim_check, _ = load_wandb_checkpoint(SIM_DOMAIN_CHK[domain], device)
     # load args
     sim_p = sim_check["args"]
     sim_p.train_domain = domain
@@ -472,7 +472,7 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="speaker-influence-general",
+        project="speaker-influence",
     )
 
     metric = sim_p.metric
