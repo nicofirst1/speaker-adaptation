@@ -236,11 +236,11 @@ class Params:
         ]
         assert (
                 self.train_domain in valid_dom
-        ), f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
+        ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
         valid_type_of_sim = ["domain", "general"]
 
-        assert self.type_of_sim in valid_type_of_sim, f"Invalid simulator type '{self.type_of_sim}'./nShould be in {valid_type_of_sim}"
+        assert self.type_of_sim in valid_type_of_sim, f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
 
     def reset_paths(self):
         self.vocab_file = "vocab.csv"
