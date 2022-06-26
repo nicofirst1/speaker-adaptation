@@ -514,8 +514,8 @@ if __name__ == "__main__":
             list_vocab,
             criterion=cel,
             split="in_domain_train",
-            lr=sweep_config.learning_rate,
-            s=sweep_config.s_iter,
+            lr=common_p.learning_rate,
+            s=common_p.s_iter,
         )
 
         ### saving df
@@ -536,8 +536,8 @@ if __name__ == "__main__":
             list_vocab,
             criterion=cel,
             split="in_domain_val",
-            lr=sweep_config.learning_rate,
-            s=sweep_config.s_iter,
+            lr=common_p.learning_rate,
+            s=common_p.s_iter,
         )
 
         ### saving df
@@ -558,8 +558,8 @@ if __name__ == "__main__":
             list_vocab,
             criterion=cel,
             split="in_domain_test",
-            lr=sweep_config.learning_rate,
-            s=sweep_config.s_iter,
+            lr=common_p.learning_rate,
+            s=common_p.s_iter,
         )
 
         ### saving df
@@ -581,8 +581,8 @@ if __name__ == "__main__":
             list_vocab,
             criterion=cel,
             split="out_domain_train",
-            lr=sweep_config.learning_rate,
-            s=sweep_config.s_iter,
+            lr=common_p.learning_rate,
+            s=common_p.s_iter,
         )
 
         ### saving df
@@ -603,8 +603,8 @@ if __name__ == "__main__":
         list_vocab,
         criterion=cel,
         split="out_domain_val",
-        lr=sweep_config.learning_rate,
-        s=sweep_config.s_iter,
+        lr=common_p.learning_rate,
+        s=common_p.s_iter,
     )
 
     ### saving df
@@ -625,8 +625,8 @@ if __name__ == "__main__":
         list_vocab,
         criterion=cel,
         split="out_domain_test",
-        lr=sweep_config.learning_rate,
-        s=sweep_config.s_iter,
+        lr=common_p.learning_rate,
+        s=common_p.s_iter,
     )
 
     ### saving df
