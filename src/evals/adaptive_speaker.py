@@ -80,7 +80,6 @@ def evaluate(
     dataloader for analysis
 
     """
-    s=20
     adapted_list_outs = []
     adapted_sim_outs = []
 
