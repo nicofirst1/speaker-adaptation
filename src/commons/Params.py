@@ -55,7 +55,8 @@ class Params:
 
     # If empty string then no resume. Else use wandb model checkpoints
     resume_train: Optional[bool] = False
-    is_test: Optional[bool]=False
+    is_test: Optional[bool] = False
+    type_of_sim: Optional[str] = "domain"
 
     batch_size: Optional[int] = 32
 
@@ -87,7 +88,7 @@ class Params:
     # Vision feature to use. Either vectors from resnet or clip
     vectors_file: Optional[str] = "vectors.json"
 
-    sweep_file :Optional[str] = ""
+    sweep_file: Optional[str] = ""
     ############################################
     # Listener
     ############################################
@@ -234,8 +235,12 @@ class Params:
             "all",
         ]
         assert (
-            self.train_domain in valid_dom
+                self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./nShould be in {valid_dom}"
+
+        valid_type_of_sim = ["domain", "general"]
+
+        assert self.type_of_sim in valid_type_of_sim, f"Invalid simulator type '{self.type_of_sim}'./nShould be in {valid_type_of_sim}"
 
     def reset_paths(self):
         self.vocab_file = "vocab.csv"
@@ -285,18 +290,18 @@ class ListenerArguments(Params):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -330,10 +335,9 @@ class SimulatorArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter:Optional[int] = 1
-    alpha:Optional[int] = 0.1
-    log_train:Optional[bool]=False
-
+    s_iter: Optional[int] = 1
+    alpha: Optional[int] = 0.1
+    log_train: Optional[bool] = False
 
     def __init__(self):
         super(SimulatorArguments, self).__init__()
@@ -350,18 +354,18 @@ class SimulatorArguments(Params):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -388,9 +392,9 @@ class SpeakerArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
-    top_p:Optional[float] = 0.9
-    top_k:Optional[float] = 0.0
-    use_beam:Optional[bool] = False
+    top_p: Optional[float] = 0.9
+    top_k: Optional[float] = 0.0
+    use_beam: Optional[bool] = False
 
     metric: Optional[str] = "cider"
 
@@ -408,10 +412,9 @@ class SpeakerArguments(Params):
         self.vocab_file = join(self.data_path, "speaker", self.vocab_file)
 
     def check_parameters(self):
-
         super(SpeakerArguments, self).check_parameters()
         valis_type = ["hist", "no_hist"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"

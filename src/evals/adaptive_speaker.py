@@ -216,8 +216,8 @@ def evaluate(
             list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
             s_accs[i]=list_target_accuracy
 
-            # if list_target_accuracy:
-            #     break
+            if list_target_accuracy:
+                break
             i+=1
 
         adapted_sim_outs.append(s_adapted_sim_outs)
@@ -428,7 +428,10 @@ if __name__ == "__main__":
     ##########################
     # SIMULATOR
     ##########################
-    sim_check, _ = load_wandb_checkpoint(SIM_DOMAIN_CHK[domain], device)
+
+    sim_type=SIM_ALL_CHK if common_p.type_of_sim=="general" else SIM_DOMAIN_CHK[domain]
+
+    sim_check, _ = load_wandb_checkpoint(sim_type, device)
     # load args
     sim_p = sim_check["args"]
     sim_p.train_domain = domain
@@ -440,6 +443,7 @@ if __name__ == "__main__":
     sim_p.s_iter = common_p.s_iter
     sim_p.alpha = common_p.alpha
     sim_p.learning_rate=common_p.learning_rate
+    sim_p.type_of_sim=common_p.type_of_sim
     sim_p.seed=seed
 
     sim_p.reset_paths()
@@ -471,7 +475,7 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="speaker-influence",
+        project=f"speaker-influence-{common_p.type_of_sim}",
     )
 
     metric = sim_p.metric
@@ -593,27 +597,27 @@ if __name__ == "__main__":
                             "csv",
                             metadata=sim_p, )
 
-    print(f"\nEvaluation for domain all")
-    df = evaluate(
-        val_dl_all,
-        speaker_model,
-        sim_model,
-        list_model,
-        list_vocab,
-        criterion=cel,
-        split="out_domain_val",
-        lr=common_p.learning_rate,
-        s=common_p.s_iter,
-    )
+        print(f"\nEvaluation for domain all")
+        df = evaluate(
+            val_dl_all,
+            speaker_model,
+            sim_model,
+            list_model,
+            list_vocab,
+            criterion=cel,
+            split="out_domain_val",
+            lr=common_p.learning_rate,
+            s=common_p.s_iter,
+        )
 
-    ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
+        ### saving df
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
 
-    logger.log_artifact(file_name,
-                        f"adaptive_speak_eval_out_domain_{domain}",
-                        "csv",
-                        metadata=sim_p, )
+        logger.log_artifact(file_name,
+                            f"adaptive_speak_eval_out_domain_{domain}",
+                            "csv",
+                            metadata=sim_p, )
 
     print(f"\nTest for domain all")
     df = evaluate(
