@@ -40,6 +40,8 @@ def generate_table(data: List, target_domain: List, s: int) -> wandb.Table:
 
     table_columns = [
         "target domain",
+        "golden hypo",
+        "golden guess",
         "original hypo",
         "original guess",
     ]
@@ -84,9 +86,11 @@ def evaluate(
     adapted_sim_outs = []
 
     original_accs = []
+    golden_accs = []
     adapted_accs = []
 
     original_hypos = []
+    golden_hypos = []
     modified_hypos = []
     losses=[]
     h0s = []
@@ -110,11 +114,32 @@ def evaluate(
         target_img_feats = data["target_img_feats"]
         targets = data["target"]
         prev_hist = data["prev_histories"]
-        original_utt_ids = data['utterance']
+        golden_utt_ids = data['utterance']
 
         max_length_tensor = prev_utterance.shape[1]
         speak_masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
 
+
+        ##################
+        # Get results for golden captions
+        ##################
+        lengths = [golden_utt_ids.shape[1]]
+        max_length_tensor = golden_utt_ids.shape[1]
+        masks = mask_attn(lengths, max_length_tensor, device)
+
+        golden_list_out = list_model(
+            golden_utt_ids, context_separate, context_concat, prev_hist, masks
+        )
+        golden_list_out.squeeze(dim=0)
+        golden_acc = torch.argmax(golden_list_out.squeeze(dim=-1), dim=1)
+        golden_acc = torch.eq(golden_acc, targets.squeeze()).double().item()
+        golden_accs.append(golden_acc)
+
+        golden_hypos+=data['orig_utterance']
+
+        ################################################
+        #   Get results with original hypo
+        ################################################
         # generate hypothesis
         origin_hypo, logs, decoder_hid = speak_model.generate_hypothesis(
             prev_utterance,
@@ -126,27 +151,6 @@ def evaluate(
         original_hypos.append(origin_hypo)
         history_att = logs["history_att"]
 
-        ##################
-        # Analysis only
-        ##################
-        lengths = [original_utt_ids.shape[1]]
-        max_length_tensor = original_utt_ids.shape[1]
-        masks = mask_attn(lengths, max_length_tensor, device)
-
-        golden_list_out = list_model(
-            original_utt_ids, context_separate, context_concat, prev_hist, masks
-        )
-        golden_list_out.squeeze(dim=0)
-        golden_list_acc = torch.argmax(golden_list_out.squeeze(dim=-1), dim=1)
-        golden_list_acc = torch.eq(golden_list_acc, targets.squeeze()).double().item()
-
-        ##################
-        # Analysis only
-        ##################
-
-        ################################################
-        #   Get results with original hypo
-        ################################################
         # translate utt to ids and feed to listener
         utterance = hypo2utterance(origin_hypo, list_vocab)
         lengths = [utterance.shape[1]]
@@ -264,7 +268,8 @@ def evaluate(
         # 14. the listener's output distribution given the adapted utterance (for each backprop step) xs
         # 15. the simulator's output distribution given h0 x1
         # 16. the simulator's output distribution given h0' (for each backprop step) xs
-        # 17. whether the listener makes a correct guess given the original utterance x1
+        # 17. whether the listener makes a correct guess given the caption x1
+        # 18. whether the listener makes a correct guess given the original utterance x1
         # 18. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
 
         # size formula : 16+6s
@@ -281,7 +286,8 @@ def evaluate(
         row += [original_list_out.tolist()]
         row += s_adapted_list_outs
         row += s_adapted_sim_outs
-        row += [golden_list_acc]
+        row += [golden_acc]
+        row += [original_accs]
         row += s_accs
 
         csv_data.append(row)
@@ -290,6 +296,8 @@ def evaluate(
     table_data = list(
         list(
             zip(
+                golden_hypos,
+                golden_accs,
                 original_hypos,
                 original_accs,
                 modified_hypos,
@@ -314,12 +322,14 @@ def evaluate(
     columns += [f"adapted_list_out_s{i}" for i in range(s)]
     columns += ["original_sim_out"]
     columns += [f"adapted_sim_out_s{i}" for i in range(s-1)]
+    columns += [f"golden_acc"]
     columns += [f"original_acc"]
-    columns += [f"adapted_accuracy_s{i}" for i in range(s)]
+    columns += [f"adapted_acc_s{i}" for i in range(s)]
 
     df = pd.DataFrame(columns=columns, data=csv_data)
 
     original_accs = np.mean(original_accs)
+    golden_accs = np.mean(golden_accs)
     modified_accs=[[y for y in x if y!=-1]  for x in adapted_accs]
     mean_s=np.mean([len(x) for x in modified_accs])
     modified_accs = np.mean([x[-1] for x in modified_accs])
@@ -329,6 +339,7 @@ def evaluate(
     metrics = dict(
         original_accs=original_accs,
         modified_accs=modified_accs,
+        golden_accs=golden_accs,
         hypo_table=table,
         loss=loss,
         mean_s=mean_s
