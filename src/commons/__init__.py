@@ -47,3 +47,37 @@ SIM_DOMAIN_CHK=dict(
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v545",
 )
 
+
+TRAIN_DATASET_CHK=dict(
+    all="adaptive-speaker/simulator-pretrain/train_dataloader_all:latest",
+    food="adaptive-speaker/simulator-pretrain/train_dataloader_food:latest",
+    appliances="adaptive-speaker/simulator-pretrain/train_dataloader_appliances:latest",
+    indoor="adaptive-speaker/simulator-pretrain/train_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/simulator-pretrain/train_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/simulator-pretrain/train_dataloader_vehicles:latest",
+)
+
+
+VAL_DATASET_CHK=dict(
+    all="adaptive-speaker/simulator-pretrain/val_dataloader_all:latest",
+    food="adaptive-speaker/simulator-pretrain/val_dataloader_food:latest",
+    appliances="adaptive-speaker/simulator-pretrain/val_dataloader_appliances:latest",
+    indoor="adaptive-speaker/simulator-pretrain/val_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/simulator-pretrain/val_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/simulator-pretrain/val_dataloader_vehicles:latest",
+)
+
+TEST_DATASET_CHK=dict(
+    all="adaptive-speaker/simulator-pretrain/test_dataloader_all:latest",
+    food="adaptive-speaker/simulator-pretrain/test_dataloader_food:latest",
+    appliances="adaptive-speaker/simulator-pretrain/test_dataloader_appliances:latest",
+    indoor="adaptive-speaker/simulator-pretrain/test_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/simulator-pretrain/test_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/simulator-pretrain/test_dataloader_vehicles:latest",
+)
+
+DATASET_CHK=dict(
+    train=TRAIN_DATASET_CHK,
+    val=VAL_DATASET_CHK,
+    test=TEST_DATASET_CHK,
+)

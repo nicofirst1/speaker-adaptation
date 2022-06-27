@@ -116,6 +116,32 @@ def save_model(
 
     print("Model saved and logged to wandb")
 
+def load_wandb_file(url: str,  datadir="") -> str:
+    """
+    Load a wandb file and return the path to the downloaded file
+    Parameters
+    ----------
+    url
+    datadir
+
+    Returns
+    -------
+
+    """
+    if datadir=="":
+        api = wandb.Api()
+        artifact = api.artifact(url)
+
+        datadir = artifact.download()
+
+    files = [f for f in os.listdir(datadir) if isfile(join(datadir, f))]
+
+    if len(files) > 1:
+        raise FileExistsError(f"More than one checkpoint found in {datadir}!")
+    files = join(datadir, files[0])
+    return files
+
+
 
 def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]:
     """
@@ -130,18 +156,7 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
 
     """
 
-    if datadir=="":
-        api = wandb.Api()
-        artifact = api.artifact(url)
+    file=load_wandb_file(url,  datadir)
+    checkpoint = torch.load(file, map_location=device)
 
-        datadir = artifact.download()
-
-    files = [f for f in os.listdir(datadir) if isfile(join(datadir, f))]
-
-    if len(files) > 1:
-        raise FileExistsError(f"More than one checkpoint found in {datadir}!")
-    files = join(datadir, files[0])
-
-    checkpoint = torch.load(files, map_location=device)
-
-    return checkpoint, files
+    return checkpoint, file

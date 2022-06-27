@@ -109,7 +109,9 @@ class WandbLogger:
             epoch = self.epochs
 
         # cast everything in metadata to str
-        metadata = {k: str(v) for k, v in vars(metadata).items()}
+        if not isinstance(metadata,dict):
+            metadata=vars(metadata)
+        metadata = {k: str(v) for k, v in metadata.items()}
         metadata["curr_epoch"] = str(epoch)
 
         # refine model name

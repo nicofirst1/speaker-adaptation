@@ -229,3 +229,5 @@ speaker_outputs/
 
 wandb*/
 
+
+*.pth

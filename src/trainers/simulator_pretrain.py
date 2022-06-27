@@ -1,6 +1,5 @@
 import datetime
 import operator
-from os.path import join
 from typing import Dict, Tuple
 
 import numpy as np
@@ -19,10 +18,9 @@ from src.commons import (
     mask_attn,
     parse_args,
     save_model,
-    SIM_ALL_CHK,
-)
-from src.commons.data_utils import speaker_augmented_dataloader
-from src.data.dataloaders import Vocab
+    SIM_ALL_CHK, DATASET_CHK, )
+from src.commons.data_utils import load_wandb_dataset
+from src.data.dataloaders import Vocab, AbstractDataset
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
 
@@ -121,7 +119,7 @@ def evaluate(
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
         list_vocab: Vocab,
-        split:str,
+        split: str,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -146,7 +144,7 @@ def evaluate(
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
 
     losses = np.mean(losses)
-    accuracies = np.sum(accuracies)/len(data_loader.dataset.data)
+    accuracies = np.sum(accuracies) / len(data_loader.dataset.data)
 
     metrics = dict(epoch_accuracy=accuracies, loss=losses)
 
@@ -167,8 +165,8 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device,)
-                                               #datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
+    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device, )
+    # datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
     list_args = list_checkpoint["args"]
 
     # update list args
@@ -212,7 +210,8 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device,) #datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK,
+                                           device, )  # datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -279,7 +278,6 @@ if __name__ == "__main__":
         sim_model.load_state_dict(sim_check["model_state_dict"])
         sim_model = sim_model.to(device)
 
-
     ###################################
     ##  LOGGER
     ###################################
@@ -330,19 +328,31 @@ if __name__ == "__main__":
     training_loader, test_loader, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
 
     if common_p.is_test:
-        training_loader=[]
-        sim_p.epochs=1
+        training_loader = []
+        sim_p.epochs = 1
 
-    speak_train_dl = speaker_augmented_dataloader(
-        training_loader, list_vocab, speaker_model, batch_size=bs, split_name="train", shuffle=shuffle
-    )
-    speak_val_dl = speaker_augmented_dataloader(
-        val_loader, list_vocab, speaker_model, batch_size=bs, split_name="val"
-    )
+    load_params = {
+        "batch_size": bs,
+        "shuffle": shuffle,
+        "collate_fn": AbstractDataset.get_collate_fn(
+            speaker_model.device, list_vocab["<sos>"], list_vocab["<eos>"], list_vocab["<nohs>"]
+        ),
+    }
 
-    test_val_dl = speaker_augmented_dataloader(
-        val_loader, list_vocab, speaker_model, batch_size=bs, split_name="test"
-    )
+    speak_train_dl = load_wandb_dataset("train", domain, load_params, list_vocab,
+                                        speaker_model, training_loader, logger,DATASET_CHK)
+
+    load_params = {
+        "batch_size": 1,
+        "shuffle": False,
+        "collate_fn": AbstractDataset.get_collate_fn(
+            speaker_model.device, list_vocab["<sos>"], list_vocab["<eos>"], list_vocab["<nohs>"]
+        ),
+    }
+    speak_val_dl = load_wandb_dataset("val", domain, load_params, list_vocab,
+                                      speaker_model, training_loader, logger,DATASET_CHK)
+    speak_test_dl = load_wandb_dataset("test", domain, load_params, list_vocab,
+                                       speaker_model, training_loader, logger,DATASET_CHK)
 
     ###################################
     ##  START OF TRAINING LOOP
@@ -359,7 +369,7 @@ if __name__ == "__main__":
 
         losses = []
         accuracies = []
-        data={}
+        data = {}
 
         sim_model.train()
         # torch.enable_grad()
@@ -398,13 +408,13 @@ if __name__ == "__main__":
             )
 
         losses = np.mean(losses)
-        accuracies = np.sum(accuracies)/len(speak_train_dl.dataset.data)
+        accuracies = np.sum(accuracies) / len(speak_train_dl.dataset.data)
 
         logger.on_batch_end(
             losses,
             data,
             aux=dict(accuracy_epoch=accuracies),
-            batch_id=i+1,
+            batch_id=i + 1,
             modality="train",
         )
 
@@ -420,7 +430,7 @@ if __name__ == "__main__":
             isValidation = True
             print(f"\nEvaluation")
             current_accuracy, current_loss = evaluate(
-                speak_val_dl, sim_model, list_model, list_vocab,split="eval"
+                speak_val_dl, sim_model, list_model, list_vocab, split="eval"
             )
 
             print(
@@ -429,23 +439,21 @@ if __name__ == "__main__":
 
             print(f"\nTest")
             evaluate(
-                test_val_dl, sim_model, list_model, list_vocab, split="test"
+                speak_test_dl, sim_model, list_model, list_vocab, split="test"
             )
 
-
-
         if not common_p.is_test:
-                save_model(
-                    model=sim_model,
-                    model_type="Simulator",
-                    epoch=epoch,
-                    accuracy=current_accuracy,
-                    optimizer=optimizer,
-                    args=sim_p,
-                    timestamp=timestamp,
-                    logger=logger,
-                    loss=current_loss,
-                )
+            save_model(
+                model=sim_model,
+                model_type="Simulator",
+                epoch=epoch,
+                accuracy=current_accuracy,
+                optimizer=optimizer,
+                args=sim_p,
+                timestamp=timestamp,
+                logger=logger,
+                loss=current_loss,
+            )
 
         # check for early stopping
         metric_val = current_loss if sim_p.metric == "loss" else current_accuracy
