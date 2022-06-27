@@ -18,7 +18,9 @@ from src.commons import (
     mask_attn,
     parse_args,
     save_model,
-    SIM_ALL_CHK, DATASET_CHK, )
+    SIM_ALL_CHK,
+    DATASET_CHK,
+)
 from src.commons.data_utils import load_wandb_dataset
 from src.data.dataloaders import Vocab, AbstractDataset
 from src.models import get_model
@@ -26,12 +28,12 @@ from src.wandb_logging import ListenerLogger
 
 
 def get_predictions(
-        data: Dict,
-        list_model: torch.nn.Module,
-        sim_model: torch.nn.Module,
-        criterion: torch.nn.Module,
-        cel: torch.nn.Module,
-        list_vocab: Vocab,
+    data: Dict,
+    list_model: torch.nn.Module,
+    sim_model: torch.nn.Module,
+    criterion: torch.nn.Module,
+    cel: torch.nn.Module,
+    list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -83,8 +85,8 @@ def get_predictions(
     # logging
     rnd_idx = np.random.randint(0, batch_size)
     hypo = list_vocab.decode(utterance[rnd_idx])
-    caption = data['orig_utterance'][rnd_idx]
-    target = data['image_set'][rnd_idx][data['target'][rnd_idx]]
+    caption = data["orig_utterance"][rnd_idx]
+    target = data["image_set"][rnd_idx][data["target"][rnd_idx]]
     target = logger.img_id2path[str(target)]
     target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
@@ -102,24 +104,24 @@ def get_predictions(
     aux = dict(
         sim_preds=sim_preds,
         list_preds=list_preds,
-        sim_list_accuracy=sim_list_accuracy,
-        list_target_accuracy=list_target_accuracy,
-        sim_target_accuracy=sim_target_accuracy,
+        batch_sim_list_accuracy=sim_list_accuracy,
+        batch_list_target_accuracy=list_target_accuracy,
+        batch_sim_target_accuracy=sim_target_accuracy,
         list_loss=list_loss,
         sim_list_loss=sim_list_loss,
         sim_loss=sim_loss,
-        target=target
+        target=target,
     )
 
     return loss, sim_list_accuracy, aux
 
 
 def evaluate(
-        data_loader: DataLoader,
-        sim_model: torch.nn.Module,
-        list_model: torch.nn.Module,
-        list_vocab: Vocab,
-        split: str,
+    data_loader: DataLoader,
+    sim_model: torch.nn.Module,
+    list_model: torch.nn.Module,
+    list_vocab: Vocab,
+    split: str,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -129,28 +131,43 @@ def evaluate(
     :return:
     """
     losses = []
-    accuracies = []
+    sim_list_acc = []
+    sim_target_acc = []
+    list_target_acc = []
 
     flag = f"{split}"
 
-    for ii, data in enumerate(data_loader):
+    for ii, data in rich.progress.track(
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"{split} epoch {epoch}",
+        ):
         loss, accuracy, aux = get_predictions(
             data, list_model, sim_model, criterion, cel, list_vocab=list_vocab
         )
 
         losses.append(loss.item())
-        accuracies.append(accuracy)
+        sim_list_acc.append(accuracy)
+        list_target_acc.append(aux["batch_list_target_accuracy"])
+        sim_target_acc.append(aux["batch_sim_target_accuracy"])
 
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
 
     losses = np.mean(losses)
-    accuracies = np.sum(accuracies) / len(data_loader.dataset.data)
+    sim_list_acc = np.sum(sim_list_acc) / len(data_loader.dataset.data)
+    sim_target_acc = np.sum(sim_target_acc) / len(data_loader.dataset.data)
+    list_target_acc = np.sum(list_target_acc) / len(data_loader.dataset.data)
 
-    metrics = dict(epoch_accuracy=accuracies, loss=losses)
+    metrics = dict(
+        epoch_sim_list_acc=sim_list_acc,
+        epoch_sim_target_acc=sim_target_acc,
+        epoch_list_target_acc=list_target_acc,
+        loss=losses,
+    )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
-    return accuracies, losses
+    return sim_list_acc, losses
 
 
 if __name__ == "__main__":
@@ -165,7 +182,10 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device, )
+    list_checkpoint, _ = load_wandb_checkpoint(
+        LISTENER_CHK_DICT[domain],
+        device,
+    )
     # datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
     list_args = list_checkpoint["args"]
 
@@ -210,8 +230,10 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK,
-                                           device, )  # datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
+    speak_check, _ = load_wandb_checkpoint(
+        SPEAKER_CHK,
+        device,
+    )  # datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -234,7 +256,7 @@ if __name__ == "__main__":
         common_speak_p.top_k,
         common_speak_p.top_p,
         device=device,
-        use_beam=common_speak_p.use_beam
+        use_beam=common_speak_p.use_beam,
     ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
@@ -325,7 +347,9 @@ if __name__ == "__main__":
     sim_p.shuffle = False
 
     shuffle = common_p.shuffle
-    training_loader, test_loader, val_loader = get_dataloaders(sim_p, speak_vocab, domain)
+    training_loader, test_loader, val_loader = get_dataloaders(
+        sim_p, speak_vocab, domain
+    )
 
     if common_p.is_test:
         training_loader = []
@@ -335,24 +359,54 @@ if __name__ == "__main__":
         "batch_size": bs,
         "shuffle": shuffle,
         "collate_fn": AbstractDataset.get_collate_fn(
-            speaker_model.device, list_vocab["<sos>"], list_vocab["<eos>"], list_vocab["<nohs>"]
+            speaker_model.device,
+            list_vocab["<sos>"],
+            list_vocab["<eos>"],
+            list_vocab["<nohs>"],
         ),
     }
 
-    speak_train_dl = load_wandb_dataset("train", domain, load_params, list_vocab,
-                                        speaker_model, training_loader, logger,DATASET_CHK)
+    speak_train_dl = load_wandb_dataset(
+        "train",
+        domain,
+        load_params,
+        list_vocab,
+        speaker_model,
+        training_loader,
+        logger,
+        DATASET_CHK,
+    )
 
     load_params = {
         "batch_size": 1,
         "shuffle": False,
         "collate_fn": AbstractDataset.get_collate_fn(
-            speaker_model.device, list_vocab["<sos>"], list_vocab["<eos>"], list_vocab["<nohs>"]
+            speaker_model.device,
+            list_vocab["<sos>"],
+            list_vocab["<eos>"],
+            list_vocab["<nohs>"],
         ),
     }
-    speak_val_dl = load_wandb_dataset("val", domain, load_params, list_vocab,
-                                      speaker_model, training_loader, logger,DATASET_CHK)
-    speak_test_dl = load_wandb_dataset("test", domain, load_params, list_vocab,
-                                       speaker_model, training_loader, logger,DATASET_CHK)
+    speak_val_dl = load_wandb_dataset(
+        "val",
+        domain,
+        load_params,
+        list_vocab,
+        speaker_model,
+        training_loader,
+        logger,
+        DATASET_CHK,
+    )
+    speak_test_dl = load_wandb_dataset(
+        "test",
+        domain,
+        load_params,
+        list_vocab,
+        speaker_model,
+        training_loader,
+        logger,
+        DATASET_CHK,
+    )
 
     ###################################
     ##  START OF TRAINING LOOP
@@ -360,7 +414,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(sim_p.epochs):
@@ -368,7 +422,10 @@ if __name__ == "__main__":
         print("Epoch : ", epoch)
 
         losses = []
-        accuracies = []
+        sim_list_acc = []
+        sim_target_acc = []
+        list_target_acc = []
+
         data = {}
 
         sim_model.train()
@@ -381,9 +438,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.progress.track(
-                enumerate(speak_train_dl),
-                total=len(speak_train_dl),
-                description=f"Training epoch {epoch}",
+            enumerate(speak_train_dl),
+            total=len(speak_train_dl),
+            description=f"Training epoch {epoch}",
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
@@ -391,7 +448,9 @@ if __name__ == "__main__":
             )
 
             losses.append(loss.item())
-            accuracies.append(accuracy)
+            sim_list_acc.append(accuracy)
+            list_target_acc.append(aux["batch_list_target_accuracy"])
+            sim_target_acc.append(aux["batch_sim_target_accuracy"])
 
             # optimizer
             sim_model.zero_grad()
@@ -408,17 +467,25 @@ if __name__ == "__main__":
             )
 
         losses = np.mean(losses)
-        accuracies = np.sum(accuracies) / len(speak_train_dl.dataset.data)
+        sim_list_acc = np.sum(sim_list_acc) / len(speak_train_dl.dataset.data)
+        sim_target_acc = np.sum(sim_target_acc) / len(speak_train_dl.dataset.data)
+        list_target_acc = np.sum(list_target_acc) / len(speak_train_dl.dataset.data)
+
+        aux = dict(
+            epoch_sim_list_acc=sim_list_acc,
+            epoch_sim_target_acc=sim_target_acc,
+            epoch_list_target_acc=list_target_acc,
+        )
 
         logger.on_batch_end(
             losses,
             data,
-            aux=dict(accuracy_epoch=accuracies),
+            aux=aux,
             batch_id=i + 1,
             modality="train",
         )
 
-        print(f"Train loss {losses:.6f}, accuracy {accuracies:.3f} ")
+        print(f"Train loss {losses:.6f}, accuracy {sim_list_acc:.3f} ")
 
         ###################################
         ##  EVAL LOOP
@@ -438,9 +505,7 @@ if __name__ == "__main__":
             )
 
             print(f"\nTest")
-            evaluate(
-                speak_test_dl, sim_model, list_model, list_vocab, split="test"
-            )
+            evaluate(speak_test_dl, sim_model, list_model, list_vocab, split="test")
 
         if not common_p.is_test:
             save_model(

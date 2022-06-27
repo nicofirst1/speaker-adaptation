@@ -292,22 +292,6 @@ def evaluate(
 
         csv_data.append(row)
 
-    # Generate data for wandb table
-    table_data = list(
-        list(
-            zip(
-                golden_hypos,
-                golden_accs,
-                original_hypos,
-                original_accs,
-                modified_hypos,
-                adapted_accs,
-                [[x != y1 for y1 in y] for x, y in zip(original_accs, adapted_accs)],
-            )
-        )
-    )
-
-    table = generate_table(table_data, target_domain, s)
 
     ## csv columns
     columns = ["target domain", "listener domain", "simulator domain", "target img idx"]
@@ -327,6 +311,29 @@ def evaluate(
     columns += [f"adapted_acc_s{i}" for i in range(s)]
 
     df = pd.DataFrame(columns=columns, data=csv_data)
+
+    ##############################
+    # WANDB TABLE
+    ##############################
+    table_data = list(
+        list(
+            zip(
+                golden_hypos,
+                golden_accs,
+                original_hypos,
+                original_accs,
+                modified_hypos,
+                adapted_accs,
+                [[x != y1 for y1 in y] for x, y in zip(original_accs, adapted_accs)],
+            )
+        )
+    )
+
+    table = generate_table(table_data, target_domain, s)
+
+    ##############################
+    # METRICS
+    ##############################
 
     original_accs = np.mean(original_accs)
     golden_accs = np.mean(golden_accs)
