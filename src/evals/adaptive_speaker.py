@@ -471,6 +471,10 @@ if __name__ == "__main__":
         sim_p.device,
     ).to(device)
 
+    sim_model.load_state_dict(sim_check["model_state_dict"])
+    sim_model = sim_model.to(device)
+    sim_model = sim_model.eval()
+
     ###################################
     ##  LOGGER
     ###################################
