@@ -362,7 +362,7 @@ if __name__ == "__main__":
             evaluate(val_loader_speaker, model, in_domain=False, split="eval")
 
             print(f'\nTest on domain "{domain}"')
-            current_accuracy, current_loss, current_MRR = evaluate(
+            evaluate(
                 test_loader, model, in_domain=True, split="test"
             )
 

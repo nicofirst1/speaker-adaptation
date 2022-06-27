@@ -71,13 +71,13 @@ def get_predictions(
 
     # accuracy
     targets = targets.squeeze()
-    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum() / batch_size
-    list_target_accuracy = torch.eq(list_preds, targets).sum() / batch_size
-    sim_target_accuracy = torch.eq(sim_preds, targets).sum() / batch_size
+    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()
+    list_target_accuracy = torch.eq(list_preds, targets).sum()
+    sim_target_accuracy = torch.eq(sim_preds, targets).sum()
 
-    sim_list_accuracy = sim_list_accuracy.item()
-    list_target_accuracy = list_target_accuracy.item()
-    sim_target_accuracy = sim_target_accuracy.item()
+    sim_list_accuracy = sim_list_accuracy.tolist()
+    list_target_accuracy = list_target_accuracy.tolist()
+    sim_target_accuracy = sim_target_accuracy.tolist()
 
     list_preds = list_preds.tolist()
     sim_preds = sim_preds.tolist()
@@ -146,9 +146,9 @@ def evaluate(
         logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
 
     losses = np.mean(losses)
-    accuracies = np.mean(accuracies)
+    accuracies = np.sum(accuracies)/len(data_loader.dataset.data)
 
-    metrics = dict(accuracy=accuracies, loss=losses)
+    metrics = dict(epoch_accuracy=accuracies, loss=losses)
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
 
@@ -167,8 +167,8 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device,
-                                               datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
+    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device,)
+                                               #datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
     list_args = list_checkpoint["args"]
 
     # update list args
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device, datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device,) #datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -398,13 +398,13 @@ if __name__ == "__main__":
             )
 
         losses = np.mean(losses)
-        accuracies = np.mean(accuracies)
+        accuracies = np.sum(accuracies)/len(speak_train_dl.dataset.data)
 
         logger.on_batch_end(
             losses,
             data,
-            aux=dict(accuracy=accuracies),
-            batch_id=i,
+            aux=dict(accuracy_epoch=accuracies),
+            batch_id=i+1,
             modality="train",
         )
 

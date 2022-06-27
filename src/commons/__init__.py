@@ -39,6 +39,7 @@ SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v6
 
 SIM_DOMAIN_CHK=dict(
     # epoch 83
+    all=SIM_ALL_CHK,
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v682",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v677",
     indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v589",
