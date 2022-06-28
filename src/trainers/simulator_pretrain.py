@@ -297,8 +297,21 @@ if __name__ == "__main__":
         sim_p.device,
     ).to(device)
 
+    ###################################
+    ##  LOSS AND OPTIMIZER
+    ###################################
+
+    optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
+    cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
+    criterion = nn.KLDivLoss(reduction=sim_p.reduction)
+
+    ###################################
+    ## RESUME
+    ###################################
+
     if common_p.resume_train:
         sim_model.load_state_dict(sim_check["model_state_dict"])
+        optimizer.load_state_dict(sim_check["optimizer_state_dict"])
         sim_model = sim_model.to(device)
 
     ###################################
@@ -331,13 +344,7 @@ if __name__ == "__main__":
 
     logger.watch_model([sim_model])
 
-    ###################################
-    ##  LOSS AND OPTIMIZER
-    ###################################
 
-    optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
-    cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-    criterion = nn.KLDivLoss(reduction=sim_p.reduction)
 
     ###################################
     ##  Get speaker dataloader
