@@ -38,7 +38,7 @@ def normalize_aux(aux, max_targets=3):
     aux["list_preds"] = [x for xs in aux["list_preds"] for x in xs]
 
     if len(aux["target"]) > max_targets:
-        aux["target"] = np.random.choice(aux["target"], size=max_targets, replace=False)
+        aux["target"] = np.random.choice(aux["target"], size=max_targets, replace=False).tolist()
 
 
 def get_predictions(
