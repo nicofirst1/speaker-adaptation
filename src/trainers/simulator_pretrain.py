@@ -1,6 +1,6 @@
 import datetime
 import operator
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import numpy as np
 import rich.progress
@@ -29,6 +29,8 @@ def normalize_aux(aux, data_length, max_targets=3):
 
     aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
 
+    aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / data_length
+
 
     # flatten nested lists
     aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
@@ -42,7 +44,7 @@ def get_predictions(
     data: Dict,
     list_model: torch.nn.Module,
     sim_model: torch.nn.Module,
-    criterion: torch.nn.Module,
+    kl: torch.nn.Module,
     cel: torch.nn.Module,
     list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
@@ -61,6 +63,8 @@ def get_predictions(
     speak_embds = data["speak_h1embed"]
     max_length_tensor = utterance.shape[1]
     batch_size = utterance.shape[0]
+    device = list_model.device
+
 
     masks = mask_attn(lengths, max_length_tensor, device)
 
@@ -91,6 +95,7 @@ def get_predictions(
     sim_list_accuracy = sim_list_accuracy.tolist()
     list_target_accuracy = list_target_accuracy.tolist()
     sim_target_accuracy = sim_target_accuracy.tolist()
+    sim_list_neg_accuracy = sim_list_neg_accuracy.tolist()
 
     list_preds = list_preds.tolist()
     sim_preds = sim_preds.tolist()
@@ -100,8 +105,8 @@ def get_predictions(
     hypo = list_vocab.decode(utterance[rnd_idx])
     caption = data["orig_utterance"][rnd_idx]
     target = data["image_set"][rnd_idx][data["target"][rnd_idx]]
-    target = logger.img_id2path[str(target)]
-    target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
+    # target = logger.img_id2path[str(target)]
+    # target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
     # if split=="eval":
     #     for rnd_idx in range(batch_size):
@@ -136,7 +141,9 @@ def evaluate(
     list_model: torch.nn.Module,
     list_vocab: Vocab,
     split: str,
-):
+    cel:torch.nn.CrossEntropyLoss,
+    kl: Optional[torch.nn.KLDivLoss]=None
+) ->Dict:
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
@@ -147,15 +154,13 @@ def evaluate(
 
     auxs = []
 
-    flag = f"{split}"
-
     for ii, data in rich.progress.track(
         enumerate(data_loader),
         total=len(data_loader),
-        description=f"{split} epoch {epoch}",
+        description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, criterion, cel, list_vocab=list_vocab
+            data, list_model, sim_model, kl, cel, list_vocab=list_vocab
         )
 
         auxs.append(aux)
@@ -163,9 +168,7 @@ def evaluate(
     aux = merge_dict(auxs)
     normalize_aux(aux, len(data_loader.dataset.data))
 
-    logger.on_eval_end(aux, list_domain=data_loader.dataset.domain, modality=flag)
-
-    return aux["sim_list_accuracy"], aux["sim_list_loss"]
+    return aux
 
 
 if __name__ == "__main__":
@@ -467,19 +470,24 @@ if __name__ == "__main__":
         with torch.no_grad():
             sim_model.eval()
 
-            isValidation = True
             print(f"\nEvaluation")
-            eval_accuracy, eval_loss = evaluate(
-                speak_val_dl, sim_model, list_model, list_vocab, split="eval"
+            aux = evaluate(
+                speak_val_dl, sim_model, list_model, list_vocab, split="eval", cel=cel, kl=criterion
             )
+            eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
 
             print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy:.3f} ")
+            logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality="eval")
 
             print(f"\nTest")
-            test_accuracy, test_loss = evaluate(
-                speak_test_dl, sim_model, list_model, list_vocab, split="test"
+            aux = evaluate(
+                speak_test_dl, sim_model, list_model, list_vocab, split="test", cel=cel, kl=criterion
             )
+
+            test_accuracy, test_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
             print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
+
+            logger.on_eval_end(aux, list_domain=speak_test_dl.dataset.domain, modality="test")
 
         if not common_p.is_test:
             save_model(

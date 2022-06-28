@@ -40,11 +40,11 @@ SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v6
 SIM_DOMAIN_CHK = dict(
     # epoch 83
     all=SIM_ALL_CHK,
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v682",
-    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v677",
-    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v589",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v501",
-    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v545",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v962",
+    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v971",
+    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v778",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v679",
+    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v798",
 )
 
 

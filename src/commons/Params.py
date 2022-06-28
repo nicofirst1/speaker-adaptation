@@ -89,12 +89,15 @@ class Params:
     vectors_file: Optional[str] = "vectors.json"
 
     sweep_file: Optional[str] = ""
+    test_split:Optional[str] = "all"
+
     ############################################
     # Listener
     ############################################
 
     # Domain to train the listener on
     train_domain: Optional[str] = "food"
+
     ############################################
     # Speaker
     ############################################
@@ -244,6 +247,11 @@ class Params:
             self.type_of_sim in valid_type_of_sim
         ), f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
 
+        valid_test_split = ['all', 'seen', 'unseen']
+        assert (
+                self.test_split in valid_test_split
+        ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
+
     def reset_paths(self):
         self.vocab_file = "vocab.csv"
         self.vectors_file = os.path.basename(self.vectors_file)
@@ -264,7 +272,6 @@ class ListenerArguments(Params):
     chains_file: Optional[str] = "text_chains.json"
     orig_ref_file: Optional[str] = "text_utterances.pickle"
 
-    test_split:Optional[str] = "all"
 
     #########################
     #   Model
@@ -290,9 +297,6 @@ class ListenerArguments(Params):
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
-
-
-
     def check_parameters(self):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
@@ -311,10 +315,6 @@ class ListenerArguments(Params):
                 self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
-        valid_test_split=['all','seen','unseen']
-        assert (
-                self.test_split in valid_test_split
-        ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
 
 
 
