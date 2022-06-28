@@ -1,12 +1,9 @@
-from .data_utils import get_dataloaders
+from .data_utils import (get_dataloaders, load_wandb_dataset,
+                         speaker_augmented_dataloader)
 from .EarlyStopping import EarlyStopping
-from .model_utils import (
-    get_domain_accuracy,
-    hypo2utterance,
-    load_wandb_checkpoint,
-    mask_attn,
-    save_model,
-)
+from .model_utils import (get_domain_accuracy, hypo2utterance,
+                          load_wandb_checkpoint, mask_attn, merge_dict,
+                          save_model)
 from .Params import parse_args
 
 __all__ = [
@@ -18,6 +15,9 @@ __all__ = [
     "load_wandb_checkpoint",
     "parse_args",
     "EarlyStopping",
+    "speaker_augmented_dataloader",
+    "load_wandb_dataset",
+    "merge_dict",
 ]
 
 
@@ -31,13 +31,13 @@ LISTENER_CHK_DICT = dict(
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
 )
 
-#SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
+# SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel:v203"
 
-SPEAKER_CHK="adaptive-speaker/speaker/SpeakerModel_no_hist:v20"
+SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v20"
 SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v699"
 
 
-SIM_DOMAIN_CHK=dict(
+SIM_DOMAIN_CHK = dict(
     # epoch 83
     all=SIM_ALL_CHK,
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v682",
@@ -48,7 +48,7 @@ SIM_DOMAIN_CHK=dict(
 )
 
 
-TRAIN_DATASET_CHK=dict(
+TRAIN_DATASET_CHK = dict(
     all="adaptive-speaker/simulator-pretrain/train_dataloader_all:latest",
     food="adaptive-speaker/simulator-pretrain/train_dataloader_food:latest",
     appliances="adaptive-speaker/simulator-pretrain/train_dataloader_appliances:latest",
@@ -58,7 +58,7 @@ TRAIN_DATASET_CHK=dict(
 )
 
 
-VAL_DATASET_CHK=dict(
+VAL_DATASET_CHK = dict(
     all="adaptive-speaker/simulator-pretrain/val_dataloader_all:latest",
     food="adaptive-speaker/simulator-pretrain/val_dataloader_food:latest",
     appliances="adaptive-speaker/simulator-pretrain/val_dataloader_appliances:latest",
@@ -67,7 +67,7 @@ VAL_DATASET_CHK=dict(
     vehicles="adaptive-speaker/simulator-pretrain/val_dataloader_vehicles:latest",
 )
 
-TEST_DATASET_CHK=dict(
+TEST_DATASET_CHK = dict(
     all="adaptive-speaker/simulator-pretrain/test_dataloader_all:latest",
     food="adaptive-speaker/simulator-pretrain/test_dataloader_food:latest",
     appliances="adaptive-speaker/simulator-pretrain/test_dataloader_appliances:latest",
@@ -76,7 +76,7 @@ TEST_DATASET_CHK=dict(
     vehicles="adaptive-speaker/simulator-pretrain/test_dataloader_vehicles:latest",
 )
 
-DATASET_CHK=dict(
+DATASET_CHK = dict(
     train=TRAIN_DATASET_CHK,
     val=VAL_DATASET_CHK,
     test=TEST_DATASET_CHK,

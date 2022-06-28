@@ -5,26 +5,40 @@ from typing import Dict, Tuple
 import numpy as np
 import rich.progress
 import torch
-import wandb
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from src.commons import (
-    LISTENER_CHK_DICT,
-    SPEAKER_CHK,
-    EarlyStopping,
-    get_dataloaders,
-    load_wandb_checkpoint,
-    mask_attn,
-    parse_args,
-    save_model,
-    SIM_ALL_CHK,
-    DATASET_CHK,
-)
-from src.commons.data_utils import load_wandb_dataset
-from src.data.dataloaders import Vocab, AbstractDataset
+import wandb
+from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CHK,
+                         SPEAKER_CHK, EarlyStopping, get_dataloaders,
+                         load_wandb_checkpoint, load_wandb_dataset, mask_attn,
+                         merge_dict, parse_args, save_model)
+from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
+
+
+def normalize_aux(aux, max_targets=3):
+    aux["list_loss"] = np.mean(aux["list_loss"])
+    aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
+    aux["sim_loss"] = np.mean(aux["sim_loss"])
+
+    aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / len(
+        speak_train_dl.dataset.data
+    )
+    aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / len(
+        speak_train_dl.dataset.data
+    )
+    aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / len(
+        speak_train_dl.dataset.data
+    )
+
+    # flatten nested lists
+    aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
+    aux["list_preds"] = [x for xs in aux["list_preds"] for x in xs]
+
+    if len(aux["target"]) > max_targets:
+        aux["target"] = np.random.choice(aux["target"], size=max_targets, replace=False)
 
 
 def get_predictions(
@@ -104,12 +118,12 @@ def get_predictions(
     aux = dict(
         sim_preds=sim_preds,
         list_preds=list_preds,
-        batch_sim_list_accuracy=sim_list_accuracy,
-        batch_list_target_accuracy=list_target_accuracy,
-        batch_sim_target_accuracy=sim_target_accuracy,
-        list_loss=list_loss,
-        sim_list_loss=sim_list_loss,
-        sim_loss=sim_loss,
+        sim_list_accuracy=sim_list_accuracy,
+        list_target_accuracy=list_target_accuracy,
+        sim_target_accuracy=sim_target_accuracy,
+        list_loss=list_loss.detach().cpu().item(),
+        sim_list_loss=sim_list_loss.detach().cpu().item(),
+        sim_loss=sim_loss.detach().cpu().item(),
         target=target,
     )
 
@@ -130,44 +144,28 @@ def evaluate(
     :param in_domain: when out_domain also estimate per domain accuracy
     :return:
     """
-    losses = []
-    sim_list_acc = []
-    sim_target_acc = []
-    list_target_acc = []
+
+    auxs = []
 
     flag = f"{split}"
 
     for ii, data in rich.progress.track(
-            enumerate(data_loader),
-            total=len(data_loader),
-            description=f"{split} epoch {epoch}",
-        ):
+        enumerate(data_loader),
+        total=len(data_loader),
+        description=f"{split} epoch {epoch}",
+    ):
         loss, accuracy, aux = get_predictions(
             data, list_model, sim_model, criterion, cel, list_vocab=list_vocab
         )
 
-        losses.append(loss.item())
-        sim_list_acc.append(accuracy)
-        list_target_acc.append(aux["batch_list_target_accuracy"])
-        sim_target_acc.append(aux["batch_sim_target_accuracy"])
+        auxs.append(aux)
 
-        logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
+    aux = merge_dict(auxs)
+    normalize_aux(aux)
 
-    losses = np.mean(losses)
-    sim_list_acc = np.sum(sim_list_acc) / len(data_loader.dataset.data)
-    sim_target_acc = np.sum(sim_target_acc) / len(data_loader.dataset.data)
-    list_target_acc = np.sum(list_target_acc) / len(data_loader.dataset.data)
+    logger.on_eval_end(aux, list_domain=data_loader.dataset.domain, modality=flag)
 
-    metrics = dict(
-        epoch_sim_list_acc=sim_list_acc,
-        epoch_sim_target_acc=sim_target_acc,
-        epoch_list_target_acc=list_target_acc,
-        loss=losses,
-    )
-
-    logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=flag)
-
-    return sim_list_acc, losses
+    return aux["sim_list_accuracy"], aux["sim_list_loss"]
 
 
 if __name__ == "__main__":
@@ -322,9 +320,9 @@ if __name__ == "__main__":
 
     if metric == "loss":
 
-        es = EarlyStopping(sim_p.atience, operator.le)
-    elif metric == "accs":
         es = EarlyStopping(sim_p.patience, operator.ge)
+    elif metric == "accs":
+        es = EarlyStopping(sim_p.patience, operator.le)
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
@@ -375,6 +373,7 @@ if __name__ == "__main__":
         training_loader,
         logger,
         DATASET_CHK,
+        subset_size=common_p.subset_size,
     )
 
     load_params = {
@@ -396,6 +395,7 @@ if __name__ == "__main__":
         training_loader,
         logger,
         DATASET_CHK,
+        subset_size=common_p.subset_size,
     )
     speak_test_dl = load_wandb_dataset(
         "test",
@@ -406,6 +406,7 @@ if __name__ == "__main__":
         training_loader,
         logger,
         DATASET_CHK,
+        subset_size=common_p.subset_size,
     )
 
     ###################################
@@ -421,11 +422,7 @@ if __name__ == "__main__":
 
         print("Epoch : ", epoch)
 
-        losses = []
-        sim_list_acc = []
-        sim_target_acc = []
-        list_target_acc = []
-
+        auxs = []
         data = {}
 
         sim_model.train()
@@ -447,45 +444,27 @@ if __name__ == "__main__":
                 data, list_model, sim_model, criterion, cel, list_vocab
             )
 
-            losses.append(loss.item())
-            sim_list_acc.append(accuracy)
-            list_target_acc.append(aux["batch_list_target_accuracy"])
-            sim_target_acc.append(aux["batch_sim_target_accuracy"])
+            auxs.append(aux)
 
             # optimizer
             sim_model.zero_grad()
             loss.backward()
             optimizer.step()
 
-            # logs
-            logger.on_batch_end(
-                loss,
-                data,
-                aux=aux,
-                batch_id=i,
-                modality="train",
-            )
-
-        losses = np.mean(losses)
-        sim_list_acc = np.sum(sim_list_acc) / len(speak_train_dl.dataset.data)
-        sim_target_acc = np.sum(sim_target_acc) / len(speak_train_dl.dataset.data)
-        list_target_acc = np.sum(list_target_acc) / len(speak_train_dl.dataset.data)
-
-        aux = dict(
-            epoch_sim_list_acc=sim_list_acc,
-            epoch_sim_target_acc=sim_target_acc,
-            epoch_list_target_acc=list_target_acc,
-        )
+        aux = merge_dict(auxs)
+        normalize_aux(aux)
 
         logger.on_batch_end(
-            losses,
+            aux["sim_list_loss"],
             data,
             aux=aux,
             batch_id=i + 1,
             modality="train",
         )
 
-        print(f"Train loss {losses:.6f}, accuracy {sim_list_acc:.3f} ")
+        print(
+            f"Train loss {aux['sim_list_loss']:.6f}, accuracy {aux['sim_list_accuracy']:.3f} "
+        )
 
         ###################################
         ##  EVAL LOOP
@@ -496,33 +475,34 @@ if __name__ == "__main__":
 
             isValidation = True
             print(f"\nEvaluation")
-            current_accuracy, current_loss = evaluate(
+            eval_accuracy, eval_loss = evaluate(
                 speak_val_dl, sim_model, list_model, list_vocab, split="eval"
             )
 
-            print(
-                f"Evaluation loss {current_loss:.6f}, accuracy {current_accuracy:.3f} "
-            )
+            print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy:.3f} ")
 
             print(f"\nTest")
-            evaluate(speak_test_dl, sim_model, list_model, list_vocab, split="test")
+            test_accuracy, test_loss = evaluate(
+                speak_test_dl, sim_model, list_model, list_vocab, split="test"
+            )
+            print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
 
         if not common_p.is_test:
             save_model(
                 model=sim_model,
                 model_type="Simulator",
                 epoch=epoch,
-                accuracy=current_accuracy,
+                accuracy=eval_accuracy,
                 optimizer=optimizer,
                 args=sim_p,
                 timestamp=timestamp,
                 logger=logger,
-                loss=current_loss,
+                loss=eval_loss,
             )
 
         # check for early stopping
-        metric_val = current_loss if sim_p.metric == "loss" else current_accuracy
+        metric_val = eval_loss if sim_p.metric == "loss" else eval_accuracy
         if es.should_stop(metric_val):
             break
 
-        logger.on_train_end({"loss": losses}, epoch_id=epoch)
+        logger.on_train_end({}, epoch_id=epoch)

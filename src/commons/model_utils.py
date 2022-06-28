@@ -1,11 +1,11 @@
 import os
-from collections import Counter
+from collections import Counter, defaultdict
 from os.path import isfile, join
 from typing import Dict, List, Tuple
 
 import torch
-import wandb
 
+import wandb
 from src.commons.Params import Params
 from src.wandb_logging import WandbLogger
 
@@ -116,7 +116,8 @@ def save_model(
 
     print("Model saved and logged to wandb")
 
-def load_wandb_file(url: str,  datadir="") -> str:
+
+def load_wandb_file(url: str, datadir="") -> str:
     """
     Load a wandb file and return the path to the downloaded file
     Parameters
@@ -128,7 +129,7 @@ def load_wandb_file(url: str,  datadir="") -> str:
     -------
 
     """
-    if datadir=="":
+    if datadir == "":
         api = wandb.Api()
         artifact = api.artifact(url)
 
@@ -140,7 +141,6 @@ def load_wandb_file(url: str,  datadir="") -> str:
         raise FileExistsError(f"More than one checkpoint found in {datadir}!")
     files = join(datadir, files[0])
     return files
-
 
 
 def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]:
@@ -156,7 +156,16 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
 
     """
 
-    file=load_wandb_file(url,  datadir)
+    file = load_wandb_file(url, datadir)
     checkpoint = torch.load(file, map_location=device)
 
     return checkpoint, file
+
+
+def merge_dict(dicts):
+    dd = defaultdict(list)
+    for d in dicts:  # you can list as many input dicts as you want here
+        for key, value in d.items():
+            dd[key].append(value)
+
+    return dd

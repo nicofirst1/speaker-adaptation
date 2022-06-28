@@ -235,12 +235,14 @@ class Params:
             "all",
         ]
         assert (
-                self.train_domain in valid_dom
+            self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
         valid_type_of_sim = ["domain", "general"]
 
-        assert self.type_of_sim in valid_type_of_sim, f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
+        assert (
+            self.type_of_sim in valid_type_of_sim
+        ), f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
 
     def reset_paths(self):
         self.vocab_file = "vocab.csv"
@@ -290,18 +292,18 @@ class ListenerArguments(Params):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-                self.metric in valis_metr
+            self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                    self.embed_dim == 768
+                self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -354,18 +356,18 @@ class SimulatorArguments(Params):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-                self.metric in valis_metr
+            self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                    self.embed_dim == 768
+                self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -416,5 +418,5 @@ class SpeakerArguments(Params):
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
