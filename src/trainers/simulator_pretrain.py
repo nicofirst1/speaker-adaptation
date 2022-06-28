@@ -18,20 +18,17 @@ from src.models import get_model
 from src.wandb_logging import ListenerLogger
 
 
-def normalize_aux(aux, max_targets=3):
+def normalize_aux(aux, data_length, max_targets=3):
     aux["list_loss"] = np.mean(aux["list_loss"])
     aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
     aux["sim_loss"] = np.mean(aux["sim_loss"])
 
-    aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / len(
-        speak_train_dl.dataset.data
-    )
-    aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / len(
-        speak_train_dl.dataset.data
-    )
-    aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / len(
-        speak_train_dl.dataset.data
-    )
+    aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
+
+    aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
+
+    aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
+
 
     # flatten nested lists
     aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
@@ -161,7 +158,7 @@ def evaluate(
         auxs.append(aux)
 
     aux = merge_dict(auxs)
-    normalize_aux(aux)
+    normalize_aux(aux, len(data_loader.dataset.data))
 
     logger.on_eval_end(aux, list_domain=data_loader.dataset.domain, modality=flag)
 
@@ -452,15 +449,9 @@ if __name__ == "__main__":
             optimizer.step()
 
         aux = merge_dict(auxs)
-        normalize_aux(aux)
+        normalize_aux(aux,len(speak_train_dl.dataset.data))
+        logger.on_eval_end(aux, list_domain=speak_train_dl.dataset.domain, modality="train")
 
-        logger.on_batch_end(
-            aux["sim_list_loss"],
-            data,
-            aux=aux,
-            batch_id=i + 1,
-            modality="train",
-        )
 
         print(
             f"Train loss {aux['sim_list_loss']:.6f}, accuracy {aux['sim_list_accuracy']:.3f} "
