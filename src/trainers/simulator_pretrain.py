@@ -85,6 +85,8 @@ def get_predictions(
     sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()
     list_target_accuracy = torch.eq(list_preds, targets).sum()
     sim_target_accuracy = torch.eq(sim_preds, targets).sum()
+    sim_list_neg_accuracy=torch.eq(list_preds[torch.ne(list_preds, targets)],sim_preds[torch.ne(list_preds, targets)]).sum()
+
 
     sim_list_accuracy = sim_list_accuracy.tolist()
     list_target_accuracy = list_target_accuracy.tolist()
@@ -118,6 +120,7 @@ def get_predictions(
         sim_list_accuracy=sim_list_accuracy,
         list_target_accuracy=list_target_accuracy,
         sim_target_accuracy=sim_target_accuracy,
+        sim_list_neg_accuracy=sim_list_neg_accuracy,
         list_loss=list_loss.detach().cpu().item(),
         sim_list_loss=sim_list_loss.detach().cpu().item(),
         sim_loss=sim_loss.detach().cpu().item(),

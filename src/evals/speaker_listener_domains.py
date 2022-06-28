@@ -108,7 +108,7 @@ def evaluate_trained_model(
     ):
 
         if not in_domain:
-            if data['domain']==domain:
+            if data['domain'][0]==domain:
                 continue
 
         if speak_model is not None:
@@ -214,7 +214,7 @@ if __name__ == "__main__":
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    common_args = parse_args("speak")
+    common_args = parse_args("list")
 
     speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
 
@@ -279,6 +279,7 @@ if __name__ == "__main__":
     # for debug
     list_args.subset_size = common_args.subset_size
     list_args.debug = common_args.debug
+    list_args.test_split = common_args.test_split
 
     # update paths
     # list_args.__parse_args()

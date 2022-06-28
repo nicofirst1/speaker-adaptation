@@ -47,7 +47,7 @@ class Params:
 
     # This seed will be set for torch, numpy and random
     seed: Optional[int] = 42
-    patience: Optional[int] = 50
+    patience: Optional[int] = 30
 
     device: Optional[str] = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -264,6 +264,8 @@ class ListenerArguments(Params):
     chains_file: Optional[str] = "text_chains.json"
     orig_ref_file: Optional[str] = "text_utterances.pickle"
 
+    test_split:Optional[str] = "all"
+
     #########################
     #   Model
     #########################
@@ -288,6 +290,9 @@ class ListenerArguments(Params):
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
+
+
+
     def check_parameters(self):
         super(ListenerArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
@@ -305,6 +310,12 @@ class ListenerArguments(Params):
             assert (
                 self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
+
+        valid_test_split=['all','seen','unseen']
+        assert (
+                self.test_split in valid_test_split
+        ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
+
 
 
 class SimulatorArguments(Params):

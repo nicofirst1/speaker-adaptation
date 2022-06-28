@@ -77,7 +77,14 @@ def get_dataloaders(
 
     datasets = []
     # generate kwargs for different splits
-    for split in ["train", "test", "val"]:
+    for split in ["train","val","test"]:
+
+        # differenciate between seen/unseen/merged tests
+        if domain is not None and split=="test":
+            if args.test_split != "all":
+                args.orig_ref_file = f"{args.test_split}_{args.orig_ref_file}"
+                args.chains_file = f"{args.test_split}_{args.chains_file}"
+
         kwargs = {
             "utterances_file": f"{split}_{args.utterances_file}",
             "vectors_file": args.vectors_file,
@@ -119,9 +126,9 @@ def get_dataloaders(
 
     training_loader = torch.utils.data.DataLoader(datasets[0], **load_params)
 
-    test_loader = torch.utils.data.DataLoader(datasets[1], **load_params_test)
+    val_loader = torch.utils.data.DataLoader(datasets[1], **load_params_val)
 
-    val_loader = torch.utils.data.DataLoader(datasets[2], **load_params_val)
+    test_loader = torch.utils.data.DataLoader(datasets[2], **load_params_test)
 
     return training_loader, test_loader, val_loader
 
