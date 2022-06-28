@@ -27,6 +27,8 @@ module load 2021
 module load Anaconda3/2021.05
 source activate uvapb
 
+common_args=( --subset_size -1 --seed 42 --test_split all)
+
 
 #running the actual code
 echo "Starting the process..."
