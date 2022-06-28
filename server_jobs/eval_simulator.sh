@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --reservation=condo_2204047_01
 #SBATCH --nodes=1
-#SBATCH --job-name=sim_pre
+#SBATCH --job-name=sim_eval
 #SBATCH --cpus-per-task=1
 #SBATCH --time=05:00:00
 #SBATCH --partition=gpu_shared
