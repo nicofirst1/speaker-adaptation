@@ -96,6 +96,7 @@ def evaluate(
     h0s = []
     grads=[]
 
+    in_domain=list_model.domain==data_loader.dataset.domain
 
     csv_data = []
 
@@ -105,6 +106,11 @@ def evaluate(
             total=len(data_loader),
             description=f"Evaluating on split {split}",
     ):
+
+        # filter out indomain data points
+        if not in_domain:
+            if data['domain'][0]== list_model.domain:
+                continue
 
         ## extract data
         context_separate = data["separate_images"]
@@ -619,27 +625,27 @@ if __name__ == "__main__":
                             "csv",
                             metadata=sim_p, )
 
-        print(f"\nEvaluation for domain all")
-        df = evaluate(
-            val_dl_all,
-            speaker_model,
-            sim_model,
-            list_model,
-            list_vocab,
-            criterion=cel,
-            split="out_domain_val",
-            lr=common_p.learning_rate,
-            s=common_p.s_iter,
-        )
+    print(f"\nEvaluation for domain all")
+    df = evaluate(
+        val_dl_all,
+        speaker_model,
+        sim_model,
+        list_model,
+        list_vocab,
+        criterion=cel,
+        split="out_domain_val",
+        lr=common_p.learning_rate,
+        s=common_p.s_iter,
+    )
 
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
+    ### saving df
+    file_name = "tmp.csv"
+    df.to_csv(file_name)
 
-        logger.log_artifact(file_name,
-                            f"adaptive_speak_eval_out_domain_{domain}",
-                            "csv",
-                            metadata=sim_p, )
+    logger.log_artifact(file_name,
+                        f"adaptive_speak_eval_out_domain_{domain}",
+                        "csv",
+                        metadata=sim_p, )
 
     print(f"\nTest for domain all")
     df = evaluate(
