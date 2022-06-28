@@ -107,6 +107,10 @@ def evaluate_trained_model(
         description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
+        if not in_domain:
+            if data['domain']==domain:
+                continue
+
         if speak_model is not None:
             # generate hypo with speaker
             target_img_feats = data["target_img_feats"]
@@ -139,8 +143,8 @@ def evaluate_trained_model(
 
         preds = torch.argmax(out, dim=1)
 
-        correct = torch.eq(preds, targets).sum()
-        accuracies.append(float(correct))
+        correct = torch.eq(preds, targets).float().item()
+        accuracies.append(correct)
 
         scores_ranked, images_ranked = torch.sort(out.squeeze(), descending=True)
 
@@ -154,15 +158,6 @@ def evaluate_trained_model(
             rank_target = images_ranked.tolist().index(targets.item())
             ranks.append(rank_target + 1)  # no 0
 
-        aux = dict(
-            preds=preds.squeeze().item(),
-            ranks=ranks,
-            scores_ranked=scores_ranked,
-            images_ranked=images_ranked,
-            hypo=hypo,
-        )
-
-        logger.on_batch_end(fake_loss, data, aux, batch_id=ii, modality=modality)
         domains += data["domain"]
 
     accuracy = np.mean(accuracies)
@@ -184,16 +179,15 @@ def evaluate_trained_model(
 
     metrics["aux"] = dict(target=img, utt=utt)
 
+    logger.on_eval_end(
+        copy.deepcopy(metrics),
+        list_domain=dataloader.dataset.domain,
+        modality=modality,
+    )
+
     if "out" in modality:
         domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
         metrics["domain_accuracy"] = domain_accuracy
-
-    else:
-        logger.on_eval_end(
-            copy.deepcopy(metrics),
-            list_domain=dataloader.dataset.domain,
-            modality=modality,
-        )
 
     return metrics
 
@@ -329,74 +323,77 @@ if __name__ == "__main__":
     with torch.no_grad():
         list_model.eval()
 
-        train_loader, test_loader, val_loader = get_dataloaders(list_args, list_vocab, list_args.train_domain)
-
-        ########################
-        #  EVAL DOMAIN-SPEC
-        ########################
-
-        # GOLDEN
-        golden_metrics = evaluate_trained_model(
-            dataloader=val_loader,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="eval",
-
-        )
-
-        # GENERATED
-        gen_metrics=evaluate_trained_model(
-            dataloader=val_loader,
-            speak_model=speaker_model,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="eval",
-
-        )
-
-
-
-        table = log_table(golden_metrics, gen_metrics)
-        logger.log_to_wandb(dict(eval_in_domain=table), commit=True)
-
-        ########################
-        #  TEST DOMAIN-SPEC
-        ########################
-        print(f"Test on '{list_args.train_domain}' domain")
-
-        print(f"Test on '{list_args.train_domain}' domain with golden caption ")
-        golden_metrics = evaluate_trained_model(
-            dataloader=test_loader,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="test",
-
-        )
-
-        gen_metrics = evaluate_trained_model(
-            dataloader=test_loader,
-            speak_model=speaker_model,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="test",
-        )
-
-        table = log_table(golden_metrics, gen_metrics)
-        logger.log_to_wandb(dict(test_in_domain=table), commit=True)
-
-        ########################
-        #  EVAL OOD
-        ########################
-        dom="all"
-        _, test_loader, val_loader = get_dataloaders(list_args, list_vocab, dom)
+        # train_loader, test_loader, val_loader = get_dataloaders(list_args, list_vocab, list_args.train_domain)
+        #
+        # ########################
+        # #  EVAL DOMAIN-SPEC
+        # ########################
+        #
+        # # GOLDEN
+        # golden_metrics = evaluate_trained_model(
+        #     dataloader=val_loader,
+        #     list_model=list_model,
+        #     vocab=list_vocab,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="eval",
+        #
+        # )
+        #
+        # print(golden_metrics)
+        #
+        # # GENERATED
+        # gen_metrics=evaluate_trained_model(
+        #     dataloader=val_loader,
+        #     speak_model=speaker_model,
+        #     list_model=list_model,
+        #     vocab=list_vocab,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="eval",
+        #
+        # )
+        #
+        # print(gen_metrics)
+        #
+        #
+        # table = log_table(golden_metrics, gen_metrics)
+        # logger.log_to_wandb(dict(eval_in_domain=table), commit=True)
+        #
+        # ########################
+        # #  TEST DOMAIN-SPEC
+        # ########################
+        # print(f"Test on '{list_args.train_domain}' domain")
+        #
+        # print(f"Test on '{list_args.train_domain}' domain with golden caption ")
+        # golden_metrics = evaluate_trained_model(
+        #     dataloader=test_loader,
+        #     list_model=list_model,
+        #     vocab=list_vocab,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="test",
+        #
+        # )
+        # print(golden_metrics)
+        # gen_metrics = evaluate_trained_model(
+        #     dataloader=test_loader,
+        #     speak_model=speaker_model,
+        #     list_model=list_model,
+        #     vocab=list_vocab,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="test",
+        # )
+        # print(gen_metrics)
+        #
+        # table = log_table(golden_metrics, gen_metrics)
+        # logger.log_to_wandb(dict(test_in_domain=table), commit=True)
+        #
+        # ########################
+        # #  EVAL OOD
+        # ########################
+        _, test_loader, val_loader = get_dataloaders(list_args, list_vocab, "all")
 
         print(f"Eval on 'all' domain with golden caption")
 
@@ -409,6 +406,7 @@ if __name__ == "__main__":
             split="eval",
 
         )
+        print(golden_metrics)
 
         print(f"Eval on 'all' domain")
 
@@ -423,6 +421,7 @@ if __name__ == "__main__":
             split="eval",
 
         )
+        print(gen_metrics)
 
 
 
@@ -443,6 +442,8 @@ if __name__ == "__main__":
             split="test",
 
         )
+        print(golden_metrics)
+
         print(f"Test on 'all' domain")
 
         gen_metrics = evaluate_trained_model(
@@ -455,6 +456,7 @@ if __name__ == "__main__":
             split="test",
 
         )
+        print(gen_metrics)
 
 
         table = log_table(golden_metrics, gen_metrics, in_domain=False)
