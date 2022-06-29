@@ -16,9 +16,22 @@ from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
-def log_table(golden_metrics, gen_metrics, in_domain=True):
+def log_table(golden_metrics:Dict, gen_metrics:Dict, in_domain:Optional[bool]=True)->wandb.Table:
+    """
+    Create and fill a wandb table for the generated,golden and difference metrics.
+    Parameters
+    ----------
+    golden_metrics : metrics for speaker generated utterances
+    gen_metrics : metrics for the golden captions
+    in_domain: true, if the metrics come from an in domain setting
+
+    Returns
+    -------
+
+    """
     golden_aux = golden_metrics.pop("aux")
     gen_aux = gen_metrics.pop("aux")
+
     # define difference between golden and generated out_domain metrics
     diff_dict = dict_diff(golden_metrics, gen_metrics)
 
@@ -36,15 +49,15 @@ def log_table(golden_metrics, gen_metrics, in_domain=True):
     # define table data rows
     data = []
     data.append(
-        generate_table_data(
+        generate_table_row(
             list_args.train_domain, "golden", table_columns, golden_metrics
         )
     )
     data.append(
-        generate_table_data(list_args.train_domain, "gen", table_columns, gen_metrics)
+        generate_table_row(list_args.train_domain, "gen", table_columns, gen_metrics)
     )
     data.append(
-        generate_table_data(list_args.train_domain, "diff", table_columns, diff_dict)
+        generate_table_row(list_args.train_domain, "diff", table_columns, diff_dict)
     )
 
     # create table and log
@@ -52,11 +65,22 @@ def log_table(golden_metrics, gen_metrics, in_domain=True):
     return table
 
 
-def dict_diff(golden_dict, gen_dict):
-    res = {}
-    for k, v1 in golden_dict.items():
+def dict_diff(golden_metrics:Dict, gen_metrics:Dict)->Dict:
+    """
+    Return a dict that contains the per-key differences between the two inputs
+    Parameters
+    ----------
+    golden_metrics : metrics for speaker generated utterances
+    gen_metrics : metrics for the golden captions
 
-        v2 = gen_dict[k]
+    Returns
+    -------
+
+    """
+    res = {}
+    for k, v1 in golden_metrics.items():
+
+        v2 = gen_metrics[k]
         if isinstance(v1, dict):
             res[k] = dict_diff(v1, v2)
         else:
@@ -77,9 +101,9 @@ def evaluate_trained_model(
     accuracies = []
     ranks = []
     domains = []
-    fake_loss = torch.as_tensor([0])
     in_domain = domain == dataloader.dataset.domain
 
+    # define modality for wandb panels
     modality = split
     if in_domain:
         modality += "/in_domain"
@@ -97,6 +121,7 @@ def evaluate_trained_model(
         description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
+        # skip indomain samples
         if not in_domain:
             if data["domain"][0] == domain:
                 continue
@@ -132,7 +157,6 @@ def evaluate_trained_model(
         out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
 
         preds = torch.argmax(out, dim=1)
-
         correct = torch.eq(preds, targets).float().item()
         accuracies.append(correct)
 
@@ -151,11 +175,9 @@ def evaluate_trained_model(
         domains += data["domain"]
 
     accuracy = np.mean(accuracies)
-
-    # normalize based on batches
-    metrics = {}
-
     MRR = np.sum([1 / r for r in ranks]) / len(ranks)
+
+    metrics = {}
     metrics["mrr"] = MRR
     metrics["accuracy"] = accuracy
 
@@ -182,9 +204,23 @@ def evaluate_trained_model(
     return metrics
 
 
-def generate_table_data(
+def generate_table_row(
     domain: str, modality: str, table_columns: List, metrics: Dict
 ) -> List:
+    """
+    Generate wandb table rows for the log_table function above
+    Parameters
+    ----------
+    domain
+    modality
+    table_columns
+    metrics
+
+    Returns
+    -------
+
+    """
+
     data = [domain, modality]
     for key in table_columns:
         if key in ["modality", "list_domain"]:
@@ -216,10 +252,8 @@ if __name__ == "__main__":
     speak_p.vocab_file = "vocab.csv"
     speak_p.__post_init__()
 
-    print(speak_p)
-
     # for reproducibility
-    seed = speak_p.seed
+    seed = common_args.seed
     torch.manual_seed(seed)
     np.random.seed(seed)
     torch.backends.cudnn.benchmark = False
@@ -258,7 +292,6 @@ if __name__ == "__main__":
     dom = common_args.train_domain
     url = LISTENER_CHK_DICT[dom]
 
-    # for every listener
     list_checkpoint, _ = load_wandb_checkpoint(url, device)
     list_args = list_checkpoint["args"]
 
@@ -274,7 +307,6 @@ if __name__ == "__main__":
     list_args.test_split = common_args.test_split
 
     # update paths
-    # list_args.__parse_args()
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
@@ -290,13 +322,10 @@ if __name__ == "__main__":
         device,
     )
 
+    # load from checkpoint
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
 
-    # add debug label
-    tags = []
-    if list_args.debug or list_args.subset_size != -1:
-        tags = ["debug"]
 
     logger = ListenerLogger(
         vocab=list_vocab,
@@ -304,16 +333,15 @@ if __name__ == "__main__":
         group=list_args.train_domain,
         train_logging_step=1,
         val_logging_step=1,
-        tags=tags,
         project="speaker-list-dom",
     )
 
     # todo: log captions
-    # todo make table
 
     with torch.no_grad():
         list_model.eval()
 
+        # get dataloaders
         train_loader, test_loader, val_loader = get_dataloaders(
             list_args, list_vocab, list_args.train_domain
         )
@@ -353,7 +381,6 @@ if __name__ == "__main__":
         ########################
         #  TEST DOMAIN-SPEC
         ########################
-        print(f"Test on '{list_args.train_domain}' domain")
 
         print(f"Test on '{list_args.train_domain}' domain with golden caption ")
         golden_metrics = evaluate_trained_model(
@@ -364,7 +391,10 @@ if __name__ == "__main__":
             logger=logger,
             split="test",
         )
+
         print(golden_metrics)
+
+        print(f"Test on '{list_args.train_domain}' domain")
         gen_metrics = evaluate_trained_model(
             dataloader=test_loader,
             speak_model=speaker_model,

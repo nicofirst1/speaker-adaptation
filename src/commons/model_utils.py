@@ -184,7 +184,7 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
     return checkpoint, file
 
 
-def merge_dict(dicts:List[Dict])->Dict[List]:
+def merge_dict(dicts:List[Dict])->Dict:
     """
     Merge a list of dict with same keys into a dict of lists
     Parameters

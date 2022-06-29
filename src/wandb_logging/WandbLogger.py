@@ -24,6 +24,11 @@ class WandbLogger:
         # what type of data are to be logged.
         self.opts = opts
 
+        # add debug label
+        tags = []
+        if opts['debug'] or opts['subset_size'] != -1:
+            tags = ["debug"]
+
         if "wandb_dir" not in opts.keys():
             opts["wandb_dir"] = "wandb_out"
         out_dir = opts["wandb_dir"]
@@ -41,6 +46,7 @@ class WandbLogger:
             dir=out_dir,
             config=opts,
             mode="disabled" if opts["debug"] else "online",
+            tags=tags,
             # settings=wandb.Settings(start_method='fork'),
             **kwargs,
         )

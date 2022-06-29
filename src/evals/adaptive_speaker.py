@@ -19,6 +19,18 @@ from src.wandb_logging import ListenerLogger
 
 
 def generate_table(data: List, target_domain: List, s: int) -> wandb.Table:
+    """
+    Create and fill wandb table for logging
+    Parameters
+    ----------
+    data
+    target_domain
+    s
+
+    Returns
+    -------
+
+    """
     # unflatten inner lists
     new_data = []
     for row, tg in zip(data, target_domain):
@@ -118,9 +130,9 @@ def evaluate(
         max_length_tensor = prev_utterance.shape[1]
         speak_masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
 
-        ##################
+        ##################################
         # Get results for golden captions
-        ##################
+        ##################################
         lengths = [golden_utt_ids.shape[1]]
         max_length_tensor = golden_utt_ids.shape[1]
         masks = mask_attn(lengths, max_length_tensor, device)
@@ -170,7 +182,6 @@ def evaluate(
         #   Get results with adapted hypo
         ################################################
         h0 = decoder_hid.clone().detach().requires_grad_(True)
-        # todo: move optim out of loop (?)
         optimizer = torch.optim.Adam([h0], lr=lr)
 
         # repeat for s interations
@@ -219,6 +230,7 @@ def evaluate(
             )
             s_accs[i] = list_target_accuracy
 
+            # break if listener gets it right
             if list_target_accuracy:
                 break
             i += 1
@@ -387,7 +399,6 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
 
     # update paths
-    # list_args.__parse_args()
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
@@ -444,6 +455,7 @@ if __name__ == "__main__":
     # SIMULATOR
     ##########################
 
+    # symmetric vs asymmetric setup
     sim_type = (
         SIM_ALL_CHK if common_p.type_of_sim == "general" else SIM_DOMAIN_CHK[domain]
     )
@@ -484,17 +496,12 @@ if __name__ == "__main__":
     ##  LOGGER
     ###################################
 
-    # add debug label
-    tags = []
-    if common_p.debug or common_p.subset_size != -1:
-        tags = ["debug"]
 
     logger = ListenerLogger(
         vocab=speak_vocab,
         opts=vars(sim_p),
         train_logging_step=1,
         val_logging_step=1,
-        tags=tags,
         project=f"speaker-influence-{common_p.type_of_sim}",
     )
 
@@ -518,19 +525,23 @@ if __name__ == "__main__":
 
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
 
+    ###################################
+    ##  EVAL LOOP
+    ###################################
+
     t = datetime.datetime.now()
     timestamp = (
         str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
-    ###################################
-    ##  EVAL LOOP
-    ###################################
-
     sim_model.eval()
 
     if common_p.log_train:
-        print(f"\nEvaluation on train for domain {domain}")
+
+        ##################
+        # ID TRAIN
+        ##################
+        print(f"\nTrain split for domain {domain}")
         df = evaluate(
             train_dl_dom,
             speaker_model,
@@ -554,7 +565,11 @@ if __name__ == "__main__":
             metadata=sim_p,
         )
 
-        print(f"\nEvaluation for domain {domain}")
+        ##################
+        # ID EVAL
+        ##################
+
+        print(f"\nEval split for domain {domain}")
         df = evaluate(
             val_dl_dom,
             speaker_model,
@@ -562,7 +577,7 @@ if __name__ == "__main__":
             list_model,
             list_vocab,
             criterion=cel,
-            split="in_domain_val",
+            split="in_domain_eval",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
@@ -578,7 +593,11 @@ if __name__ == "__main__":
             metadata=sim_p,
         )
 
-        print(f"\nTest for domain {domain}")
+        ##################
+        # ID TEST
+        ##################
+
+        print(f"\nTest split for domain {domain}")
         df = evaluate(
             test_dl_dom,
             speaker_model,
@@ -603,7 +622,11 @@ if __name__ == "__main__":
         )
 
     if common_p.log_train:
-        print(f"\nEvaluation on train for domain all")
+
+        ##################
+        # OOD TRAIN
+        ##################
+        print(f"\nTrain split for domain all")
         df = evaluate(
             train_dl_all,
             speaker_model,
@@ -627,7 +650,10 @@ if __name__ == "__main__":
             metadata=sim_p,
         )
 
-    print(f"\nEvaluation for domain all")
+    ##################
+    # OOD EVAL
+    ##################
+    print(f"\nEval split for domain all")
     df = evaluate(
         val_dl_all,
         speaker_model,
@@ -635,7 +661,7 @@ if __name__ == "__main__":
         list_model,
         list_vocab,
         criterion=cel,
-        split="out_domain_val",
+        split="out_domain_eval",
         lr=common_p.learning_rate,
         s=common_p.s_iter,
     )
@@ -651,7 +677,10 @@ if __name__ == "__main__":
         metadata=sim_p,
     )
 
-    print(f"\nTest for domain all")
+    ##################
+    # OOD TEST
+    ##################
+    print(f"\nTest split for domain all")
     df = evaluate(
         test_dl_all,
         speaker_model,

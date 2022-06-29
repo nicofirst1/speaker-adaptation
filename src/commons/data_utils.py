@@ -79,25 +79,27 @@ def get_dataloaders(
     """
 
     datasets = []
+    # copy args to avoid modifying original
+    args_copy=copy.deepcopy(args)
     # generate kwargs for different splits
     for split in ["train", "val", "test"]:
 
         # differenciate between seen/unseen/merged tests
         if domain is not None and split == "test":
-            if args.test_split != "all":
-                args.orig_ref_file = f"{args.test_split}_{args.orig_ref_file}"
-                args.chains_file = f"{args.test_split}_{args.chains_file}"
+            if args_copy.test_split != "all":
+                args_copy.orig_ref_file = f"{args_copy.test_split}_{args_copy.orig_ref_file}"
+                args_copy.chains_file = f"{args_copy.test_split}_{args_copy.chains_file}"
 
         kwargs = {
-            "utterances_file": f"{split}_{args.utterances_file}",
-            "vectors_file": args.vectors_file,
-            "chain_file": f"{split}_{args.chains_file}",
-            "orig_ref_file": f"{split}_{args.orig_ref_file}",
+            "utterances_file": f"{split}_{args_copy.utterances_file}",
+            "vectors_file": args_copy.vectors_file,
+            "chain_file": f"{split}_{args_copy.chains_file}",
+            "orig_ref_file": f"{split}_{args_copy.orig_ref_file}",
             "split": split,
-            "subset_size": args.subset_size,
-            "image_size": args.image_size,
-            "img2dom_file": args.img2dom_file,
-            "data_dir": args.data_path,
+            "subset_size": args_copy.subset_size,
+            "image_size": args_copy.image_size,
+            "img2dom_file": args_copy.img2dom_file,
+            "data_dir": args_copy.data_path,
         }
 
         if domain is not None:
@@ -110,8 +112,8 @@ def get_dataloaders(
         datasets.append(_set)
 
     load_params = {
-        "batch_size": args.batch_size,
-        "shuffle": args.shuffle,
+        "batch_size": args_copy.batch_size,
+        "shuffle": args_copy.shuffle,
         "collate_fn": AbstractDataset.get_collate_fn(
             args.device, vocab["<sos>"], vocab["<eos>"], vocab["<nohs>"]
         ),

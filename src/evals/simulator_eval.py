@@ -155,17 +155,11 @@ if __name__ == "__main__":
     ##  LOGGER
     ###################################
 
-    # add debug label
-    tags = []
-    if common_p.debug or common_p.subset_size != -1:
-        tags = ["debug"]
-
     logger = ListenerLogger(
         vocab=speak_vocab,
         opts=vars(sim_p),
         train_logging_step=1,
         val_logging_step=1,
-        tags=tags,
         project="simulator-eval",
     )
 
@@ -193,6 +187,7 @@ if __name__ == "__main__":
         training_loader = []
         sim_p.epochs = 1
 
+    # train
     load_params = {
         "batch_size": bs,
         "shuffle": shuffle,
@@ -215,16 +210,8 @@ if __name__ == "__main__":
         subset_size=common_p.subset_size,
     )
 
-    load_params = {
-        "batch_size": 1,
-        "shuffle": False,
-        "collate_fn": AbstractDataset.get_collate_fn(
-            speaker_model.device,
-            list_vocab["<sos>"],
-            list_vocab["<eos>"],
-            list_vocab["<nohs>"],
-        ),
-    }
+    # eval
+
     speak_val_dl = load_wandb_dataset(
         "val",
         domain,
@@ -235,6 +222,8 @@ if __name__ == "__main__":
         logger,
         subset_size=common_p.subset_size,
     )
+
+    # test
     speak_test_dl = load_wandb_dataset(
         "test",
         domain,
@@ -247,7 +236,7 @@ if __name__ == "__main__":
     )
 
     ###################################
-    ##  START OF TRAINING LOOP
+    ##  START OF EVALUATION
     ###################################
 
     t = datetime.datetime.now()
