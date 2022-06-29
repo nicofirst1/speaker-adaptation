@@ -89,7 +89,7 @@ class Params:
     vectors_file: Optional[str] = "vectors.json"
 
     sweep_file: Optional[str] = ""
-    test_split:Optional[str] = "all"
+    test_split: Optional[str] = "all"
 
     ############################################
     # Listener
@@ -247,9 +247,9 @@ class Params:
             self.type_of_sim in valid_type_of_sim
         ), f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
 
-        valid_test_split = ['all', 'seen', 'unseen']
+        valid_test_split = ["all", "seen", "unseen"]
         assert (
-                self.test_split in valid_test_split
+            self.test_split in valid_test_split
         ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
 
     def reset_paths(self):
@@ -271,7 +271,6 @@ class ListenerArguments(Params):
     utterances_file: Optional[str] = "ids_utterances.pickle"
     chains_file: Optional[str] = "text_chains.json"
     orig_ref_file: Optional[str] = "text_utterances.pickle"
-
 
     #########################
     #   Model
@@ -314,8 +313,6 @@ class ListenerArguments(Params):
             assert (
                 self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
-
-
 
 
 class SimulatorArguments(Params):

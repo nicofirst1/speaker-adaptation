@@ -1,6 +1,6 @@
 import datetime
 import operator
-from typing import Dict, Tuple, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import rich.progress
@@ -31,13 +31,14 @@ def normalize_aux(aux, data_length, max_targets=3):
 
     aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / data_length
 
-
     # flatten nested lists
     aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
     aux["list_preds"] = [x for xs in aux["list_preds"] for x in xs]
 
     if len(aux["target"]) > max_targets:
-        aux["target"] = np.random.choice(aux["target"], size=max_targets, replace=False).tolist()
+        aux["target"] = np.random.choice(
+            aux["target"], size=max_targets, replace=False
+        ).tolist()
 
 
 def get_predictions(
@@ -65,7 +66,6 @@ def get_predictions(
     batch_size = utterance.shape[0]
     device = list_model.device
 
-
     masks = mask_attn(lengths, max_length_tensor, device)
 
     # get outputs
@@ -89,8 +89,10 @@ def get_predictions(
     sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()
     list_target_accuracy = torch.eq(list_preds, targets).sum()
     sim_target_accuracy = torch.eq(sim_preds, targets).sum()
-    sim_list_neg_accuracy=torch.eq(list_preds[torch.ne(list_preds, targets)],sim_preds[torch.ne(list_preds, targets)]).sum()
-
+    sim_list_neg_accuracy = torch.eq(
+        list_preds[torch.ne(list_preds, targets)],
+        sim_preds[torch.ne(list_preds, targets)],
+    ).sum()
 
     sim_list_accuracy = sim_list_accuracy.tolist()
     list_target_accuracy = list_target_accuracy.tolist()
@@ -141,9 +143,9 @@ def evaluate(
     list_model: torch.nn.Module,
     list_vocab: Vocab,
     split: str,
-    cel:torch.nn.CrossEntropyLoss,
-    kl: Optional[torch.nn.KLDivLoss]=None
-) ->Dict:
+    cel: torch.nn.CrossEntropyLoss,
+    kl: Optional[torch.nn.KLDivLoss] = None,
+) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
@@ -344,8 +346,6 @@ if __name__ == "__main__":
 
     logger.watch_model([sim_model])
 
-
-
     ###################################
     ##  Get speaker dataloader
     ###################################
@@ -462,9 +462,10 @@ if __name__ == "__main__":
             optimizer.step()
 
         aux = merge_dict(auxs)
-        normalize_aux(aux,len(speak_train_dl.dataset.data))
-        logger.on_eval_end(aux, list_domain=speak_train_dl.dataset.domain, modality="train")
-
+        normalize_aux(aux, len(speak_train_dl.dataset.data))
+        logger.on_eval_end(
+            aux, list_domain=speak_train_dl.dataset.domain, modality="train"
+        )
 
         print(
             f"Train loss {aux['sim_list_loss']:.6f}, accuracy {aux['sim_list_accuracy']:.3f} "
@@ -479,22 +480,38 @@ if __name__ == "__main__":
 
             print(f"\nEvaluation")
             aux = evaluate(
-                speak_val_dl, sim_model, list_model, list_vocab, split="eval", cel=cel, kl=criterion
+                speak_val_dl,
+                sim_model,
+                list_model,
+                list_vocab,
+                split="eval",
+                cel=cel,
+                kl=criterion,
             )
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
 
             print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy:.3f} ")
-            logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality="eval")
+            logger.on_eval_end(
+                aux, list_domain=speak_val_dl.dataset.domain, modality="eval"
+            )
 
             print(f"\nTest")
             aux = evaluate(
-                speak_test_dl, sim_model, list_model, list_vocab, split="test", cel=cel, kl=criterion
+                speak_test_dl,
+                sim_model,
+                list_model,
+                list_vocab,
+                split="test",
+                cel=cel,
+                kl=criterion,
             )
 
             test_accuracy, test_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
             print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
 
-            logger.on_eval_end(aux, list_domain=speak_test_dl.dataset.domain, modality="test")
+            logger.on_eval_end(
+                aux, list_domain=speak_test_dl.dataset.domain, modality="test"
+            )
 
         if not common_p.is_test:
             save_model(

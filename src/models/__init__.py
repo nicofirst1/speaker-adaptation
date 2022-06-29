@@ -1,7 +1,7 @@
 from typing import Literal
 
-from .listener.ListenerModel_no_hist import ListenerModel_no_hist
 from .listener.ListenerModel_hist import ListenerModel_hist
+from .listener.ListenerModel_no_hist import ListenerModel_no_hist
 from .simualator.model_simulator_hist import SimulatorModel_hist
 from .simualator.model_simulator_no_hist import SimulatorModel_no_hist
 from .speaker.model_speaker_hist import SpeakerModel_hist

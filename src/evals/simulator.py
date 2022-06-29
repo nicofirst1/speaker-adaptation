@@ -11,14 +11,15 @@ from torch.utils.data import DataLoader
 
 import wandb
 from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CHK,
-                         SPEAKER_CHK, EarlyStopping, get_dataloaders,
-                         load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, SIM_DOMAIN_CHK)
+                         SIM_DOMAIN_CHK, SPEAKER_CHK, EarlyStopping,
+                         get_dataloaders, load_wandb_checkpoint,
+                         load_wandb_dataset, mask_attn, merge_dict, parse_args,
+                         save_model)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
-from src.trainers.simulator_pretrain import get_predictions, normalize_aux, evaluate
+from src.trainers.simulator_pretrain import (evaluate, get_predictions,
+                                             normalize_aux)
 from src.wandb_logging import ListenerLogger
-
 
 if __name__ == "__main__":
 
@@ -127,7 +128,7 @@ if __name__ == "__main__":
     sim_p.train_domain = domain
     sim_p.device = device
     sim_p.resume_train = common_p.resume_train
-    sim_p.test_split=common_p.test_split
+    sim_p.test_split = common_p.test_split
 
     # for debug
     sim_p.subset_size = common_p.subset_size
@@ -167,8 +168,6 @@ if __name__ == "__main__":
         tags=tags,
         project="simulator-eval",
     )
-
-
 
     ###################################
     ##  LOSS
@@ -259,38 +258,51 @@ if __name__ == "__main__":
         str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
-    def print_aux(split:str,aux:Dict):
+    def print_aux(split: str, aux: Dict):
         """
         Print stats about the results contained in aux
         """
         from rich import print
+
         accuracy, loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
-        split_len=len(aux.pop("list_preds"))
+        split_len = len(aux.pop("list_preds"))
         aux.pop("sim_preds")
-        print(f"\n\n{split} loss {loss:.6f}, accuracy {accuracy:.3f}, split-len {split_len}\nAux: {aux}\n")
+        print(
+            f"\n\n{split} loss {loss:.6f}, accuracy {accuracy:.3f}, split-len {split_len}\nAux: {aux}\n"
+        )
 
     with torch.no_grad():
         sim_model.eval()
 
-
         ###########################
         #   TRAIN SPLIT
         ###########################
-        split="train"
+        split = "train"
         aux = evaluate(
-            speak_train_dl, sim_model, list_model, list_vocab, split=split, cel=cel, kl=criterion
+            speak_train_dl,
+            sim_model,
+            list_model,
+            list_vocab,
+            split=split,
+            cel=cel,
+            kl=criterion,
         )
         logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality=split)
         print_aux(split, aux)
 
-
         ###########################
         #   EVAL SPLIT
         ###########################
-        split="eval"
+        split = "eval"
 
         aux = evaluate(
-            speak_val_dl, sim_model, list_model, list_vocab, split=split,cel=cel,kl=criterion
+            speak_val_dl,
+            sim_model,
+            list_model,
+            list_vocab,
+            split=split,
+            cel=cel,
+            kl=criterion,
         )
         logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality=split)
         print_aux(split, aux)
@@ -298,14 +310,21 @@ if __name__ == "__main__":
         ###########################
         #   TEST SPLIT
         ###########################
-        split="test"
+        split = "test"
 
         aux = evaluate(
-            speak_test_dl, sim_model, list_model, list_vocab, split=split,cel=cel,kl=criterion
+            speak_test_dl,
+            sim_model,
+            list_model,
+            list_vocab,
+            split=split,
+            cel=cel,
+            kl=criterion,
         )
 
-        logger.on_eval_end(aux, list_domain=speak_test_dl.dataset.domain, modality=split)
+        logger.on_eval_end(
+            aux, list_domain=speak_test_dl.dataset.domain, modality=split
+        )
         print_aux(split, aux)
-
 
         logger.on_train_end({}, epoch_id=0)

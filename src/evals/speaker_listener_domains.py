@@ -1,23 +1,16 @@
 import copy
 import os
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
 import numpy as np
 import rich.progress
 import torch
-import wandb
 from torch.utils.data import DataLoader
 
-from src.commons import (
-    hypo2utterance,
-    mask_attn,
-    get_domain_accuracy,
-    get_dataloaders,
-    parse_args,
-    load_wandb_checkpoint,
-    LISTENER_CHK_DICT,
-    SPEAKER_CHK,
-)
+import wandb
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
+                         get_domain_accuracy, hypo2utterance,
+                         load_wandb_checkpoint, mask_attn, parse_args)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
@@ -48,19 +41,16 @@ def log_table(golden_metrics, gen_metrics, in_domain=True):
         )
     )
     data.append(
-        generate_table_data(
-            list_args.train_domain, "gen", table_columns, gen_metrics
-        )
+        generate_table_data(list_args.train_domain, "gen", table_columns, gen_metrics)
     )
     data.append(
-        generate_table_data(
-            list_args.train_domain, "diff", table_columns, diff_dict
-        )
+        generate_table_data(list_args.train_domain, "diff", table_columns, diff_dict)
     )
 
     # create table and log
     table = wandb.Table(columns=table_columns, data=data)
     return table
+
 
 def dict_diff(golden_dict, gen_dict):
     res = {}
@@ -90,7 +80,7 @@ def evaluate_trained_model(
     fake_loss = torch.as_tensor([0])
     in_domain = domain == dataloader.dataset.domain
 
-    modality=split
+    modality = split
     if in_domain:
         modality += "/in_domain"
     else:
@@ -108,7 +98,7 @@ def evaluate_trained_model(
     ):
 
         if not in_domain:
-            if data['domain'][0]==domain:
+            if data["domain"][0] == domain:
                 continue
 
         if speak_model is not None:
@@ -201,7 +191,10 @@ def generate_table_data(
             continue
         elif key in metrics.keys():
             data.append(metrics[key])
-        elif "domain_accuracy" in metrics.keys() and key in metrics["domain_accuracy"].keys():
+        elif (
+            "domain_accuracy" in metrics.keys()
+            and key in metrics["domain_accuracy"].keys()
+        ):
             data.append(metrics["domain_accuracy"][key])
         elif key in metrics["aux"].keys():
             data.append(metrics["aux"][key])
@@ -231,7 +224,6 @@ if __name__ == "__main__":
     np.random.seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-
 
     ####################################
     # SPEAKER
@@ -319,12 +311,12 @@ if __name__ == "__main__":
     # todo: log captions
     # todo make table
 
-
-
     with torch.no_grad():
         list_model.eval()
 
-        train_loader, test_loader, val_loader = get_dataloaders(list_args, list_vocab, list_args.train_domain)
+        train_loader, test_loader, val_loader = get_dataloaders(
+            list_args, list_vocab, list_args.train_domain
+        )
 
         ########################
         #  EVAL DOMAIN-SPEC
@@ -338,13 +330,12 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="eval",
-
         )
 
         print(golden_metrics)
 
         # GENERATED
-        gen_metrics=evaluate_trained_model(
+        gen_metrics = evaluate_trained_model(
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
@@ -352,11 +343,9 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="eval",
-
         )
 
         print(gen_metrics)
-
 
         table = log_table(golden_metrics, gen_metrics)
         logger.log_to_wandb(dict(eval_in_domain=table), commit=True)
@@ -374,7 +363,6 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="test",
-
         )
         print(golden_metrics)
         gen_metrics = evaluate_trained_model(
@@ -405,7 +393,6 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="eval",
-
         )
         print(golden_metrics)
 
@@ -420,11 +407,8 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="eval",
-
         )
         print(gen_metrics)
-
-
 
         table = log_table(golden_metrics, gen_metrics, in_domain=False)
         logger.log_to_wandb(dict(eval_out_domain=table), commit=True)
@@ -441,7 +425,6 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="test",
-
         )
         print(golden_metrics)
 
@@ -455,10 +438,8 @@ if __name__ == "__main__":
             domain=dom,
             logger=logger,
             split="test",
-
         )
         print(gen_metrics)
-
 
         table = log_table(golden_metrics, gen_metrics, in_domain=False)
         logger.log_to_wandb(dict(test_out_domain=table), commit=True)

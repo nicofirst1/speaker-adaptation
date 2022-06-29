@@ -3,10 +3,10 @@ from typing import Any, Dict, List
 
 import PIL.Image
 import torch
-import wandb
 from PIL import ImageOps
 from torch import nn
 
+import wandb
 from src.data.dataloaders import imgid2path
 from src.data.dataloaders.AbstractDataset import load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger

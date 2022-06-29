@@ -1,10 +1,9 @@
+import csv
 import json
 import pickle
+from collections import Counter, defaultdict
 
 from nltk import TweetTokenizer
-from collections import Counter, defaultdict
-import csv
-
 from Vocab import Vocab
 
 tweet_tokenizer = TweetTokenizer(preserve_case=False)

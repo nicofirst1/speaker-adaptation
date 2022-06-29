@@ -5,19 +5,14 @@ from os.path import abspath, dirname
 import numpy as np
 import torch
 import torch.utils.data
-import wandb
 from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-from src.commons import (
-    get_dataloaders,
-    get_domain_accuracy,
-    mask_attn,
-    parse_args,
-    save_model,
-    EarlyStopping, load_wandb_checkpoint, LISTENER_CHK_DICT,
-)
+import wandb
+from src.commons import (LISTENER_CHK_DICT, EarlyStopping, get_dataloaders,
+                         get_domain_accuracy, load_wandb_checkpoint, mask_attn,
+                         parse_args, save_model)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, ListenerModel_no_hist, get_model
 from src.wandb_logging import DataLogger, ListenerLogger
@@ -29,7 +24,9 @@ import datetime
 global logger
 
 
-def evaluate(data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split:str):
+def evaluate(
+    data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split: str
+):
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
@@ -230,7 +227,6 @@ if __name__ == "__main__":
         device=args.device,
     ).to(args.device)
 
-
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
@@ -246,7 +242,9 @@ if __name__ == "__main__":
     ###################################
 
     if args.resume_train:
-        checkpoint, file = load_wandb_checkpoint(LISTENER_CHK_DICT[args.train_domain], args.device)
+        checkpoint, file = load_wandb_checkpoint(
+            LISTENER_CHK_DICT[args.train_domain], args.device
+        )
 
         model.load_state_dict(checkpoint["model_state_dict"])
         model = model.to(args.device)
@@ -292,11 +290,11 @@ if __name__ == "__main__":
             )
 
             if args.is_test:
-                training_loader=[]
+                training_loader = []
 
         losses = []
-        data={}
-        preds=[]
+        data = {}
+        preds = []
 
         model.train()
         torch.enable_grad()
@@ -362,9 +360,7 @@ if __name__ == "__main__":
             evaluate(val_loader_speaker, model, in_domain=False, split="eval")
 
             print(f'\nTest on domain "{domain}"')
-            evaluate(
-                test_loader, model, in_domain=True, split="test"
-            )
+            evaluate(test_loader, model, in_domain=True, split="test")
 
             print(f"\nTest on all domains")
             evaluate(test_loader_speaker, model, in_domain=False, split="test")

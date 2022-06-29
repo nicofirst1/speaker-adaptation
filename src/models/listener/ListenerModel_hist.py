@@ -24,7 +24,7 @@ class ListenerModel_hist(nn.Module):
         self.img_dim = img_dim
         self.attention_dim = att_dim
         self.device = device
-        self.domain=domain
+        self.domain = domain
 
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(

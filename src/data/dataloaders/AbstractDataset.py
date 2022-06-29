@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from PIL import Image,ImageDraw,ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from torch.utils.data import Dataset
 
 
@@ -40,7 +40,6 @@ class AbstractDataset(Dataset):
 
         self.data_dir = data_dir
         self.split = split
-
 
         # Load a PhotoBook utterance chain dataset
         with open(os.path.join(self.data_dir, chain_file), "r") as file:
@@ -244,8 +243,8 @@ class AbstractDataset(Dataset):
                     "domain": domain,
                 }
 
-    def change_data(self, new_data:Dict):
-        self.data=new_data
+    def change_data(self, new_data: Dict):
+        self.data = new_data
 
     @staticmethod
     def get_collate_fn(device, SOS, EOS, NOHS):
@@ -269,7 +268,9 @@ class AbstractDataset(Dataset):
                         # print('utt', padded)
                     elif key == "speak_utterance":
 
-                        padded = sample[key] + [0] * (  max_speak_length - len(sample[key])  )
+                        padded = sample[key] + [0] * (
+                            max_speak_length - len(sample[key])
+                        )
 
                     elif key == "prev_utterance":
 
@@ -342,9 +343,6 @@ class AbstractDataset(Dataset):
 
     def __getitem__(self, index):
         return self.data[index]
-
-
-
 
 
 def imgid2path(data_path: str) -> Dict[str, str]:

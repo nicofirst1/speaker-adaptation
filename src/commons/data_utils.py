@@ -77,10 +77,10 @@ def get_dataloaders(
 
     datasets = []
     # generate kwargs for different splits
-    for split in ["train","val","test"]:
+    for split in ["train", "val", "test"]:
 
         # differenciate between seen/unseen/merged tests
-        if domain is not None and split=="test":
+        if domain is not None and split == "test":
             if args.test_split != "all":
                 args.orig_ref_file = f"{args.test_split}_{args.orig_ref_file}"
                 args.chains_file = f"{args.test_split}_{args.chains_file}"

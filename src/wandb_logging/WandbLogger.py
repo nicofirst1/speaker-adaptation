@@ -1,9 +1,10 @@
 import os
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 import torch
-import wandb
 from torch import nn
+
+import wandb
 
 
 class WandbLogger:

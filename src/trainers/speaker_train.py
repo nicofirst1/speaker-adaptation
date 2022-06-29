@@ -11,14 +11,9 @@ from bert_score import score
 from nlgeval import NLGEval
 from torch import nn, optim
 
-from src.commons import (
-    get_dataloaders,
-    load_wandb_checkpoint,
-    mask_attn,
-    parse_args,
-    save_model,
-    EarlyStopping, SIM_ALL_CHK, SPEAKER_CHK,
-)
+from src.commons import (SIM_ALL_CHK, SPEAKER_CHK, EarlyStopping,
+                         get_dataloaders, load_wandb_checkpoint, mask_attn,
+                         parse_args, save_model)
 from src.data.dataloaders import Vocab
 from src.models import SpeakerModel_hist, get_model
 from src.models.speaker.model_speaker_no_hist import SpeakerModel_no_hist
@@ -48,7 +43,7 @@ def eval_beam_histatt(
     args,
     nlgeval_obj,
     logger,
-        split:str,
+    split: str,
 ):
     """
     Evaluation
@@ -65,9 +60,10 @@ def eval_beam_histatt(
     hypotheses = []
 
     for i, data in rich.progress.track(
-            enumerate(split_data_loader),
-            total=len(split_data_loader),
-            description=f"Processing {split}...", ):
+        enumerate(split_data_loader),
+        total=len(split_data_loader),
+        description=f"Processing {split}...",
+    ):
         # print(i)
 
         ref = data["reference_chain"][
@@ -109,7 +105,7 @@ def eval_beam_histatt(
     logs["precision"] = P.mean().numpy()
     logs["recal"] = R.mean().numpy()
     logs["Fscore"] = Fs.mean().numpy()
-    logs['sweep_metric']=sum(logs.values())
+    logs["sweep_metric"] = sum(logs.values())
 
     model_out = dict(
         hypotheses=hypo,
@@ -236,9 +232,8 @@ if __name__ == "__main__":
         print(f"Resumed run at epoch {epoch}")
 
     if speak_p.is_test:
-        training_loader=[]
-        speak_p.epochs=1
-
+        training_loader = []
+        speak_p.epochs = 1
 
     logger.watch_model([model])
 
@@ -269,8 +264,8 @@ if __name__ == "__main__":
 
         model.train()
         torch.enable_grad()
-        data={}
-        out=[]
+        data = {}
+        out = []
 
         for i, data in rich.progress.track(
             enumerate(training_loader),
@@ -362,7 +357,7 @@ if __name__ == "__main__":
                 args=speak_p,
                 nlgeval_obj=nlge,
                 logger=logger,
-                split="eval"
+                split="eval",
             )
 
             eval_beam_histatt(
@@ -371,7 +366,7 @@ if __name__ == "__main__":
                 args=speak_p,
                 nlgeval_obj=nlge,
                 logger=logger,
-                split="test"
+                split="test",
             )
             if not speak_p.is_test:
                 save_model(

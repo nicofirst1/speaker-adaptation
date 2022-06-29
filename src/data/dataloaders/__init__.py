@@ -1,10 +1,6 @@
-from .AbstractDataset import (
-    AbstractDataset,
-    generate_imgid2domain,
-    imgid2path,
-    load_imgid2domain,
-)
-from .ListenerDataset import ListenerDataset,SpeakerUttDataset
+from .AbstractDataset import (AbstractDataset, generate_imgid2domain,
+                              imgid2path, load_imgid2domain)
+from .ListenerDataset import ListenerDataset, SpeakerUttDataset
 from .SpeakerDataset import SpeakerDataset
 from .Vocab import Vocab
 

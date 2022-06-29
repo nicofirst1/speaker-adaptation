@@ -24,7 +24,7 @@ class ListenerModel_no_hist(nn.Module):
         self.img_dim = img_dim
         self.attention_dim = att_dim
         self.device = device
-        self.domain=domain
+        self.domain = domain
 
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(
@@ -129,7 +129,7 @@ class ListenerModel_no_hist(nn.Module):
         outputs_att = self.att_linear_2(self.tanh(self.att_linear_1(mm_reps)))
 
         # mask pads so that no attention is paid to them (with -inf)
-        masks=masks.bool()
+        masks = masks.bool()
         outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
 
         # final attention weights

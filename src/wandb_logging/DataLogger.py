@@ -2,7 +2,6 @@ from collections import Counter
 from typing import Dict
 
 import wandb
-
 from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.data.dataloaders.ListenerDataset import ListenerDataset
 from src.wandb_logging.WandbLogger import WandbLogger

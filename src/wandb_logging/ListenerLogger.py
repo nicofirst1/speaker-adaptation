@@ -3,9 +3,9 @@ from typing import Any, Dict, Optional
 
 import PIL.Image
 import torch
-import wandb
 from PIL import ImageOps
 
+import wandb
 from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
