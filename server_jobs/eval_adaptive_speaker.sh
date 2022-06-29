@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --reservation=condo_2204047_01
 #SBATCH --nodes=1
 #SBATCH --job-name=adapt_speak
 #SBATCH --cpus-per-task=1
