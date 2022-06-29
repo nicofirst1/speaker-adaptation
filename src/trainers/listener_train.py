@@ -268,9 +268,9 @@ if __name__ == "__main__":
 
     if metric == "loss":
 
-        es = EarlyStopping(args.patience, operator.le)
+        es = EarlyStopping(args.patience, "min")
     elif metric == "accs":
-        es = EarlyStopping(args.patience, operator.ge)
+        es = EarlyStopping(args.patience, "max")
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 

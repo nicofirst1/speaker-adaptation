@@ -243,9 +243,9 @@ if __name__ == "__main__":
 
     if metric == "cider":
 
-        es = EarlyStopping(speak_p.patience, operator.ge)
+        es = EarlyStopping(speak_p.patience,"max")
     elif metric == "bert":
-        es = EarlyStopping(speak_p.patience, operator.ge)
+        es = EarlyStopping(speak_p.patience, "max")
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 

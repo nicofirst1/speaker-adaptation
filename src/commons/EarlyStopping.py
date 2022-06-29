@@ -1,18 +1,34 @@
+import operator
 import sys
-from typing import Callable
+from typing import Literal
 
 
 class EarlyStopping:
-    def __init__(self, max_patient: int, comparison: Callable[[float, float], bool]):
+    """
+    Class used to early stop training
+    """
+    def __init__(self, max_patient: int, problem_formulation: Literal['max','min']):
+        """
+
+        Parameters
+        ----------
+        max_patient : max number of epochs before stopping training if no improvement
+        problem_formulation : either maximization of metric or minimization
+        """
+
+        if problem_formulation=='max':
+            self.comparison=operator.le
+            self.best_metric = sys.float_info.min
+
+        else:
+            self.comparison = operator.ge
+            self.best_metric = sys.float_info.max
+
+
         self.max_patient = max_patient
         self.patient_couter = 0
-        self.comparison = comparison
 
-        # init the best metric based on the operator passed (> or <)
-        if comparison(0, 9999):
-            self.best_metric = sys.float_info.min
-        else:
-            self.best_metric = sys.float_info.max
+
 
     def should_stop(self, metric_val) -> bool:
 
