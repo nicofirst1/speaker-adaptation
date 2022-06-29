@@ -13,6 +13,18 @@ from src.wandb_logging import WandbLogger
 def mask_attn(
     actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
 ) -> torch.Tensor:
+    """
+    Maske attention function
+    Parameters
+    ----------
+    actual_num_tokens : length of the utterance vector
+    max_num_tokens : max lenght
+    device
+
+    Returns
+    -------
+
+    """
     masks = []
 
     for n in range(len(actual_num_tokens)):
@@ -28,13 +40,19 @@ def mask_attn(
     return masks
 
 
-def hypo2utterance(hypo, vocab):
-    # # encode with list vocab
-    # utterance = tokenizer.tokenize(hypo)
-    #
-    # if any(["#" in t for t in utterance]):
-    #     # idk why byt surfboard is tokenized as 'surf' '##board' that raise an error, so skip
-    #     raise ValueError()
+def hypo2utterance(hypo:str, vocab):
+
+    """
+    Transform a hypothesis string into a tensor of utterances ids given the vocabulary
+    Parameters
+    ----------
+    hypo
+    vocab : A vocab class
+
+    Returns
+    -------
+
+    """
 
     utterance = vocab.encode(hypo.strip().split(" "), add_special_tokens=False)
     utterance = utterance.unsqueeze(dim=0)
@@ -47,30 +65,33 @@ def get_domain_accuracy(
     accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
-    return a dict of domain:accuracy for all the domains in 'all_domains:
+    Return a dict of domain:accuracy for all the domains in 'all_domains:
     Parameters
     ----------
-    accuracy
-    domains
-    all_domains
+    accuracy : tensor of boolean values to map the correct prediction of index i
+    domains : tensor of string, domains for prediction of index i
+    all_domains : list of all possible domains
 
     Returns
     -------
-
+        dictionary mapping domain->accuracy
     """
     assert len(accuracy) == len(domains)
 
     domain_accs = {d: 0 for d in all_domains}
     domain_accs["all"] = 0
 
+    # add all the correct guesses
     for idx in range(len(domains)):
         if accuracy[idx]:
             dom = domains[idx]
             domain_accs[dom] += 1
             domain_accs["all"] += 1
 
+    # count number of domains
     c = Counter(domains)
 
+    # divide by number of domain's sample
     for k, v in c.items():
         domain_accs[k] /= v
 
@@ -123,7 +144,7 @@ def load_wandb_file(url: str, datadir="") -> str:
     Parameters
     ----------
     url
-    datadir
+    datadir : if given then check if the file is present in the dir. Used when offline
 
     Returns
     -------
@@ -150,6 +171,7 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
     ----------
     url
     device
+    datadir : if given then check if the file is present in the dir. Used when offline
 
     Returns
     -------
@@ -162,9 +184,19 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
     return checkpoint, file
 
 
-def merge_dict(dicts):
+def merge_dict(dicts:List[Dict])->Dict[List]:
+    """
+    Merge a list of dict with same keys into a dict of lists
+    Parameters
+    ----------
+    dicts
+
+    Returns
+    -------
+
+    """
     dd = defaultdict(list)
-    for d in dicts:  # you can list as many input dicts as you want here
+    for d in dicts:
         for key, value in d.items():
             dd[key].append(value)
 

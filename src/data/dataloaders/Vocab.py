@@ -50,10 +50,6 @@ class Vocab:
     def decode(self, encoded_ids: torch.Tensor) -> str:
 
         decodes = " ".join([self.index2word[t.item()] for t in encoded_ids])
-        # for i in range(encoded_ids.shape[0]):
-        #     batch=encoded_ids[i]
-        #     decodes.append(" ".join([self.index2word[t.item()] for t in batch]))
-
         rg = r" <[a-z]+>"
         decodes = re.sub(rg, "", decodes)
         return decodes

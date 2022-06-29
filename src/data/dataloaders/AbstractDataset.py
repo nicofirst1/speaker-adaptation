@@ -24,7 +24,7 @@ class AbstractDataset(Dataset):
         image_size: int = 2048,
     ):
         """
-        Abstract dataclass that implements
+        Abstract dataclass that implements the main loading pipeline
         Parameters
         ----------
         split : either [train, val, test], the split to load from the dataset
@@ -248,6 +248,19 @@ class AbstractDataset(Dataset):
 
     @staticmethod
     def get_collate_fn(device, SOS, EOS, NOHS):
+        """
+        Collate function for batching
+        Parameters
+        ----------
+        device
+        SOS
+        EOS
+        NOHS
+
+        Returns
+        -------
+
+        """
         def collate_fn(data):
 
             max_utt_length = max(d["length"] for d in data)

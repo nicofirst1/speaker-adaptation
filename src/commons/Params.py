@@ -41,26 +41,29 @@ class Params:
     ############################################
     # Number of epochs for training
     epochs: Optional[int] = 60
+    batch_size: Optional[int] = 32
+    learning_rate: Optional[float] = 0.0001
 
-    # Set to true for debugging
+    # Set to true for disabling wandb logging
     debug: Optional[bool] = False
-
-    # This seed will be set for torch, numpy and random
-    seed: Optional[int] = 42
-    patience: Optional[int] = 30
 
     device: Optional[str] = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )
+    # This seed will be set for torch, numpy and random
+    seed: Optional[int] = 42
 
-    # If empty string then no resume. Else use wandb model checkpoints
+    # Early stopping patience
+    patience: Optional[int] = 30
+
+    # If true use wandb checkpoints
     resume_train: Optional[bool] = False
-    is_test: Optional[bool] = False
+
+
+    # Which simulator to use with domain specific listener.
+    # Can be either [domain, general].
+    # If domain then symmetric setting, else use general simulator for all domains
     type_of_sim: Optional[str] = "domain"
-
-    batch_size: Optional[int] = 32
-
-    learning_rate: Optional[float] = 0.0001
 
     # reduction for crossentropy loss
     reduction: Optional[str] = "sum"
@@ -71,11 +74,12 @@ class Params:
 
     # -1 is the full dataset, if you put 10, it will only use 10 chains
     subset_size: Optional[int] = -1
-
     # Shuffle dataloader
     shuffle: Optional[bool] = False
     # If True, log listener dataset for embedding viz (computationally intensive)
     log_data: Optional[bool] = False
+    # if true empty train split and load test
+    is_test: Optional[bool] = False
 
     ############################################
     # PATH
@@ -102,7 +106,9 @@ class Params:
     # Speaker
     ############################################
 
+    # beam search size
     beam_size: Optional[int] = 5
+    # max length for prediction
     max_len: Optional[int] = 30
 
     def merge(self, other):
@@ -175,7 +181,7 @@ class Params:
 
         att = self.__get_attributes()
 
-        """Create the parser to capture CLI arguments."""
+        # Create the parser to capture CLI arguments.
         parser = argparse.ArgumentParser()
 
         # for every attribute add an arg instance
@@ -260,13 +266,13 @@ class Params:
 
 class ListenerArguments(Params):
     """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
+    Arguments for listener
     """
 
     #########################
     #   PATHS
     #########################
-    # Vocabulary path
+
     vocab_file: Optional[str] = "vocab.csv"
     utterances_file: Optional[str] = "ids_utterances.pickle"
     chains_file: Optional[str] = "text_chains.json"
@@ -276,6 +282,7 @@ class ListenerArguments(Params):
     #   Model
     #########################
 
+    # check the check_parameters method for a list of possible values
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
     model_type: Optional[str] = "no_hist"
@@ -298,6 +305,7 @@ class ListenerArguments(Params):
 
     def check_parameters(self):
         super(ListenerArguments, self).check_parameters()
+
         valis_metr = ["accs", "loss"]
         assert (
             self.metric in valis_metr
@@ -317,13 +325,12 @@ class ListenerArguments(Params):
 
 class SimulatorArguments(Params):
     """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
+    Arguments for simulator
     """
 
     #########################
     #   PATHS
     #########################
-    # Vocabulary path
     vocab_file: Optional[str] = "vocab.csv"
     utterances_file: Optional[str] = "ids_utterances.pickle"
     chains_file: Optional[str] = "text_chains.json"
@@ -346,7 +353,6 @@ class SimulatorArguments(Params):
 
     metric: Optional[str] = "accs"
     s_iter: Optional[int] = 1
-    alpha: Optional[int] = 0.1
     log_train: Optional[bool] = False
 
     def __init__(self):
@@ -381,13 +387,12 @@ class SimulatorArguments(Params):
 
 class SpeakerArguments(Params):
     """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
+    Arguments for speaker
     """
 
     #########################
     #   Paths
     #########################
-    # Vocabulary path
     vocab_file: Optional[str] = "vocab.csv"
     utterances_file: Optional[str] = "ids_utterances.pickle"
     chains_file: Optional[str] = "text_chains.json"
@@ -402,11 +407,15 @@ class SpeakerArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
-    top_p: Optional[float] = 0.9
-    top_k: Optional[float] = 0.0
-    use_beam: Optional[bool] = False
-
     metric: Optional[str] = "cider"
+
+    # if true use beam search, else nucleus sampling
+    use_beam: Optional[bool] = False
+    # nucleus sampling top probability
+    top_p: Optional[float] = 0.9
+    # nucleus sampling top k
+    top_k: Optional[float] = 0.0
+
 
     def __init__(self):
         super(SpeakerArguments, self).__init__()
