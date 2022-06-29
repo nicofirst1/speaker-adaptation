@@ -10,9 +10,12 @@ from PIL import Image, ImageDraw, ImageFont
 from torch.utils.data import DataLoader
 
 import wandb
+
+from src.commons.wandb_checkpoints import DATASET_CHK
 from src.commons.model_utils import hypo2utterance, load_wandb_file
 from src.data.dataloaders import (AbstractDataset, ListenerDataset,
                                   SpeakerDataset, SpeakerUttDataset, Vocab)
+from src.wandb_logging import WandbLogger
 
 
 def show_img(data, id2path, split_name, hypo="", idx=-1):
@@ -62,7 +65,7 @@ def get_dataloaders(
     unary_val_bs: Optional[bool] = True,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
-    Load dataloaders based on args
+    Load dataloaders based on args. Can be either the speaker or the listener
     Parameters
     ----------
     args
@@ -137,26 +140,24 @@ def load_wandb_dataset(
     split: str,
     domain: str,
     load_params: Dict,
-    list_vocab: Vocab,
+    listener_vocab: Vocab,
     speaker_model: torch.nn.Module,
     dataloader: DataLoader,
-    logger,
-    DATASET_CHK: Dict,
+    logger : WandbLogger,
     subset_size: Optional[int] = -1,
 ) -> DataLoader:
     """
-    Load speaker augmented dataset from wandb, if not preset generate it and upload ity
+    Load speaker augmented dataset from wandb, if not preset generate it and upload it
     Parameters
     ----------
-    split
-    domain
-    load_params
-    list_vocab
+    split : [train,val,test]
+    domain : one of the domains
+    load_params : dictionary to use for the dataloader collate function
+    listener_vocab :
     speaker_model
-    dataloader
-    logger
-    DATASET_CHK
-    subset_size
+    dataloader : the original dataloader to use for generation if dataset not found on wandb
+    logger : WandbLogger to restore dataset or upload it
+    subset_size : reduce original size for logging
 
     Returns
     -------
@@ -179,7 +180,7 @@ def load_wandb_dataset(
         print(f"Dataset '{file_path}' not found on wandb, generating....")
         dl = speaker_augmented_dataloader(
             dataloader,
-            list_vocab,
+            listener_vocab,
             speaker_model,
             split_name=split,
             load_params=load_params,
@@ -209,7 +210,7 @@ def speaker_augmented_dataloader(
     vocab: Vocab,
     speak_model: torch.nn.Module,
     split_name: str,
-    load_params,
+    load_params:Dict,
 ) -> DataLoader:
     """
     Augment the canon dataloader with speaker generated utterances and embeddings
@@ -225,7 +226,7 @@ def speaker_augmented_dataloader(
     for ii, data in rich.progress.track(
         enumerate(dataloader),
         total=len(dataloader),
-        description=f"Generating hypotesis for split '{split_name}'",
+        description=f"Generating hypothesis for split '{split_name}'",
     ):
         # get datapoints
         target_img_feats = data["target_img_feats"]
@@ -243,7 +244,7 @@ def speaker_augmented_dataloader(
 
         if not isinstance(utterance, list):
             utterance = [utterance]
-
+        #append to new data
         new_data[ii]["speak_utterance"] = utterance
         new_data[ii]["speak_h1embed"] = h1
 
@@ -251,6 +252,8 @@ def speaker_augmented_dataloader(
         assert data["orig_utterance"][0] == new_data[ii]["orig_utterance"]
 
     new_dataset = SpeakerUttDataset(new_data, dataloader.dataset.domain)
+
+    # check if present
     dp = next(iter(new_dataset)).keys()
     assert (
         "speak_utterance" in dp and "speak_h1embed" in dp

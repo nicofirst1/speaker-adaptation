@@ -382,7 +382,6 @@ if __name__ == "__main__":
         speaker_model,
         training_loader,
         logger,
-        DATASET_CHK,
         subset_size=common_p.subset_size,
     )
 
@@ -404,7 +403,6 @@ if __name__ == "__main__":
         speaker_model,
         val_loader,
         logger,
-        DATASET_CHK,
         subset_size=common_p.subset_size,
     )
     speak_test_dl = load_wandb_dataset(
@@ -415,7 +413,6 @@ if __name__ == "__main__":
         speaker_model,
         test_loader,
         logger,
-        DATASET_CHK,
         subset_size=common_p.subset_size,
     )
 
