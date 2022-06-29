@@ -1,20 +1,19 @@
-import operator
 import sys
 from os.path import abspath, dirname
 
 import numpy as np
 import torch
 import torch.utils.data
+import wandb
 from rich.progress import track
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-import wandb
 from src.commons import (LISTENER_CHK_DICT, EarlyStopping, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint, mask_attn,
                          parse_args, save_model)
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel_hist, ListenerModel_no_hist, get_model
+from src.models import get_model
 from src.wandb_logging import DataLogger, ListenerLogger
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
@@ -25,12 +24,12 @@ global logger
 
 
 def evaluate(
-    data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split: str
+        data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split: str
 ):
     """
     Evaluate model on either in/out_domain dataloader
     :param data_loader:
-    :param model:
+    :param model: listener model
     :param in_domain: when out_domain also estimate per domain accuracy
     :return:
     """
@@ -46,23 +45,17 @@ def evaluate(
     flag += "in_domain" if in_domain else "out_domain"
 
     for ii, data in enumerate(data_loader):
-        # print(i)
 
         count += 1
 
         utterances = data["utterance"]
-
         context_separate = data["separate_images"]
         context_concat = data["concat_context"]
-
-        lengths = data["length"]
         targets = data["target"]
+        prev_hist = data["prev_histories"]
 
         max_length_tensor = utterances.shape[1]
-
         masks = mask_attn(data["length"], max_length_tensor, args.device)
-
-        prev_hist = data["prev_histories"]
 
         out = model(utterances, context_separate, context_concat, prev_hist, masks)
 
@@ -139,7 +132,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -276,7 +269,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
@@ -304,9 +297,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description=f"Training epoch {epoch}",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description=f"Training epoch {epoch}",
         ):
             # collect info from datapoint
             utterances = data["utterance"]
