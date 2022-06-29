@@ -21,7 +21,18 @@ from src.trainers.simulator_pretrain import (evaluate, get_predictions,
                                              normalize_aux)
 from src.wandb_logging import ListenerLogger
 
-def compute_domain(domain,split):
+def compute_domain(domain):
+    """
+    Augment dataloader with speaker utterances and embeddings.
+    Ran this script once to upload everything on wanbd
+    Parameters
+    ----------
+    domain
+
+    Returns
+    -------
+
+    """
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
@@ -155,50 +166,51 @@ def compute_domain(domain,split):
         ),
     }
 
-    # _ = load_wandb_dataset(
-    #     "train",
-    #     domain,
-    #     load_params,
-    #     list_vocab,
-    #     speaker_model,
-    #     training_loader,
-    #     logger,
-    #     subset_size=common_p.subset_size,
-    # )
-    #
-    # # eval
-    #
-    # _ = load_wandb_dataset(
-    #     "val",
-    #     domain,
-    #     load_params,
-    #     list_vocab,
-    #     speaker_model,
-    #     val_loader,
-    #     logger,
-    #     subset_size=common_p.subset_size,
-    # )
-
-    # test
-    _ = load_wandb_dataset(
-        "test",
+    load_wandb_dataset(
+        "train",
         domain,
         load_params,
         list_vocab,
         speaker_model,
-        test_loader,
+        training_loader,
         logger,
         subset_size=common_p.subset_size,
-        test_split=split
     )
+
+    # eval
+
+    load_wandb_dataset(
+        "val",
+        domain,
+        load_params,
+        list_vocab,
+        speaker_model,
+        val_loader,
+        logger,
+        subset_size=common_p.subset_size,
+    )
+
+    # test
+    splits=['all','seen','unseen']
+
+    for s in splits:
+        load_wandb_dataset(
+            "test",
+            domain,
+            load_params,
+            list_vocab,
+            speaker_model,
+            test_loader,
+            logger,
+            subset_size=common_p.subset_size,
+            test_split=split
+        )
 
 
 
 if __name__ == '__main__':
 
-    domains=['appliances',"food","vehicles","indoor","outdoor"]
-    splits=['all','seen','unseen']
+    domains=["all",'appliances',"food","vehicles","indoor","outdoor"]
 
-    for s in splits:
-        for domain in domains:
-            compute_domain(domain,s)
+    for domain in domains:
+        compute_domain(domain)
