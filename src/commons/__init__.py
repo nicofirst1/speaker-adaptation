@@ -27,7 +27,7 @@ __all__ = [
     "SIM_DOMAIN_CHK",
     "DATASET_CHK",
     "VAL_DATASET_CHK",
-    "TEST_DATASET_CHK",
+    "TEST_ALL_DATASET_CHK",
     "TRAIN_DATASET_CHK",
 
 ]

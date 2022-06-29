@@ -147,6 +147,7 @@ def load_wandb_dataset(
     dataloader: DataLoader,
     logger : WandbLogger,
     subset_size: Optional[int] = -1,
+    test_split: Optional[str] = "all",
 ) -> DataLoader:
     """
     Load speaker augmented dataset from wandb, if not preset generate it and upload it
@@ -165,6 +166,11 @@ def load_wandb_dataset(
     -------
 
     """
+
+    if split == "test":
+        split=f"{split}_{test_split}"
+
+
     try:
         # try to download the dataset from wandb
         file = load_wandb_file(DATASET_CHK[split][domain])

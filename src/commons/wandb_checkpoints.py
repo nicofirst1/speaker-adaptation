@@ -58,17 +58,38 @@ VAL_DATASET_CHK = dict(
     vehicles="adaptive-speaker/simulator-eval/val_dataloader_vehicles:latest",
 )
 
-TEST_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-eval/test_dataloader_all:latest",
-    food="adaptive-speaker/simulator-eval/test_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-eval/test_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-eval/test_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-eval/test_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-eval/test_dataloader_vehicles:latest",
+TEST_ALL_DATASET_CHK = dict(
+    all="adaptive-speaker/simulator-eval/test_all_dataloader_all:latest",
+    food="adaptive-speaker/simulator-eval/test_all_dataloader_food:latest",
+    appliances="adaptive-speaker/simulator-eval/test_all_dataloader_appliances:latest",
+    indoor="adaptive-speaker/simulator-eval/test_all_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/simulator-eval/test_all_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/simulator-eval/test_all_dataloader_vehicles:latest",
+)
+
+
+TEST_SEEN_DATASET_CHK = dict(
+    all="adaptive-speaker/simulator-eval/test_seen_dataloader_all:latest",
+    food="adaptive-speaker/simulator-eval/test_seen_dataloader_food:latest",
+    appliances="adaptive-speaker/simulator-eval/test_seen_dataloader_appliances:latest",
+    indoor="adaptive-speaker/simulator-eval/test_seen_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/simulator-eval/test_seen_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/simulator-eval/test_seen_dataloader_vehicles:latest",
+)
+
+TEST_UNSEEN_DATASET_CHK = dict(
+    all="adaptive-speaker/simulator-eval/test_unseen_dataloader_all:latest",
+    food="adaptive-speaker/simulator-eval/test_unseen_dataloader_food:latest",
+    appliances="adaptive-speaker/simulator-eval/test_unseen_dataloader_appliances:latest",
+    indoor="adaptive-speaker/simulator-eval/test_unseen_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/simulator-eval/test_unseen_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/simulator-eval/test_unseen_dataloader_vehicles:latest",
 )
 
 DATASET_CHK = dict(
     train=TRAIN_DATASET_CHK,
     val=VAL_DATASET_CHK,
-    test=TEST_DATASET_CHK,
+    test_all=TEST_ALL_DATASET_CHK,
+    test_seen=TEST_SEEN_DATASET_CHK,
+    test_unseen=TEST_UNSEEN_DATASET_CHK,
 )
