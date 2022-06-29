@@ -369,9 +369,8 @@ class SpeakerModel_no_hist(nn.Module):
         top_p=0.0,
         filter_value=-float("Inf"),
     ):
-        """Filter a distribution of logits using top-k and/or nucleus (top-p) filtering
+        """Filter a distribution using top-k and/or nucleus (top-p) filtering
         Args:
-            logits: logits distribution shape (vocabulary size)
             top_k >0: keep only top k tokens with highest probability (top-k filtering).
             top_p >0.0: keep the top tokens with cumulative probability >= top_p (nucleus filtering).
                 Nucleus filtering is described in Holtzman et al. (http://arxiv.org/abs/1904.09751)

@@ -39,9 +39,13 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
         masks: torch.Tensor,
     ):
         """
-        @param speaker_embeds:embeddings coming from speaker
-
+        @param speaker_embeds: utterances coming from the speaker embeddings
+        @param separate_images: image feature vectors for all 6 images in the context separately
+        @param visual_context: concatenation of 6 images in the context
+        @param prev_hist: contains histories for 6 images separately (if exists for a given image)
+        @param masks: attention mask for pad tokens
         """
+
         separate_images = separate_images.to(self.device)
         visual_context = visual_context.to(self.device)
 
