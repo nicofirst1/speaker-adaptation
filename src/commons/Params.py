@@ -4,7 +4,7 @@ import inspect
 import os.path
 from dataclasses import dataclass
 from os.path import join
-from typing import Optional
+from typing import Optional, List
 
 import torch
 from rich.console import Console
@@ -46,7 +46,7 @@ class Params:
 
     # Set to true for disabling wandb logging
     debug: Optional[bool] = False
-
+    tags: Optional[str] = ""
     device: Optional[str] = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )

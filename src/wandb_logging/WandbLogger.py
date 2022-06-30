@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any, Dict, List, Optional
 
@@ -6,6 +7,23 @@ from torch import nn
 
 import wandb
 
+
+def custom_string2list(tags: str) -> List[str]:
+    """custom_string2list method.
+
+    Parameters
+    ----------
+    tags : str
+        A string of tags separated by commas.
+
+    Returns
+    -------
+    list_tags : list
+        A list of tags.
+
+    """
+    list_tags = tags.strip("[").strip("]").split(",")
+    return list_tags
 
 class WandbLogger:
     def __init__(
@@ -25,9 +43,10 @@ class WandbLogger:
         self.opts = opts
 
         # add debug label
-        tags = []
+        tags = kwargs.get("tags", '[]')
+        tags=custom_string2list(tags)
         if opts['debug'] or opts['subset_size'] != -1:
-            tags = ["debug"]
+            tags += ["debug"]
 
         if "wandb_dir" not in opts.keys():
             opts["wandb_dir"] = "wandb_out"

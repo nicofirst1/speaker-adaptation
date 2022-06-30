@@ -334,6 +334,8 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         project="speaker-list-dom",
+        tags=common_args.tags,
+
     )
 
     # todo: log captions

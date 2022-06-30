@@ -503,6 +503,8 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         project=f"speaker-influence-{common_p.type_of_sim}",
+        tags=common_p.tags,
+
     )
 
     metric = sim_p.metric
