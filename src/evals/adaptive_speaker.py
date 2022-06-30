@@ -473,6 +473,7 @@ if __name__ == "__main__":
     sim_p.learning_rate = common_p.learning_rate
     sim_p.type_of_sim = common_p.type_of_sim
     sim_p.seed = seed
+    sim_p.test_split= common_p.test_split
 
     sim_p.reset_paths()
 

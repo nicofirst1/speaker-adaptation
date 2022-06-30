@@ -43,8 +43,9 @@ class WandbLogger:
         self.opts = opts
 
         # add debug label
-        tags = kwargs.get("tags", '[]')
+        tags = kwargs.pop("tags", '[]')
         tags=custom_string2list(tags)
+
         if opts['debug'] or opts['subset_size'] != -1:
             tags += ["debug"]
 
