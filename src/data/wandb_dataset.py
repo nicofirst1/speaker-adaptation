@@ -38,7 +38,7 @@ def compute_domain(domain):
     img_dim = 2048
 
     common_p = parse_args("list")
-    domain=common_p.domain
+    domain=common_p.train_domain
 
     ##########################
     # LISTENER
