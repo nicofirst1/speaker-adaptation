@@ -233,6 +233,8 @@ if __name__ == "__main__":
         test_loader,
         logger,
         subset_size=common_p.subset_size,
+        test_split=common_p.test_split,
+
     )
 
     ###################################
