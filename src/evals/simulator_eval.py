@@ -118,7 +118,7 @@ if __name__ == "__main__":
     ##########################
     # SIMULATOR
     ##########################
-    if common_p.resume_train:
+    if common_p.type_of_sim=="general":
         sim_check, _ = load_wandb_checkpoint(SIM_ALL_CHK, device)
     else:
         sim_check, _ = load_wandb_checkpoint(SIM_DOMAIN_CHK[domain], device)
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         opts=vars(sim_p),
         train_logging_step=1,
         val_logging_step=1,
-        project="simulator-eval",
+        project=f"speaker-eval-{common_p.type_of_sim}",
         tags=common_p.tags,
     )
 

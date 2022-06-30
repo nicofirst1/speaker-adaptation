@@ -15,7 +15,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-common_args=( --subset_size -1 --seed 42 --test_split all)
+common_args=( --subset_size -1 --seed 42 --test_split all --type_of_sim domain)
 
 # if true then use general simulator on all domains
 #common_args=("${common_args[@]}" --resume_train true )
