@@ -7,7 +7,7 @@
 # LIST
 ########
 LISTENER_CHK_DICT = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v153",
+    all="adaptive-speaker/listener/ListenerModel_all:v184",
     appliances="adaptive-speaker/listener/ListenerModel_appliances:v297",
     food="adaptive-speaker/listener/ListenerModel_food:v225",
     indoor="adaptive-speaker/listener/ListenerModel_indoor:v293",

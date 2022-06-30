@@ -21,7 +21,7 @@ source activate uvapb
 #common_args=("${common_args[@]}" --resume_train true )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/data/wandb_dataset.py"
-out_file="simulator_eval_${SLURM_ARRAY_TASK_ID}.log"
+out_file="simulator_data_${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
 echo "Starting the process..."
