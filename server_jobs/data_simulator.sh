@@ -20,7 +20,7 @@ source activate uvapb
 # if true then use general simulator on all domains
 #common_args=("${common_args[@]}" --resume_train true )
 
-trainers_file="${HOME}/pb_speaker_adaptation/src/evals/simulator_eval.py"
+trainers_file="${HOME}/pb_speaker_adaptation/data/wandb_dataset.py"
 out_file="simulator_eval_${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
