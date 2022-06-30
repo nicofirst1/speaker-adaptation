@@ -21,7 +21,7 @@ from src.trainers.simulator_pretrain import (evaluate, get_predictions,
                                              normalize_aux)
 from src.wandb_logging import ListenerLogger
 
-def compute_domain(domain):
+def compute_domain(split):
     """
     Augment dataloader with speaker utterances and embeddings.
     Ran this script once to upload everything on wanbd
@@ -39,6 +39,7 @@ def compute_domain(domain):
 
     common_p = parse_args("list")
     domain=common_p.train_domain
+    common_p.test_split=split
 
     ##########################
     # LISTENER
@@ -191,27 +192,24 @@ def compute_domain(domain):
         subset_size=common_p.subset_size,
     )
 
-    # test
-    splits=['all','seen','unseen']
-
-    for s in splits:
-        load_wandb_dataset(
-            "test",
-            domain,
-            load_params,
-            list_vocab,
-            speaker_model,
-            test_loader,
-            logger,
-            subset_size=common_p.subset_size,
-            test_split=s
-        )
+    load_wandb_dataset(
+        "test",
+        domain,
+        load_params,
+        list_vocab,
+        speaker_model,
+        test_loader,
+        logger,
+        subset_size=common_p.subset_size,
+        test_split=common_p.test_split
+    )
 
 
 
 if __name__ == '__main__':
 
-    # domains=["all",'appliances',"food","vehicles","indoor","outdoor"]
-    #
-    # for domain in domains:
-    compute_domain("")
+
+    splits = ['all', 'seen', 'unseen']
+
+    for s in splits:
+        compute_domain(s)
