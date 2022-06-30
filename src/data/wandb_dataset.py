@@ -21,7 +21,7 @@ from src.trainers.simulator_pretrain import (evaluate, get_predictions,
                                              normalize_aux)
 from src.wandb_logging import ListenerLogger
 
-def compute_domain(split):
+def compute_domain(common_p):
     """
     Augment dataloader with speaker utterances and embeddings.
     Ran this script once to upload everything on wanbd
@@ -37,9 +37,7 @@ def compute_domain(split):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
 
-    common_p = parse_args("list")
     domain=common_p.train_domain
-    common_p.test_split=split
 
     ##########################
     # LISTENER
@@ -132,13 +130,7 @@ def compute_domain(split):
     ##  LOGGER
     ###################################
 
-    logger = ListenerLogger(
-        vocab=speak_vocab,
-        opts=vars(common_p),
-        train_logging_step=1,
-        val_logging_step=1,
-        project="simulator-data",
-    )
+
 
 
 
@@ -210,6 +202,16 @@ if __name__ == '__main__':
 
 
     splits = ['all', 'seen', 'unseen']
+    common_p = parse_args("list")
+
+    logger = ListenerLogger(
+        vocab=None,
+        opts=vars(common_p),
+        train_logging_step=1,
+        val_logging_step=1,
+        project="simulator-data",
+    )
 
     for s in splits:
-        compute_domain(s)
+        common_p.test_split = s
+        compute_domain(common_p)
