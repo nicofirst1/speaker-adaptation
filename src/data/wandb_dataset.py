@@ -38,6 +38,7 @@ def compute_domain(domain):
     img_dim = 2048
 
     common_p = parse_args("list")
+    domain=common_p.domain
 
     ##########################
     # LISTENER
@@ -135,7 +136,7 @@ def compute_domain(domain):
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
-        project="simulator-eval",
+        project="simulator-data",
     )
 
 
@@ -203,14 +204,14 @@ def compute_domain(domain):
             test_loader,
             logger,
             subset_size=common_p.subset_size,
-            test_split=split
+            test_split=s
         )
 
 
 
 if __name__ == '__main__':
 
-    domains=["all",'appliances',"food","vehicles","indoor","outdoor"]
-
-    for domain in domains:
-        compute_domain(domain)
+    # domains=["all",'appliances',"food","vehicles","indoor","outdoor"]
+    #
+    # for domain in domains:
+    compute_domain(domain)
