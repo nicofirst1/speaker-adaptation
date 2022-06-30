@@ -503,7 +503,7 @@ if __name__ == "__main__":
         opts=vars(sim_p),
         train_logging_step=1,
         val_logging_step=1,
-        project=f"speaker-influence-{common_p.type_of_sim}-2",
+        project=f"adaptive-speaker-{common_p.type_of_sim}",
         tags=common_p.tags,
 
     )
