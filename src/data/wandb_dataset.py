@@ -214,4 +214,4 @@ if __name__ == '__main__':
     # domains=["all",'appliances',"food","vehicles","indoor","outdoor"]
     #
     # for domain in domains:
-    compute_domain(domain)
+    compute_domain("")
