@@ -24,8 +24,7 @@ def custom_string2list(tags: str) -> List[str]:
     """
     list_tags = tags.strip("[").strip("]").split(",")
 
-    if len(list_tags)==0:
-        list_tags = []
+    list_tags=[x for x in list_tags if x]
 
     return list_tags
 
