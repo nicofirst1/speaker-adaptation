@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=sim_eval
+#SBATCH --job-name=sim_data
 #SBATCH --cpus-per-task=1
 #SBATCH --time=05:00:00
 #SBATCH --partition=gpu_shared
@@ -20,7 +20,7 @@ source activate uvapb
 # if true then use general simulator on all domains
 #common_args=("${common_args[@]}" --resume_train true )
 
-trainers_file="${HOME}/pb_speaker_adaptation/data/wandb_dataset.py"
+trainers_file="${HOME}/pb_speaker_adaptation/src/data/wandb_dataset.py"
 out_file="simulator_eval_${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
