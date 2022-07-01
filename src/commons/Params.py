@@ -247,7 +247,7 @@ class Params:
             self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
-        valid_type_of_sim = ["domain", "general"]
+        valid_type_of_sim = ["domain", "general","untrained"]
 
         assert (
             self.type_of_sim in valid_type_of_sim

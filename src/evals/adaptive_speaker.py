@@ -489,7 +489,9 @@ if __name__ == "__main__":
         sim_p.device,
     ).to(device)
 
-    sim_model.load_state_dict(sim_check["model_state_dict"])
+    if common_p.type_of_sim!= "untrained":
+        sim_model.load_state_dict(sim_check["model_state_dict"])
+        
     sim_model = sim_model.to(device)
     sim_model = sim_model.eval()
 
@@ -497,6 +499,7 @@ if __name__ == "__main__":
     ##  LOGGER
     ###################################
 
+    flag=common_p.type_of_sim
 
     logger = ListenerLogger(
         vocab=speak_vocab,
@@ -653,32 +656,32 @@ if __name__ == "__main__":
             metadata=sim_p,
         )
 
-    ##################
-    # OOD EVAL
-    ##################
-    print(f"\nEval split for domain all")
-    df = evaluate(
-        val_dl_all,
-        speaker_model,
-        sim_model,
-        list_model,
-        list_vocab,
-        criterion=cel,
-        split="out_domain_eval",
-        lr=common_p.learning_rate,
-        s=common_p.s_iter,
-    )
+        ##################
+        # OOD EVAL
+        ##################
+        print(f"\nEval split for domain all")
+        df = evaluate(
+            val_dl_all,
+            speaker_model,
+            sim_model,
+            list_model,
+            list_vocab,
+            criterion=cel,
+            split="out_domain_eval",
+            lr=common_p.learning_rate,
+            s=common_p.s_iter,
+        )
 
-    ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
+        ### saving df
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
 
-    logger.log_artifact(
-        file_name,
-        f"adaptive_speak_eval_out_domain_{domain}",
-        "csv",
-        metadata=sim_p,
-    )
+        logger.log_artifact(
+            file_name,
+            f"adaptive_speak_eval_out_domain_{domain}",
+            "csv",
+            metadata=sim_p,
+        )
 
     ##################
     # OOD TEST
