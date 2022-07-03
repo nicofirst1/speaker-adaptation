@@ -18,7 +18,35 @@ from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
 
 
-def generate_table(data: List, target_domain: List, s: int) -> wandb.Table:
+def generate_ood_table(df: pd.DataFrame):
+    rows = []
+    columns = ["listener domain", "simulator domain", "target_domain", "golden acc", "original acc", "adapted acc"]
+    ood_accs = {d: 0 for d in logger.domains}
+    for d in ood_accs.keys():
+        # filter out target with this domain
+        ood_df = df[df['target domain'] == d]
+
+        # get acc for this domain
+        golden_acc = ood_df['golden_acc'].mean()
+        original_acc = ood_df['original_acc'].mean()
+
+        # adapted accs are a matrix so remove -1, sum and get mean
+        adapt_acc_idx = df.columns.get_loc('adapted_acc_s0')
+        adapt_acc = ood_df.iloc[:, adapt_acc_idx:]
+        adapt_acc = adapt_acc.replace(-1, 0)
+        adapt_mean = adapt_acc.sum(axis=1).mean()
+
+        # append to rows
+        rows.append(
+            [list_model.domain, sim_model.domain, d, golden_acc, original_acc, adapt_mean]
+        )
+
+
+    table = wandb.Table(columns=columns, data=rows)
+    return table
+
+
+def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
     """
     Create and fill wandb table for logging
     Parameters
@@ -298,7 +326,7 @@ def evaluate(
         row += s_adapted_list_outs
         row += s_adapted_sim_outs
         row += [golden_acc]
-        row += [original_accs]
+        row += [original_accs[-1]]
         row += s_accs
 
         csv_data.append(row)
@@ -339,7 +367,8 @@ def evaluate(
         )
     )
 
-    table = generate_table(table_data, target_domain, s)
+    hypo_table = generate_hypo_table(table_data, target_domain, s)
+    ood_table=generate_ood_table(df)
 
     ##############################
     # METRICS
@@ -357,7 +386,8 @@ def evaluate(
         original_accs=original_accs,
         modified_accs=modified_accs,
         golden_accs=golden_accs,
-        hypo_table=table,
+        hypo_table=hypo_table,
+        ood_table=ood_table,
         loss=loss,
         mean_s=mean_s,
     )
@@ -491,7 +521,7 @@ if __name__ == "__main__":
 
     if common_p.type_of_sim!= "untrained":
         sim_model.load_state_dict(sim_check["model_state_dict"])
-        
+
     sim_model = sim_model.to(device)
     sim_model = sim_model.eval()
 
@@ -698,6 +728,11 @@ if __name__ == "__main__":
         lr=common_p.learning_rate,
         s=common_p.s_iter,
     )
+
+
+
+
+
 
     ### saving df
     file_name = "tmp.csv"
