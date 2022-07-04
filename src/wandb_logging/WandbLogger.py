@@ -90,9 +90,9 @@ class WandbLogger:
     ):
         raise NotImplemented()
 
-    def watch_model(self, models: List[nn.Module]):
+    def watch_model(self, models: List[nn.Module],log_freq:int=1000):
         for idx, mod in enumerate(models):
-            wandb.watch(mod, log_freq=1000, log_graph=True, idx=idx, log="all")
+            wandb.watch(mod, log_freq=log_freq, log_graph=True, idx=idx, log="all")
 
     def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
         self.epochs = epoch_id

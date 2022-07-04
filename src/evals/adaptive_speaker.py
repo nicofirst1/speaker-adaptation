@@ -544,6 +544,8 @@ if __name__ == "__main__":
     metric = sim_p.metric
     sweep_config = wandb.config
 
+    logger.watch_model([sim_model],log_freq=10)
+
     ###################################
     ##  Get speaker dataloader
     ###################################
