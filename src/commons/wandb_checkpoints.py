@@ -18,7 +18,7 @@ LISTENER_CHK_DICT = dict(
 ########
 # SPEAK
 ########
-SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v20"
+SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
 ########
 # SIM
