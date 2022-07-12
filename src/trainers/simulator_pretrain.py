@@ -77,7 +77,7 @@ def get_predictions(
 
     # Losses and preds
     list_loss = cel(list_out, targets)
-    sim_list_loss = cel(sim_out, list_out)
+    sim_list_loss = kl(sim_out, list_out)
     sim_loss = cel(sim_out, targets)
     loss = sim_list_loss
 
@@ -305,7 +305,7 @@ if __name__ == "__main__":
 
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-    criterion = nn.KLDivLoss(reduction=sim_p.reduction)
+    kl = nn.KLDivLoss(reduction=sim_p.reduction)
 
     ###################################
     ## RESUME
@@ -448,7 +448,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, criterion, cel, list_vocab
+                data, list_model, sim_model, kl, cel, list_vocab
             )
 
             auxs.append(aux)
@@ -483,7 +483,7 @@ if __name__ == "__main__":
                 list_vocab,
                 split="eval",
                 cel=cel,
-                kl=criterion,
+                kl=kl,
             )
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
 
@@ -500,7 +500,7 @@ if __name__ == "__main__":
                 list_vocab,
                 split="test",
                 cel=cel,
-                kl=criterion,
+                kl=kl,
             )
 
             test_accuracy, test_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
