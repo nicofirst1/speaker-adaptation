@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --job-name=sp-lst
 #SBATCH --cpus-per-task=1
-#SBATCH --time=2:00:00
+#SBATCH --time=00:20:00
 #SBATCH --partition=gpu_shared
 #SBATCH --gpus-per-node=1
 
