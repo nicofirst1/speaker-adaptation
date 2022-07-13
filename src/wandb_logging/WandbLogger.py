@@ -22,7 +22,11 @@ def custom_string2list(tags: str) -> List[str]:
         A list of tags.
 
     """
-    list_tags = tags.strip("[").strip("]").split(",")
+
+    if isinstance(tags,list):
+        list_tags=tags
+    else:
+        list_tags = tags.strip("[").strip("]").split(",")
 
     list_tags=[x for x in list_tags if x]
 
