@@ -29,7 +29,7 @@ def normalize_aux(aux, data_length, max_targets=3):
 
     aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
 
-    aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / data_length
+    aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / np.sum(aux["neg_pred_len"])
 
     # flatten nested lists
     aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
@@ -45,7 +45,7 @@ def get_predictions(
     data: Dict,
     list_model: torch.nn.Module,
     sim_model: torch.nn.Module,
-    kl: torch.nn.Module,
+    loss_f: torch.nn.Module,
     cel: torch.nn.Module,
     list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
@@ -77,7 +77,7 @@ def get_predictions(
 
     # Losses and preds
     list_loss = cel(list_out, targets)
-    sim_list_loss = kl(sim_out, list_out)
+    sim_list_loss = loss_f(sim_out, list_out)
     sim_loss = cel(sim_out, targets)
     loss = sim_list_loss
 
@@ -89,8 +89,9 @@ def get_predictions(
     sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()
     list_target_accuracy = torch.eq(list_preds, targets).sum()
     sim_target_accuracy = torch.eq(sim_preds, targets).sum()
+    list_neg_preds=list_preds[torch.ne(list_preds, targets)]
     sim_list_neg_accuracy = torch.eq(
-        list_preds[torch.ne(list_preds, targets)],
+        list_neg_preds,
         sim_preds[torch.ne(list_preds, targets)],
     ).sum()
 
@@ -132,6 +133,7 @@ def get_predictions(
         sim_list_loss=sim_list_loss.detach().cpu().item(),
         sim_loss=sim_loss.detach().cpu().item(),
         target=target,
+        neg_pred_len=len(list_neg_preds)
     )
 
     return loss, sim_list_accuracy, aux
@@ -142,9 +144,9 @@ def evaluate(
     sim_model: torch.nn.Module,
     list_model: torch.nn.Module,
     list_vocab: Vocab,
+    loss_f:torch.nn.Module,
     split: str,
     cel: torch.nn.CrossEntropyLoss,
-    kl: Optional[torch.nn.KLDivLoss] = None,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -162,7 +164,7 @@ def evaluate(
         description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, kl, cel, list_vocab=list_vocab
+            data, list_model, sim_model, loss_f, cel, list_vocab=list_vocab
         )
 
         auxs.append(aux)
@@ -281,6 +283,7 @@ if __name__ == "__main__":
         # for debug
         sim_p.subset_size = common_p.subset_size
         sim_p.debug = common_p.debug
+        sim_p.pretrain_loss=common_p.pretrain_loss
 
         sim_p.reset_paths()
 
@@ -305,7 +308,21 @@ if __name__ == "__main__":
 
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-    kl = nn.KLDivLoss(reduction=sim_p.reduction)
+    kl_loss = nn.KLDivLoss(reduction=sim_p.reduction,log_target=True)
+
+    def logit2dist(preds,target):
+        preds=torch.log_softmax(preds,dim=1)
+        target=torch.log_softmax(target,dim=1)
+        loss=kl_loss(preds,target)
+
+        return loss
+
+    kl=logit2dist
+
+    if sim_p.pretrain_loss=="ce":
+        loss_f=cel
+    else:
+        loss_f=kl
 
     ###################################
     ## RESUME
@@ -448,7 +465,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, kl, cel, list_vocab
+                data, list_model, sim_model, loss_f, cel, list_vocab
             )
 
             auxs.append(aux)
@@ -481,9 +498,9 @@ if __name__ == "__main__":
                 sim_model,
                 list_model,
                 list_vocab,
+                loss_f,
                 split="eval",
                 cel=cel,
-                kl=kl,
             )
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
 
@@ -498,9 +515,9 @@ if __name__ == "__main__":
                 sim_model,
                 list_model,
                 list_vocab,
+                loss_f,
                 split="test",
                 cel=cel,
-                kl=kl,
             )
 
             test_accuracy, test_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]

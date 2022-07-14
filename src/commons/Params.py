@@ -354,6 +354,9 @@ class SimulatorArguments(Params):
     metric: Optional[str] = "accs"
     s_iter: Optional[int] = 1
     log_train: Optional[bool] = False
+    # pretrain loss for simulator == listener out,
+    # can be either cross entropy [ce] or Kullback-Leibler Divergence [kl]
+    pretrain_loss : Optional[str] = "ce"
 
     def __init__(self):
         super(SimulatorArguments, self).__init__()
@@ -378,6 +381,12 @@ class SimulatorArguments(Params):
         assert (
             self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
+
+        valid_pretrain_loss=['ce','kl']
+
+        assert (
+                self.pretrain_loss in valid_pretrain_loss
+        ), f"Invalid pretrain loss '{self.pretrain_loss}' not in '{valid_pretrain_loss}'"
 
         if self.embed_type == "sratch":
             assert (
