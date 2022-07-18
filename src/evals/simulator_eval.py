@@ -10,11 +10,11 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CHK,
-                         SIM_DOMAIN_CHK, SPEAKER_CHK, EarlyStopping,
+from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
+                         SIM_DOMAIN_CE_CHK, SPEAKER_CHK, EarlyStopping,
                          get_dataloaders, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model)
+                         save_model, get_sim_chk)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.trainers.simulator_pretrain import (evaluate, get_predictions,
@@ -118,10 +118,9 @@ if __name__ == "__main__":
     ##########################
     # SIMULATOR
     ##########################
-    if common_p.type_of_sim=="general":
-        sim_check, _ = load_wandb_checkpoint(SIM_ALL_CHK, device)
-    else:
-        sim_check, _ = load_wandb_checkpoint(SIM_DOMAIN_CHK[domain], device)
+
+    check=get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
+    sim_check, _ = load_wandb_checkpoint(check, device)
 
     # load args
     sim_p = sim_check["args"]

@@ -10,8 +10,8 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CHK,
-                         SIM_DOMAIN_CHK, SPEAKER_CHK, EarlyStopping,
+from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
+                         SIM_DOMAIN_CE_CHK, SPEAKER_CHK, EarlyStopping,
                          get_dataloaders, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
                          save_model)

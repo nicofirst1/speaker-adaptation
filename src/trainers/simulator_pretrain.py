@@ -9,7 +9,7 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CHK,
+from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
                          merge_dict, parse_args, save_model)
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     # SIMULATOR
     ##########################
     if common_p.resume_train:
-        sim_check, _ = load_wandb_checkpoint(SIM_ALL_CHK, device)
+        sim_check, _ = load_wandb_checkpoint(SIM_ALL_CE_CHK, device)
         # load args
         sim_p = sim_check["args"]
         sim_p.train_domain = domain

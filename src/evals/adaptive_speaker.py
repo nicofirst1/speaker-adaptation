@@ -9,9 +9,9 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 import wandb
-from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CHK, SIM_DOMAIN_CHK,
+from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CE_CHK, SIM_DOMAIN_CE_CHK,
                          SPEAKER_CHK, get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args)
+                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -486,11 +486,10 @@ if __name__ == "__main__":
     ##########################
 
     # symmetric vs asymmetric setup
-    sim_type = (
-        SIM_ALL_CHK if common_p.type_of_sim == "general" else SIM_DOMAIN_CHK[domain]
-    )
 
-    sim_check, _ = load_wandb_checkpoint(sim_type, device)
+    check = get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
+    sim_check, _ = load_wandb_checkpoint(check, device)
+
     # load args
     sim_p = sim_check["args"]
     sim_p.train_domain = domain
@@ -504,6 +503,7 @@ if __name__ == "__main__":
     sim_p.type_of_sim = common_p.type_of_sim
     sim_p.seed = seed
     sim_p.test_split= common_p.test_split
+    sim_p.pretrain_loss=common_p.pretrain_loss
 
     sim_p.reset_paths()
 

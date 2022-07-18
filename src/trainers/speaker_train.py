@@ -11,7 +11,7 @@ from bert_score import score
 from nlgeval import NLGEval
 from torch import nn, optim
 
-from src.commons import (SIM_ALL_CHK, SPEAKER_CHK, EarlyStopping,
+from src.commons import (SIM_ALL_CE_CHK, SPEAKER_CHK, EarlyStopping,
                          get_dataloaders, load_wandb_checkpoint, mask_attn,
                          parse_args, save_model)
 from src.data.dataloaders import Vocab

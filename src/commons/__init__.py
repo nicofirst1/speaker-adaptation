@@ -23,12 +23,15 @@ __all__ = [
     # wandb checkpoints
     "LISTENER_CHK_DICT",
     "SPEAKER_CHK",
-    "SIM_ALL_CHK",
-    "SIM_DOMAIN_CHK",
+    "SIM_ALL_CE_CHK",
+    "SIM_ALL_KL_CHK",
+    "SIM_DOMAIN_CE_CHK",
+    "SIM_DOMAIN_KL_CHK",
     "DATASET_CHK",
     "VAL_DATASET_CHK",
     "TEST_ALL_DATASET_CHK",
     "TRAIN_DATASET_CHK",
+    "get_sim_chk"
 
 ]
 

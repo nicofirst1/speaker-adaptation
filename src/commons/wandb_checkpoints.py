@@ -23,18 +23,45 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 ########
 # SIM
 ########
-SIM_ALL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:latest"
+SIM_ALL_CE_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1215"
+SIM_ALL_KL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1140"
 
 
-SIM_DOMAIN_CHK = dict(
+SIM_DOMAIN_CE_CHK = dict(
     # epoch 83
-    all=SIM_ALL_CHK,
+    all=SIM_ALL_CE_CHK,
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v962",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v971",
     indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v778",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v679",
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v798",
 )
+SIM_DOMAIN_KL_CHK = dict(
+    # epoch 20
+    all=SIM_ALL_KL_CHK,
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:",
+    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v1218",
+    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v934",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v843",
+    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v932",
+)
+
+
+def get_sim_chk(type_of_sim, pretrain_loss, domain):
+    """
+    Return the correct simulator checkpoint
+    """
+    if type_of_sim=="general" and pretrain_loss=="ce":
+        return SIM_ALL_CE_CHK
+    elif type_of_sim=="general":
+        return SIM_ALL_KL_CHK
+
+    if type_of_sim=="domain" and pretrain_loss=="ce":
+        return SIM_DOMAIN_CE_CHK[domain]
+    elif type_of_sim=="domain":
+        return SIM_DOMAIN_KL_CHK[domain]
+
+
 
 ########
 # DATA
