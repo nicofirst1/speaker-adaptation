@@ -23,7 +23,7 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 ########
 # SIM
 ########
-SIM_ALL_CE_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1215"
+SIM_ALL_CE_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1346"
 SIM_ALL_KL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1140"
 
 
@@ -32,9 +32,9 @@ SIM_DOMAIN_CE_CHK = dict(
     all=SIM_ALL_CE_CHK,
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v962",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v971",
-    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v778",
+    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v1036",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v679",
-    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v798",
+    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v1058",
 )
 SIM_DOMAIN_KL_CHK = dict(
     # epoch 20
