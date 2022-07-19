@@ -311,7 +311,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([sim_model],log_freq=100)
+    logger.watch_model([sim_model])
 
     ###################################
     ##  Get speaker dataloader
