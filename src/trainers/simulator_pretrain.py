@@ -333,6 +333,7 @@ if __name__ == "__main__":
     load_params = {
         "batch_size": bs,
         "shuffle": shuffle,
+        "drop_last":True,
         "collate_fn": AbstractDataset.get_collate_fn(
             speaker_model.device,
             list_vocab["<sos>"],
