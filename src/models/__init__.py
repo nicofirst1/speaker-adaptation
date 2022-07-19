@@ -4,6 +4,7 @@ from .listener.ListenerModel_hist import ListenerModel_hist
 from .listener.ListenerModel_no_hist import ListenerModel_no_hist
 from .simualator.model_simulator_hist import SimulatorModel_hist
 from .simualator.model_simulator_no_hist import SimulatorModel_no_hist
+from .simualator.model_simulator_binary import SimulatorModel_binary
 from .speaker.model_speaker_hist import SpeakerModel_hist
 from .speaker.model_speaker_no_hist import SpeakerModel_no_hist
 
@@ -12,28 +13,31 @@ __all__ = [
     "SpeakerModel_hist",
     "SimulatorModel_hist",
     "SimulatorModel_no_hist",
+    "SimulatorModel_no_hist",
     "ListenerModel_no_hist",
     "SpeakerModel_no_hist",
+    "SimulatorModel_binary",
 ]
 
 
-def get_model(model_type: Literal["list", "speak", "sim"], model_hist: str):
-    model_hist = "hist" == model_hist
+def get_model(model: Literal["list", "speak", "sim"], model_type: str):
 
-    if model_type == "list":
-        if model_hist:
+    if model == "list":
+        if model_type=="hist":
             return ListenerModel_hist
-        else:
+        elif model_type == "no_hist":
             return ListenerModel_no_hist
-    elif model_type == "speak":
-        if model_hist:
+    elif model == "speak":
+        if model_type=="hist":
             return SpeakerModel_hist
-        else:
+        elif model_type=="no_hist":
             return SpeakerModel_no_hist
-    if model_type == "sim":
-        if model_hist:
+    if model == "sim":
+        if model_type=="hist":
             return SimulatorModel_hist
-        else:
+        elif model_type== "no_hist":
             return SimulatorModel_no_hist
+        elif model_type== "binary":
+            return SimulatorModel_binary
     else:
-        raise KeyError(f"No mdoel type named '{model_type}'")
+        raise KeyError(f"No model type named '{model}'")

@@ -12,7 +12,7 @@ import wandb
 from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model)
+                         merge_dict, parse_args, save_model, SimLoss)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -45,8 +45,7 @@ def get_predictions(
     data: Dict,
     list_model: torch.nn.Module,
     sim_model: torch.nn.Module,
-    loss_f: torch.nn.Module,
-    cel: torch.nn.Module,
+    loss_f: SimLoss,
     list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
@@ -76,38 +75,15 @@ def get_predictions(
     targets = targets.to(device)
 
     # Losses and preds
-    list_loss = cel(list_out, targets)
-    sim_list_loss = loss_f(sim_out, list_out)
-    sim_loss = cel(sim_out, targets)
+    list_loss = loss_f.ce(list_out, targets)
+    sim_list_loss, aux = loss_f(sim_out,targets, list_out)
     loss = sim_list_loss
 
-    list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
-    sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
-
-    # accuracy
-    targets = targets.squeeze()
-    sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()
-    list_target_accuracy = torch.eq(list_preds, targets).sum()
-    sim_target_accuracy = torch.eq(sim_preds, targets).sum()
-    list_neg_preds=list_preds[torch.ne(list_preds, targets)]
-    sim_list_neg_accuracy = torch.eq(
-        list_neg_preds,
-        sim_preds[torch.ne(list_preds, targets)],
-    ).sum()
-
-    sim_list_accuracy = sim_list_accuracy.tolist()
-    list_target_accuracy = list_target_accuracy.tolist()
-    sim_target_accuracy = sim_target_accuracy.tolist()
-    sim_list_neg_accuracy = sim_list_neg_accuracy.tolist()
-
-    list_preds = list_preds.tolist()
-    sim_preds = sim_preds.tolist()
-
     # logging
-    rnd_idx = np.random.randint(0, batch_size)
-    hypo = list_vocab.decode(utterance[rnd_idx])
-    caption = data["orig_utterance"][rnd_idx]
-    target = data["image_set"][rnd_idx][data["target"][rnd_idx]]
+    # rnd_idx = np.random.randint(0, batch_size)
+    # hypo = list_vocab.decode(utterance[rnd_idx])
+    # caption = data["orig_utterance"][rnd_idx]
+    # target = data["image_set"][rnd_idx][data["target"][rnd_idx]]
     # target = logger.img_id2path[str(target)]
     # target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
 
@@ -122,21 +98,10 @@ def get_predictions(
     #         show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
     #         a=1
 
-    aux = dict(
-        sim_preds=sim_preds,
-        list_preds=list_preds,
-        sim_list_accuracy=sim_list_accuracy,
-        list_target_accuracy=list_target_accuracy,
-        sim_target_accuracy=sim_target_accuracy,
-        sim_list_neg_accuracy=sim_list_neg_accuracy,
-        list_loss=list_loss.detach().cpu().item(),
-        sim_list_loss=sim_list_loss.detach().cpu().item(),
-        sim_loss=sim_loss.detach().cpu().item(),
-        target=target,
-        neg_pred_len=len(list_neg_preds)
-    )
+    aux["list_loss"]=list_loss.detach().cpu().item()
+    aux["sim_list_loss"] = sim_list_loss.detach().cpu().item()
 
-    return loss, sim_list_accuracy, aux
+    return loss, aux['sim_list_accuracy'], aux
 
 
 def evaluate(
@@ -164,7 +129,7 @@ def evaluate(
         description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, loss_f, cel, list_vocab=list_vocab
+            data, list_model, sim_model, loss_f, list_vocab=list_vocab
         )
 
         auxs.append(aux)
@@ -308,21 +273,8 @@ if __name__ == "__main__":
 
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-    kl_loss = nn.KLDivLoss(reduction=sim_p.reduction,log_target=True)
+    loss_f=SimLoss( common_p.pretrain_loss,common_p.reduction)
 
-    def logit2dist(preds,target):
-        preds=torch.log_softmax(preds,dim=1)
-        target=torch.log_softmax(target,dim=1)
-        loss=kl_loss(preds,target)
-
-        return loss
-
-    kl=logit2dist
-
-    if sim_p.pretrain_loss=="ce":
-        loss_f=cel
-    else:
-        loss_f=kl
 
     ###################################
     ## RESUME
@@ -465,7 +417,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, loss_f, cel, list_vocab
+                data, list_model, sim_model, loss_f, list_vocab
             )
 
             auxs.append(aux)

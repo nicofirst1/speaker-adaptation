@@ -6,6 +6,7 @@ from .model_utils import (get_domain_accuracy, hypo2utterance,
                           save_model)
 from .Params import parse_args
 from .wandb_checkpoints import *
+from .Losses import SimLoss
 
 __all__ = [
     "get_dataloaders",
@@ -31,7 +32,9 @@ __all__ = [
     "VAL_DATASET_CHK",
     "TEST_ALL_DATASET_CHK",
     "TRAIN_DATASET_CHK",
-    "get_sim_chk"
+    "get_sim_chk",
 
+    #Losses
+    "SimLoss",
 ]
 

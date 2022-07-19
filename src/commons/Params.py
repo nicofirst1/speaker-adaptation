@@ -369,6 +369,9 @@ class SimulatorArguments(Params):
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
+        if self.model_type=="binary":
+            self.pretrain_loss="bce"
+
     def check_parameters(self):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
@@ -376,13 +379,13 @@ class SimulatorArguments(Params):
             self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
-        valis_type = ["hist", "no_hist"]
+        valis_type = ["hist", "no_hist","binary"]
 
         assert (
             self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
-        valid_pretrain_loss=['ce','kl']
+        valid_pretrain_loss=['ce','kl',"bce"]
 
         assert (
                 self.pretrain_loss in valid_pretrain_loss
@@ -441,7 +444,7 @@ class SpeakerArguments(Params):
 
     def check_parameters(self):
         super(SpeakerArguments, self).check_parameters()
-        valis_type = ["hist", "no_hist"]
+        valis_type = ["hist", "no_hist","binary"]
 
         assert (
             self.model_type in valis_type

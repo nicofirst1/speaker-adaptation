@@ -7,7 +7,7 @@ from src.models.listener.ListenerModel_hist import ListenerModel_hist
 from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
 
 
-class SimulatorModel_no_hist(ListenerModel_no_hist):
+class SimulatorModel_binary(ListenerModel_no_hist):
     def __init__(
         self,
         vocab_size,
@@ -19,7 +19,8 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
         domain,
         device,
     ):
-        super(SimulatorModel_no_hist, self).__init__(
+
+        super(SimulatorModel_binary, self).__init__(
             vocab_size,
             embedding_dim,
             hidden_dim,
@@ -29,6 +30,9 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
             domain,
             device,
         )
+        self.binary_layer=torch.nn.Linear(6,1)
+        self.init_weights()  # initialize layers
+
 
     def forward(
         self,
@@ -96,6 +100,7 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
         dot = torch.bmm(
             separate_images, attended_hids.view(batch_size, self.hidden_dim, 1)
         )
-        #[batch, 6, 1]
 
-        return dot
+        out = self.binary_layer(dot.squeeze())
+
+        return out
