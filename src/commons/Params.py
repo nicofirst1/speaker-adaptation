@@ -369,7 +369,7 @@ class SimulatorArguments(Params):
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
-        if self.model_type=="binary":
+        if self.model_type=="binary" and self.pretrain_loss not in ['fbce',"bce"]:
             self.pretrain_loss="bce"
 
     def check_parameters(self):
@@ -385,7 +385,7 @@ class SimulatorArguments(Params):
             self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
-        valid_pretrain_loss=['ce','kl',"bce"]
+        valid_pretrain_loss=['ce','kl',"bce",'fbce']
 
         assert (
                 self.pretrain_loss in valid_pretrain_loss
