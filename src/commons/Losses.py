@@ -12,7 +12,7 @@ class SimLoss(torch.nn.Module):
         self.bce_loss = nn.BCEWithLogitsLoss(reduction="none")
 
         self.fbce_alpha=0.4
-        self.fbce_gamma=1
+        self.fbce_gamma=2
 
         self.loss_type = loss_type
         self.reduction=reduction
@@ -41,6 +41,15 @@ class SimLoss(torch.nn.Module):
         return loss
 
     def focal_bce(self, preds, targets, list_out):
+        """Binary focal loss.
+
+            Per https://discuss.pytorch.org/t/is-this-a-correct-implementation-for-focal-loss-in-pytorch/43327/5 with
+            improvements for alpha.
+            :param bce_loss: Binary Cross Entropy loss, a torch tensor.
+            :param targets: a torch tensor containing the ground truth, 0s and 1s.
+            :param gamma: focal loss power parameter, a float scalar.
+            :param alpha: weight of the class indicated by 1, a float scalar.
+            """
         bce_loss=self.bce(preds,targets,list_out, use_reduction=False)
         p_t = torch.exp(-bce_loss)
         alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)  # alpha if target = 1 and 1 - alpha if target = 0
