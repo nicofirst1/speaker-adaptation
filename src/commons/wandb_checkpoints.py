@@ -1,4 +1,3 @@
-
 ##########################
 # WANDB CHECKPOINTS
 ##########################
@@ -26,7 +25,6 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 SIM_ALL_CE_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1346"
 SIM_ALL_KL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1140"
 
-
 SIM_DOMAIN_CE_CHK = dict(
     # epoch 83
     all=SIM_ALL_CE_CHK,
@@ -51,16 +49,15 @@ def get_sim_chk(type_of_sim, pretrain_loss, domain):
     """
     Return the correct simulator checkpoint
     """
-    if type_of_sim=="general" and pretrain_loss=="ce":
+    if type_of_sim == "general" and pretrain_loss == "ce":
         return SIM_ALL_CE_CHK
-    elif type_of_sim=="general":
+    elif type_of_sim == "general":
         return SIM_ALL_KL_CHK
 
-    if type_of_sim=="domain" and pretrain_loss=="ce":
+    if type_of_sim == "domain" and pretrain_loss == "ce":
         return SIM_DOMAIN_CE_CHK[domain]
-    elif type_of_sim=="domain":
+    elif type_of_sim == "domain":
         return SIM_DOMAIN_KL_CHK[domain]
-
 
 
 ########
@@ -74,7 +71,6 @@ TRAIN_DATASET_CHK = dict(
     outdoor="adaptive-speaker/simulator-data/train_dataloader_outdoor:latest",
     vehicles="adaptive-speaker/simulator-data/train_dataloader_vehicles:latest",
 )
-
 
 VAL_DATASET_CHK = dict(
     all="adaptive-speaker/simulator-data/val_dataloader_all:latest",
@@ -93,7 +89,6 @@ TEST_ALL_DATASET_CHK = dict(
     outdoor="adaptive-speaker/simulator-data/test_all_dataloader_outdoor:latest",
     vehicles="adaptive-speaker/simulator-data/test_all_dataloader_vehicles:latest",
 )
-
 
 TEST_SEEN_DATASET_CHK = dict(
     all="adaptive-speaker/simulator-data/test_seen_dataloader_all:latest",
