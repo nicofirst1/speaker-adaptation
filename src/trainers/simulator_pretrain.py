@@ -111,7 +111,6 @@ def evaluate(
     list_vocab: Vocab,
     loss_f:torch.nn.Module,
     split: str,
-    cel: torch.nn.CrossEntropyLoss,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -271,8 +270,7 @@ if __name__ == "__main__":
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
-    cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
+    optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
     loss_f=SimLoss( common_p.pretrain_loss,common_p.reduction)
 
 
@@ -313,7 +311,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([sim_model])
+    logger.watch_model([sim_model],log_freq=100)
 
     ###################################
     ##  Get speaker dataloader
@@ -452,7 +450,6 @@ if __name__ == "__main__":
                 list_vocab,
                 loss_f,
                 split="eval",
-                cel=cel,
             )
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
 
@@ -469,7 +466,6 @@ if __name__ == "__main__":
                 list_vocab,
                 loss_f,
                 split="test",
-                cel=cel,
             )
 
             test_accuracy, test_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]

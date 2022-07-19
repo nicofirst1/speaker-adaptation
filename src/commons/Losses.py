@@ -5,7 +5,6 @@ from torch import nn
 class SimLoss(torch.nn.Module):
 
     def __init__(self, loss_type, reduction):
-        
 
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction=reduction)
@@ -25,12 +24,8 @@ class SimLoss(torch.nn.Module):
         return loss
 
     def bce(self, preds, targets, list_out):
-        list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
-        targets = targets.squeeze()
+        list_preds = torch.argmax(list_out, dim=1)
         list_target_accuracy = torch.eq(list_preds, targets).float()
-
-        if preds.ndim != list_target_accuracy.ndim:
-            preds = preds.squeeze()
         loss = self.bce_loss(preds, list_target_accuracy)
         return loss
 
@@ -56,10 +51,12 @@ class SimLoss(torch.nn.Module):
         if self.loss_type == "bce":
 
             # sim out is logits, need bool
-            sim_preds = torch.sigmoid(preds).bool()
+            sim_preds = torch.sigmoid(preds)
+            sim_preds = torch.round(sim_preds)
+            sim_preds = sim_preds.bool()
 
             if sim_preds.ndim != 1:
-                sim_preds = sim_preds.squeeze()
+                sim_preds = sim_preds.squeeze(dim=-1)
 
             sim_list_accuracy = torch.eq(list_target_accuracy, sim_preds).sum()
             sim_target_accuracy = sim_list_accuracy
@@ -70,7 +67,6 @@ class SimLoss(torch.nn.Module):
                 list_neg_preds,
                 sim_preds[neg_idx],
             ).sum()
-
 
         else:
             sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
