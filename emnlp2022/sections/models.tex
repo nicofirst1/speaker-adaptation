@@ -7,26 +7,39 @@
 
 \note{half a page}\note{Ece}\\
 \note{Include Experimental Setup (Nico + Ece), possibly as a separate short section; all together this should not fill up page 5}
+%In this section, we first explain the general experimental setup and then go into detail about the implementations of the speaker, listener and simulator models as well as the adaptation scheme.
+%------------------------------------------
+\subsection{Experimental Setup}
+\label{sec:exps}
+%------------------------------------------
+%Model implementation / details / modifications
+%\ece{do we need to go into this much detail regarding the speaker and the listener models? if not, which parts should we cut off?} \san{they can probably be shortened, but I think this level of detail is good!}
+We build on the referring utterance generation and resolution models proposed by~\citet{takmaz-etal-2020-refer} with modifications as explained below. %Additionally, we filter the data and separate it into domains. 
+We represent the images by their ResNet-152 features~\cite{resnet2016}. %\ece{same as RRR, also add CLIP?}
+See Appendix X for the hyperparameters and more details about the training of each model type.
+
+%The speaker observes 6 images, knows which one is the target image, and remembers referring expressions previously uttered to describe that image. Given this input, the speaker produces a referring utterance. The listener observes (the same) 6 images, receives the speaker's referring utterance, and remembers the referring expressions used previously for all images. Given this input, the listener selects the most likely image.
+ 
+%We train a proficient speaker model and domain-specific listener models with true---visually contextualised---referring utterances. During training, the speaker model also learns to predict the behaviour of different listeners, and at testing time it can use this ability to infer the semantic knowledge of the listener and to adapt its utterances accordingly. 
 
 
-We construct a speaker model and a listener model. The speaker observes 6 images, knows which one is the target image, and remembers referring expressions previously uttered to describe that image. Given this input, the speaker produces a referring utterance. The listener observes (the same) 6 images, receives the speaker's referring utterance, and remembers the referring expressions used previously for all images. Given this input, the listener selects the most likely image.
-We train a proficient speaker model and domain-specific listener models with true---visually contextualised---referring utterances. During training, the speaker model also learns to predict the behaviour of different listeners, and at testing time it can use this ability to infer the semantic knowledge of the listener and to adapt its utterances accordingly. 
-
-
-We build upon the models presented by \citet{takmaz-etal-2020-refer}. 
 
 %------------------------------------------
 \subsection{Speaker}
 \label{sec:speaker}
 %------------------------------------------
 
-The Speaker generates a referring utterance given (a) the \emph{visual context} in the current game round made up of $6$ images from the perspective of the player who produced the utterance, (b) the \emph{target} among those images, and (c) the \emph{previous co-referring utterances} in the chain (if any). 
+As our speaker model, we use the ReRef model proposed by \citet{takmaz-etal-2020-refer}, which follows the encoder-decoder architecture. % to capture lexical entrainment. %\ece{common ground, conceptual pacts, memory?} 
+%This model generates a new utterance referring to a target image in the visual context, taking into account the previous utterances to the same image in the chain. 
+The encoder is a bidirectional LSTM initialized with the representation of the visual context and the target image. If a previous utterance to the target exists in the chain, 
+the encoder takes the utterance as input. Otherwise, it takes in a special token. In our model, we only use this special token and do not employ ground truth previous utterances, as they may complicate the adaptation process. The final hidden states of the encoder from both directions initialize the unidirectional LSTM decoder. The decoder generates the next utterance via beam search. We train the model from scratch using our dataset and optimize the model with respect to Cross Entropy Loss with the Adam optimizer. We select the best model based on BERTScore F1 on the validation set. 
+
+%This model simulates a speaker who is able to produce subsequent references to a target image in accordance with what has been established in the conversational common ground \cite{Clark1996,BrennanClark1996}.  
+%The Speaker generates a referring utterance given (a) the \emph{visual context} in the current game round made up of $6$ images from the perspective of the player who produced the utterance, (b) the \emph{target} among those images, and (c) the \emph{previous co-referring utterances} in the chain (if any). 
 
 
-We use the ReRef model proposed and implemeted by \citet{takmaz-etal-2020-refer}, which generates a new utterance conditioned on both the visual and the linguistic context. This model simulates a speaker who is able to produce subsequent references to a target image in accordance with what has been established in the conversational common ground \cite{Clark1996,BrennanClark1996}.  
-
-The encoder is a one-layer bidirectional LSTM... The decoder is a unidirectional LSTM... We use nucleus sampling rather than beam-search, with parameters ...
-
+%Speaker BLEU Rogue BERTScore NLG metrics
+%Speaker generated utterances- accuracy on listeners  
 
 
 %------------------------------------------
@@ -34,17 +47,31 @@ The encoder is a one-layer bidirectional LSTM... The decoder is a unidirectional
 \label{sec:listener}
 %------------------------------------------
 
-The Listeners try to guess the correct image given the Speaker's referring utterance, the visual context, and the previous co-referring utterances.
-
-
-We use the Listener model proposed and implemeted by \citet{takmaz-etal-2020-refer}. Given an utterance referring to a target image and a $6$-image visual context, this model predicts the target image.
-
-Each candidate image is represented by its ResNet-152 features~\cite{resnet2016}. To pick a referent, we take the dot product between the multimodal representation of the input utterance and each of the candidate image representations. The image with the highest dot-product value is the one chosen by the model. 
+We base our listener model on the reference resolution model proposed by \citet{takmaz-etal-2020-refer} in which the utterance is encoded via BERT~\citep{devlin-etal-2019-bert}. Instead of BERT embeddings, we use word embeddings trained from scratch to ensure that the listeners are genuinely domain-specific. %control for the domain-specificity of the learned embeddings \san{to ensure that the listener is genuinely domain-specific}. 
+We concatenate the word embeddings with the representation of the visual context and apply attention over these multimodal representations to obtain the context vector. %The candidate images are also represented multimodally by taking into account previous utterances referring to them in the game \ece{this would no longer apply if we opt for removing history from the listeners/simulators for the sake of adaptation}. 
+The listener then selects the target image by comparing the context vector to the representation of the candidate images via dot-product. We train the models with respect to Cross Entropy Loss with the Adam optimizer and select the best model based on resolution accuracy. 
 
 %------------------------------------------
-\subsection{Adaptive Speaker - PPLM}
+\subsection{Simulators and Speaker Adaptation}
 \label{sec:adapts}
 %------------------------------------------
-PPLM in more detail
 
-adaptive speaker trained with the simulator
+The simulator is meant to reflect the idea that the speaker has of the listener. As such, it is a version of the listener model in terms of its architecture. %as it is trained to predict listener behavior \san{I would be more intuitive: the simulator is meant to reflect the idea that the speaker has of the listener. As such, it has the same architecture of the actual listener, but of course it does not\dots}. \ece{although when we input a single latent, there is no sequence and no need for attention} %, but we still have several learnable linear layers with non-linearities to be trained 
+%Inspired by the PPLM method, we develop an adaptation scheme where the internal states of the speaker are adapted on-the-fly to produce utterances that are going to be more understandable to the listener, which would improve task accuracy. The updates are performed on the speaker's latent vectors without actually finetuning the speaker. To supply the speaker with the ability to adapt to the listener, we implement a module called the `simulator' that is embedded inside the speaker. The aim of the simulator is to model listener behavior in the speaker's `mind'. To this end, we train a simulator module that learns to predict the listener's output for a given utterance. 
+The main differences lie in the data used for training the simulator. This data consists of (1) latent representations from the speaker as input to the simulator, (2) the prediction distributions of the listeners over the candidate images given the speaker's generated utterances as the target outputs for the simulator. The loss is obtained via comparing the simulator's prediction distribution to that of the listener. The models are optimized with respect to KL divergence loss with the Adam optimizer. We select the best model based on the match between the listener's and the simulator's predictions. 
+
+\noindent\textbf{Adaptation} At inference time, we use the desired target to calculate the loss incurred by the simulator. Since this loss is also a reflection of the actual listener loss, we calculate gradient updates based on it. The updates are performed on the latents corresponding to the last hidden states of the speaker's encoder, which are then utilized to initialize the decoder. In this way, we intervene right before decoding and then unroll the decoder based on the updated latent to generate an adapted utterance. We apply a step size of X in updating the latents and also experiment with the number of updates applied in succession.
+
+%\note{mention PPLM?}
+%The listeners can also be noisy, unlike PPLM discriminators. Since the trained listener might make mistakes, in the simulator, we utilize both the ground truth and the listener's predicted target to guide the training.
+%\ece{this paragraph will mention the ones we actually use out of the following setups}\textit{The gradient updates are applied X times and they go back X timesteps in time. The updates are performed using the latents from distinct parts of the speaker with interventions happening either before/during/after decoding. The `before' option would update the encoder output, which is utilized to initialize the hidden and cell states of the decoder LSTM. In this way, we intervene right before decoding and then unroll the decoder LSTM based on the updated latent. When we use latents from later stages, we update them one-by-one / unroll fully and then update intermediate latents / only the vocabulary-stage latents / start gradient updates from the end (reverse LSTM direction). In these cases, we feed latents at all timesteps as input to the simulator.}
+
+%simulator-listener student-teacher or distillation (predicting the weights highway network, or regressing to the prediction distribution of the listener)
+
+%'hidden', 'hiddencell', 'hiddenwhistory', 'vocablogits', 'vocabprobs'
+%h1, c1 = decoderhid, decoderhid
+%play with the initialization of the decoder (encoder output, then unroll the LSTM)
+
+
+%To measure the success of adaptation, we look at whether the speaker's utterance is sufficient enough to predict the target correctly / approximate the prediction distribution / change in the distribution towards a more correct distribution (images ranked based on similarity to target) / the proportion of CLIP-distilled discriminator words in the adapted sentences / in-domain and out-domain adaptation ...
+
