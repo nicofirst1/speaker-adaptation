@@ -1,18 +1,17 @@
 import datetime
-import operator
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import rich.progress
 import torch
-from torch import nn, optim
+from torch import optim
 from torch.utils.data import DataLoader
 
-import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
+from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
                          merge_dict, parse_args, save_model, SimLoss)
+from src.commons.Params import SpeakerArguments
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -42,11 +41,11 @@ def normalize_aux(aux, data_length, max_targets=3):
 
 
 def get_predictions(
-    data: Dict,
-    list_model: torch.nn.Module,
-    sim_model: torch.nn.Module,
-    loss_f: SimLoss,
-    list_vocab: Vocab,
+        data: Dict,
+        list_model: torch.nn.Module,
+        sim_model: torch.nn.Module,
+        loss_f: SimLoss,
+        list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -76,7 +75,7 @@ def get_predictions(
 
     # Losses and preds
     list_loss = loss_f.ce(list_out, targets)
-    sim_list_loss, aux = loss_f(sim_out,targets, list_out)
+    sim_list_loss, aux = loss_f(sim_out, targets, list_out)
     loss = sim_list_loss
 
     # logging
@@ -98,19 +97,19 @@ def get_predictions(
     #         show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
     #         a=1
 
-    aux["list_loss"]=list_loss.detach().cpu().item()
+    aux["list_loss"] = list_loss.detach().cpu().item()
     aux["sim_list_loss"] = sim_list_loss.detach().cpu().item()
 
     return loss, aux['sim_list_accuracy'], aux
 
 
 def evaluate(
-    data_loader: DataLoader,
-    sim_model: torch.nn.Module,
-    list_model: torch.nn.Module,
-    list_vocab: Vocab,
-    loss_f:torch.nn.Module,
-    split: str,
+        data_loader: DataLoader,
+        sim_model: torch.nn.Module,
+        list_model: torch.nn.Module,
+        list_vocab: Vocab,
+        loss_f: torch.nn.Module,
+        split: str,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -123,9 +122,9 @@ def evaluate(
     auxs = []
 
     for ii, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"evaluating '{split}' split...",
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
             data, list_model, sim_model, loss_f, list_vocab=list_vocab
@@ -146,6 +145,26 @@ if __name__ == "__main__":
 
     common_p = parse_args("sim")
     domain = common_p.train_domain
+
+    ###################################
+    ##  LOGGER
+    ###################################
+
+    # add debug label
+    tags = []
+    if common_p.debug or common_p.subset_size != -1:
+        tags = ["debug"]
+
+    speak_vocab = Vocab(SpeakerArguments.vocab_file, is_speaker=True)
+
+    logger = ListenerLogger(
+        vocab=speak_vocab,
+        opts=vars(common_p),
+        train_logging_step=1,
+        val_logging_step=1,
+        tags=tags,
+        project="simulator-pretrain",
+    )
 
     ##########################
     # LISTENER
@@ -247,7 +266,7 @@ if __name__ == "__main__":
         # for debug
         sim_p.subset_size = common_p.subset_size
         sim_p.debug = common_p.debug
-        sim_p.pretrain_loss=common_p.pretrain_loss
+        sim_p.pretrain_loss = common_p.pretrain_loss
 
         sim_p.reset_paths()
 
@@ -271,35 +290,16 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
-    loss_f=SimLoss( common_p.pretrain_loss,common_p.reduction)
-
+    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction, alpha=common_p.focal_alpha, gamma=common_p.focal_gamma)
 
     ###################################
-    ## RESUME
+    ## RESUME AND EARLYSTOPPING
     ###################################
 
     if common_p.resume_train:
         sim_model.load_state_dict(sim_check["model_state_dict"])
         optimizer.load_state_dict(sim_check["optimizer_state_dict"])
         sim_model = sim_model.to(device)
-
-    ###################################
-    ##  LOGGER
-    ###################################
-
-    # add debug label
-    tags = []
-    if common_p.debug or common_p.subset_size != -1:
-        tags = ["debug"]
-
-    logger = ListenerLogger(
-        vocab=speak_vocab,
-        opts=vars(sim_p),
-        train_logging_step=1,
-        val_logging_step=1,
-        tags=tags,
-        project="simulator-pretrain",
-    )
 
     metric = sim_p.metric
 
@@ -333,7 +333,7 @@ if __name__ == "__main__":
     load_params = {
         "batch_size": bs,
         "shuffle": shuffle,
-        "drop_last":True,
+        "drop_last": True,
         "collate_fn": AbstractDataset.get_collate_fn(
             speaker_model.device,
             list_vocab["<sos>"],
@@ -390,7 +390,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(sim_p.epochs):
@@ -410,9 +410,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.progress.track(
-            enumerate(speak_train_dl),
-            total=len(speak_train_dl),
-            description=f"Training epoch {epoch}",
+                enumerate(speak_train_dl),
+                total=len(speak_train_dl),
+                description=f"Training epoch {epoch}",
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(

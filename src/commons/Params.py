@@ -4,7 +4,7 @@ import inspect
 import os.path
 from dataclasses import dataclass
 from os.path import join
-from typing import Optional, List
+from typing import Optional
 
 import torch
 from rich.console import Console
@@ -58,7 +58,6 @@ class Params:
 
     # If true use wandb checkpoints
     resume_train: Optional[bool] = False
-
 
     # Which simulator to use with domain specific listener.
     # Can be either [domain, general].
@@ -244,18 +243,18 @@ class Params:
             "all",
         ]
         assert (
-            self.train_domain in valid_dom
+                self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
-        valid_type_of_sim = ["domain", "general","untrained"]
+        valid_type_of_sim = ["domain", "general", "untrained"]
 
         assert (
-            self.type_of_sim in valid_type_of_sim
+                self.type_of_sim in valid_type_of_sim
         ), f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
 
         valid_test_split = ["all", "seen", "unseen"]
         assert (
-            self.test_split in valid_test_split
+                self.test_split in valid_test_split
         ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
 
     def reset_paths(self):
@@ -308,18 +307,18 @@ class ListenerArguments(Params):
 
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -355,8 +354,17 @@ class SimulatorArguments(Params):
     s_iter: Optional[int] = 1
     log_train: Optional[bool] = False
     # pretrain loss for simulator == listener out,
-    # can be either cross entropy [ce] or Kullback-Leibler Divergence [kl]
-    pretrain_loss : Optional[str] = "ce"
+    # can be:
+    # 1. cross entropy [ce]
+    # 2. Kullback-Leibler Divergence [kl]
+    # the following work only with model_type = binary
+    # 3. Binary cross entropy [bce]
+    # 4. Focal bce [fbce]
+    pretrain_loss: Optional[str] = "ce"
+
+    # alpha if target = 1 and 1 - alpha if target = 0
+    focal_alpha: Optional[float] = 0.4
+    focal_gamma: Optional[float] = 2.0
 
     def __init__(self):
         super(SimulatorArguments, self).__init__()
@@ -369,23 +377,23 @@ class SimulatorArguments(Params):
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
-        if self.model_type=="binary" and self.pretrain_loss not in ['fbce',"bce"]:
-            self.pretrain_loss="bce"
+        if self.model_type == "binary" and self.pretrain_loss not in ['fbce', "bce"]:
+            self.pretrain_loss = "bce"
 
     def check_parameters(self):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
-        valis_type = ["hist", "no_hist","binary"]
+        valis_type = ["hist", "no_hist", "binary"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
-        valid_pretrain_loss=['ce','kl',"bce",'fbce']
+        valid_pretrain_loss = ['ce', 'kl', "bce", 'fbce']
 
         assert (
                 self.pretrain_loss in valid_pretrain_loss
@@ -393,7 +401,7 @@ class SimulatorArguments(Params):
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -428,7 +436,6 @@ class SpeakerArguments(Params):
     # nucleus sampling top k
     top_k: Optional[float] = 0.0
 
-
     def __init__(self):
         super(SpeakerArguments, self).__init__()
 
@@ -444,8 +451,8 @@ class SpeakerArguments(Params):
 
     def check_parameters(self):
         super(SpeakerArguments, self).check_parameters()
-        valis_type = ["hist", "no_hist","binary"]
+        valis_type = ["hist", "no_hist", "binary"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"

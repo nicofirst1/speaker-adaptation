@@ -4,15 +4,15 @@ from torch import nn
 
 class SimLoss(torch.nn.Module):
 
-    def __init__(self, loss_type, reduction):
+    def __init__(self, loss_type, reduction, alpha, gamma):
 
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction=reduction)
         self.kl_loss = nn.KLDivLoss(reduction=reduction, log_target=True)
         self.bce_loss = nn.BCEWithLogitsLoss(reduction="none")
 
-        self.fbce_alpha=0.4
-        self.fbce_gamma=2
+        self.fbce_alpha=alpha
+        self.fbce_gamma=gamma
 
         self.loss_type = loss_type
         self.reduction=reduction
@@ -52,7 +52,7 @@ class SimLoss(torch.nn.Module):
             """
         bce_loss=self.bce(preds,targets,list_out, use_reduction=False)
         p_t = torch.exp(-bce_loss)
-        alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)  # alpha if target = 1 and 1 - alpha if target = 0
+        alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)
         f_loss = alpha_tensor * (1 - p_t) ** self.fbce_gamma * bce_loss
 
         if self.reduction=="sum":
