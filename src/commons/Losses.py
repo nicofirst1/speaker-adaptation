@@ -1,10 +1,12 @@
 import torch
 from torch import nn
 
+from src.commons import get_domain_accuracy
+
 
 class SimLoss(torch.nn.Module):
 
-    def __init__(self, loss_type, reduction, alpha, gamma):
+    def __init__(self, loss_type, reduction, alpha, gamma, list_domain, all_domains):
 
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction=reduction)
@@ -13,6 +15,8 @@ class SimLoss(torch.nn.Module):
 
         self.fbce_alpha=alpha
         self.fbce_gamma=gamma
+        self.list_domain=list_domain
+        self.all_domains=all_domains
 
         self.loss_type = loss_type
         self.reduction=reduction
@@ -62,7 +66,7 @@ class SimLoss(torch.nn.Module):
 
         return f_loss
 
-    def forward(self, preds, targets, list_out):
+    def forward(self, preds, targets, list_out, domains):
 
         # estimate loss based on the type
         if self.loss_type == "ce":
@@ -93,27 +97,35 @@ class SimLoss(torch.nn.Module):
             if sim_preds.ndim != 1:
                 sim_preds = sim_preds.squeeze(dim=-1)
 
-            sim_list_accuracy = torch.eq(list_target_accuracy, sim_preds).sum()
+            sim_list_accuracy = torch.eq(list_target_accuracy, sim_preds)
             sim_target_accuracy = sim_list_accuracy
 
             neg_idx = torch.ne(list_preds, targets)
             list_neg_preds = list_target_accuracy[neg_idx]
-            sim_list_neg_accuracy = torch.eq(
-                list_neg_preds,
-                sim_preds[neg_idx],
-            ).sum()
 
         else:
             sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
-            sim_list_accuracy = torch.eq(list_preds, sim_preds).sum()
-            sim_target_accuracy = torch.eq(sim_preds, targets).sum()
-            list_neg_preds = list_preds[torch.ne(list_preds, targets)]
-            sim_list_neg_accuracy = torch.eq(
-                list_neg_preds,
-                sim_preds[torch.ne(list_preds, targets)],
-            ).sum()
+            sim_list_accuracy = torch.eq(list_preds, sim_preds)
+            sim_target_accuracy = torch.eq(sim_preds, targets)
+            neg_idx = torch.ne(list_preds, targets)
+            list_neg_preds = list_preds[neg_idx]
+
+        sim_list_neg_accuracy = torch.eq(
+            list_neg_preds,
+            sim_preds[neg_idx],
+        )
+
+        list_target_accuracy_dom=list_target_accuracy.tolist()
+        sim_list_accuracy_dom=sim_list_accuracy.tolist()
+        sim_target_accuracy_dom=sim_target_accuracy.tolist()
+        d=[domains[idx] for idx in range(len(domains)) if neg_idx[idx]]
+        sim_list_neg_accuracy_dom=(sim_list_neg_accuracy,d)
+
 
         list_target_accuracy = list_target_accuracy.sum()
+        sim_list_accuracy=sim_list_accuracy.sum()
+        sim_target_accuracy=sim_list_accuracy.sum()
+        sim_list_neg_accuracy=sim_list_neg_accuracy.sum()
 
         # cast to list
         sim_list_accuracy = sim_list_accuracy.tolist()
@@ -132,6 +144,13 @@ class SimLoss(torch.nn.Module):
             list_preds=list_preds,
             sim_preds=sim_preds,
             neg_pred_len=len(list_neg_preds),
+
+            # domain specific
+            list_target_accuracy_dom=list_target_accuracy_dom,
+            sim_list_accuracy_dom=sim_list_accuracy_dom,
+            sim_target_accuracy_dom=sim_target_accuracy_dom,
+            sim_list_neg_accuracy_dom=sim_list_neg_accuracy_dom,
+            domains=domains,
 
         )
 

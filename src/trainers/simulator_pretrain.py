@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, SimLoss)
+                         merge_dict, parse_args, save_model, SimLoss, get_domain_accuracy)
 from src.commons.Params import SpeakerArguments
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
@@ -23,16 +23,28 @@ def normalize_aux(aux, data_length, max_targets=3):
     aux["sim_loss"] = np.mean(aux["sim_loss"])
 
     aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
-
     aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
-
     aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
-
     aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / np.sum(aux["neg_pred_len"])
 
+    def flatten(xss):
+        return [x for xs in xss for x in xs]
+
+    domains=flatten(aux.pop("domains"))
+    aux["domain/list_target_acc"]= get_domain_accuracy(flatten(aux.pop('list_target_accuracy_dom')), domains, logger.domains)
+    aux["domain/sim_list_acc"]= get_domain_accuracy(flatten(aux.pop('sim_list_accuracy_dom')), domains, logger.domains)
+    aux["domain/sim_target_acc"]= get_domain_accuracy(flatten(aux.pop('sim_target_accuracy_dom')), domains, logger.domains)
+
+    sim_list_neg_accuracy_dom=aux.pop("sim_list_neg_accuracy_dom")
+    d=[x[1] for x in sim_list_neg_accuracy_dom]
+    correct=[x[0] for x in sim_list_neg_accuracy_dom]
+    d=flatten(d)
+    correct=flatten(correct)
+    aux["domain/sim_list_neg_acc"]= get_domain_accuracy(correct,d, logger.domains)
+
     # flatten nested lists
-    aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
-    aux["list_preds"] = [x for xs in aux["list_preds"] for x in xs]
+    aux["sim_preds"] = flatten(aux['sim_preds'])
+    aux["list_preds"] = flatten(aux['list_preds'])
 
     if len(aux["target"]) > max_targets:
         aux["target"] = np.random.choice(
@@ -63,6 +75,7 @@ def get_predictions(
     max_length_tensor = utterance.shape[1]
     batch_size = utterance.shape[0]
     device = list_model.device
+    domains = data['domain']
 
     masks = mask_attn(lengths, max_length_tensor, device)
 
@@ -75,7 +88,7 @@ def get_predictions(
 
     # Losses and preds
     list_loss = loss_f.ce(list_out, targets)
-    sim_list_loss, aux = loss_f(sim_out, targets, list_out)
+    sim_list_loss, aux = loss_f(sim_out, targets, list_out, domains)
     loss = sim_list_loss
 
     # logging
@@ -155,7 +168,8 @@ if __name__ == "__main__":
     if common_p.debug or common_p.subset_size != -1:
         tags = ["debug"]
 
-    speak_vocab = Vocab(SpeakerArguments.vocab_file, is_speaker=True)
+
+    speak_vocab = Vocab(parse_args("speak").vocab_file, is_speaker=True)
 
     logger = ListenerLogger(
         vocab=speak_vocab,
@@ -290,7 +304,9 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
-    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction, alpha=common_p.focal_alpha, gamma=common_p.focal_gamma)
+    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction,
+                     alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+                     list_domain=domain, all_domains=logger.domains)
 
     ###################################
     ## RESUME AND EARLYSTOPPING
@@ -320,10 +336,11 @@ if __name__ == "__main__":
     # need batchsize =1 for generating the new dataloaders
     sim_p.batch_size = 1
     sim_p.shuffle = False
+    data_domain=common_p.data_domain
 
     shuffle = common_p.shuffle
     training_loader, test_loader, val_loader = get_dataloaders(
-        sim_p, speak_vocab, domain
+        sim_p, speak_vocab, data_domain
     )
 
     if common_p.is_test:
@@ -344,7 +361,7 @@ if __name__ == "__main__":
 
     speak_train_dl = load_wandb_dataset(
         "train",
-        domain,
+        data_domain,
         load_params,
         list_vocab,
         speaker_model,
@@ -365,7 +382,7 @@ if __name__ == "__main__":
     }
     speak_val_dl = load_wandb_dataset(
         "val",
-        domain,
+        data_domain,
         load_params,
         list_vocab,
         speaker_model,
@@ -375,7 +392,7 @@ if __name__ == "__main__":
     )
     speak_test_dl = load_wandb_dataset(
         "test",
-        domain,
+        data_domain,
         load_params,
         list_vocab,
         speaker_model,

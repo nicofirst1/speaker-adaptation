@@ -79,6 +79,8 @@ class Params:
     log_data: Optional[bool] = False
     # if true empty train split and load test
     is_test: Optional[bool] = False
+    # the train domain data, if empty then it is set to train_domain (same as listener)
+    data_domain : Optional[str]= ""
 
     ############################################
     # PATH
@@ -172,6 +174,9 @@ class Params:
 
         self.image_size = img_dim
         self.vectors_file = join(self.data_path, self.vectors_file)
+
+        if self.data_domain=="":
+            self.data_domain=self.train_domain
 
     def __parse_args(self):
         """
