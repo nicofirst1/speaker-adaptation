@@ -103,23 +103,36 @@ class SimLoss(torch.nn.Module):
             neg_idx = torch.ne(list_preds, targets)
             list_neg_preds = list_target_accuracy[neg_idx]
 
+            pos_idx = torch.eq(list_preds, targets)
+            list_pos_preds = list_target_accuracy[pos_idx]
+
         else:
             sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
             sim_list_accuracy = torch.eq(list_preds, sim_preds)
             sim_target_accuracy = torch.eq(sim_preds, targets)
             neg_idx = torch.ne(list_preds, targets)
             list_neg_preds = list_preds[neg_idx]
+            pos_idx = torch.eq(list_preds, targets)
+            list_pos_preds = list_preds[pos_idx]
 
         sim_list_neg_accuracy = torch.eq(
             list_neg_preds,
             sim_preds[neg_idx],
         )
+        sim_list_pos_accuracy = torch.eq(
+            list_pos_preds,
+            sim_preds[pos_idx],
+        )
 
         list_target_accuracy_dom=list_target_accuracy.tolist()
         sim_list_accuracy_dom=sim_list_accuracy.tolist()
         sim_target_accuracy_dom=sim_target_accuracy.tolist()
-        d=[domains[idx] for idx in range(len(domains)) if neg_idx[idx]]
-        sim_list_neg_accuracy_dom=(sim_list_neg_accuracy,d)
+
+        d = [domains[idx] for idx in range(len(domains)) if neg_idx[idx]]
+        sim_list_neg_accuracy_dom = (sim_list_neg_accuracy, d)
+
+        d = [domains[idx] for idx in range(len(domains)) if pos_idx[idx]]
+        sim_list_pos_accuracy_dom = (sim_list_pos_accuracy, d)
 
 
         list_target_accuracy = list_target_accuracy.sum()
@@ -144,12 +157,14 @@ class SimLoss(torch.nn.Module):
             list_preds=list_preds,
             sim_preds=sim_preds,
             neg_pred_len=len(list_neg_preds),
+            pos_pred_len=len(list_pos_preds),
 
             # domain specific
             list_target_accuracy_dom=list_target_accuracy_dom,
             sim_list_accuracy_dom=sim_list_accuracy_dom,
             sim_target_accuracy_dom=sim_target_accuracy_dom,
             sim_list_neg_accuracy_dom=sim_list_neg_accuracy_dom,
+            sim_list_pos_accuracy_dom=sim_list_pos_accuracy_dom,
             domains=domains,
 
         )

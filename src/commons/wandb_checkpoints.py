@@ -44,6 +44,16 @@ SIM_DOMAIN_KL_CHK = dict(
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v932",
 )
 
+SIM_DOMAIN_KL_OOD_CHK = dict(
+    # epoch 20
+    all="",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v1399",
+    appliances="",
+    indoor="",
+    outdoor="",
+    vehicles="",
+)
+
 
 def get_sim_chk(type_of_sim, pretrain_loss, domain):
     """
@@ -57,7 +67,7 @@ def get_sim_chk(type_of_sim, pretrain_loss, domain):
     if type_of_sim == "domain" and pretrain_loss == "ce":
         return SIM_DOMAIN_CE_CHK[domain]
     elif type_of_sim == "domain":
-        return SIM_DOMAIN_KL_CHK[domain]
+        return SIM_DOMAIN_KL_OOD_CHK[domain]
 
 
 ########

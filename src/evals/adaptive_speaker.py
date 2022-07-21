@@ -224,6 +224,7 @@ def evaluate(
         # perform loop
         i = 0
         while i < s:
+            set_seed(seed)
             sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
             s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
@@ -396,6 +397,9 @@ def evaluate(
 
     return df
 
+def set_seed(seed):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
 if __name__ == "__main__":
 
@@ -423,8 +427,7 @@ if __name__ == "__main__":
 
     # for reproducibility
     seed = common_p.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    set_seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 

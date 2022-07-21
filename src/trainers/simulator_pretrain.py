@@ -26,6 +26,7 @@ def normalize_aux(aux, data_length, max_targets=3):
     aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
     aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
     aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / np.sum(aux["neg_pred_len"])
+    aux["sim_list_pos_accuracy"] = np.sum(aux["sim_list_pos_accuracy"]) / np.sum(aux["pos_pred_len"])
 
     def flatten(xss):
         return [x for xs in xss for x in xs]
@@ -35,12 +36,19 @@ def normalize_aux(aux, data_length, max_targets=3):
     aux["domain/sim_list_acc"]= get_domain_accuracy(flatten(aux.pop('sim_list_accuracy_dom')), domains, logger.domains)
     aux["domain/sim_target_acc"]= get_domain_accuracy(flatten(aux.pop('sim_target_accuracy_dom')), domains, logger.domains)
 
-    sim_list_neg_accuracy_dom=aux.pop("sim_list_neg_accuracy_dom")
-    d=[x[1] for x in sim_list_neg_accuracy_dom]
-    correct=[x[0] for x in sim_list_neg_accuracy_dom]
-    d=flatten(d)
-    correct=flatten(correct)
-    aux["domain/sim_list_neg_acc"]= get_domain_accuracy(correct,d, logger.domains)
+    sim_list_neg_accuracy_dom = aux.pop("sim_list_neg_accuracy_dom")
+    d = [x[1] for x in sim_list_neg_accuracy_dom]
+    correct = [x[0] for x in sim_list_neg_accuracy_dom]
+    d = flatten(d)
+    correct = flatten(correct)
+    aux["domain/sim_list_neg_acc"] = get_domain_accuracy(correct, d, logger.domains)
+
+    sim_list_neg_accuracy_dom = aux.pop("sim_list_pos_accuracy_dom")
+    d = [x[1] for x in sim_list_neg_accuracy_dom]
+    correct = [x[0] for x in sim_list_neg_accuracy_dom]
+    d = flatten(d)
+    correct = flatten(correct)
+    aux["domain/sim_list_pos_acc"] = get_domain_accuracy(correct, d, logger.domains)
 
     # flatten nested lists
     aux["sim_preds"] = flatten(aux['sim_preds'])
