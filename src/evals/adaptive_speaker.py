@@ -80,6 +80,7 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
     ]
     table_columns += [f"adapted hypo {i}" for i in range(s)]
     table_columns += [f"adapted guess {i}" for i in range(s)]
+    table_columns += [f"sim guess {i}" for i in range(s)]
     table_columns += [f"diff {i}" for i in range(s)]
 
     table = wandb.Table(columns=table_columns, data=data)
@@ -121,6 +122,7 @@ def evaluate(
     original_accs = []
     golden_accs = []
     adapted_accs = []
+    sim_accs=[]
 
     original_hypos = []
     golden_hypos = []
@@ -220,6 +222,7 @@ def evaluate(
         s_adapted_sim_outs = [-1 for _ in range(s)]
         s_loss = [-1 for _ in range(s)]
         s_grad = [-1 for _ in range(s)]
+        sim_accuracy= [-1 for _ in range(s)]
 
         # perform loop
         i = 0
@@ -227,6 +230,13 @@ def evaluate(
             set_seed(seed)
             sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
             s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
+
+            # get  accuracy
+            sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
+            sim_target_accuracy = (
+                torch.eq(sim_preds, targets.squeeze()).double().item()
+            )
+            sim_accuracy[i] = sim_target_accuracy
 
             # compute loss and perform backprop
             loss = criterion(sim_out, targets)
@@ -260,7 +270,7 @@ def evaluate(
             s_accs[i] = list_target_accuracy
 
             # break if listener gets it right
-            if list_target_accuracy:
+            if sim_target_accuracy:
                 break
             i += 1
 
@@ -268,6 +278,7 @@ def evaluate(
         adapted_list_outs.append(s_adapted_list_outs)
         modified_hypos.append(s_hypo)
         adapted_accs.append(s_accs)
+        sim_accs.append(sim_accuracy)
         h0s.append([decoder_hid] + s_h0)
         target_domain.append(data["domain"][0])
         losses.append(s_loss)
@@ -310,7 +321,8 @@ def evaluate(
         # 16. the simulator's output distribution given h0' (for each backprop step) xs
         # 17. whether the listener makes a correct guess given the caption x1
         # 18. whether the listener makes a correct guess given the original utterance x1
-        # 18. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
+        # 19. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
+        # 20. whether the simulator makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
 
         # size formula : 16+6s
 
@@ -329,6 +341,7 @@ def evaluate(
         row += [golden_acc]
         row += [original_accs[-1]]
         row += s_accs
+        row += sim_accuracy
 
         csv_data.append(row)
 
@@ -348,6 +361,7 @@ def evaluate(
     columns += [f"golden_acc"]
     columns += [f"original_acc"]
     columns += [f"adapted_acc_s{i}" for i in range(s)]
+    columns += [f"sim_acc_s{i}" for i in range(s)]
 
     df = pd.DataFrame(columns=columns, data=csv_data)
 
@@ -363,6 +377,7 @@ def evaluate(
                 original_accs,
                 modified_hypos,
                 adapted_accs,
+                sim_accs,
                 [[x != y1 for y1 in y] for x, y in zip(original_accs, adapted_accs)],
             )
         )
@@ -380,12 +395,17 @@ def evaluate(
     modified_accs = [[y for y in x if y != -1] for x in adapted_accs]
     mean_s = np.mean([len(x) for x in modified_accs])
     modified_accs = np.mean([x[-1] for x in modified_accs])
+
+    sim_accs = [[y for y in x if y != -1] for x in sim_accs]
+    sim_accs = np.mean([x[-1] for x in sim_accs])
+
     loss = [[y for y in x if y != -1] for x in losses]
     loss = np.mean(loss)
 
     metrics = dict(
         original_accs=original_accs,
         modified_accs=modified_accs,
+        sim_accs=sim_accs,
         golden_accs=golden_accs,
         hypo_table=hypo_table,
         ood_table=ood_table,
