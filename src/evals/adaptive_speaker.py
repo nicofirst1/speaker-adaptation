@@ -508,9 +508,10 @@ if __name__ == "__main__":
     # SIMULATOR
     ##########################
 
-    # symmetric vs asymmetric setup
-
-    check = get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
+    if common_p.force_resume_url=="":
+        check = get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
+    else:
+        check=common_p.force_resume_url
     sim_check, _ = load_wandb_checkpoint(check, device)
 
     # load args

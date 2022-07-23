@@ -56,7 +56,9 @@ class SimLoss(torch.nn.Module):
             """
         bce_loss=self.bce(preds,targets,list_out, use_reduction=False)
         p_t = torch.exp(-bce_loss)
-        alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)
+        list_preds = torch.argmax(list_out, dim=1)
+        list_target_accuracy = torch.eq(list_preds, targets).float()
+        alpha_tensor = (1 - self.fbce_alpha) + list_target_accuracy * (2 * self.fbce_alpha - 1)
         f_loss = alpha_tensor * (1 - p_t) ** self.fbce_gamma * bce_loss
 
         if self.reduction=="sum":
