@@ -215,6 +215,8 @@ class SpeakerModel_no_hist(nn.Module):
             torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
         )
 
+        decoder_hid=normalize(decoder_hid)
+
         history_att = self.lin2att_hist(outputs)
 
         # start decoder with the hidden states of the encoder
@@ -349,6 +351,7 @@ class SpeakerModel_no_hist(nn.Module):
         decoder_hid = self.linear_dec(
             torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
         )
+        decoder_hid= F.normalize(decoder_hid)
 
         history_att = self.lin2att_hist(outputs)
 
