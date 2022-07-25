@@ -209,7 +209,7 @@ def evaluate(
         ################################################
         #   Get results with adapted hypo
         ################################################
-        decoder_hid = normalize(decoder_hid)
+        #decoder_hid = normalize(decoder_hid)
         h0 = decoder_hid.clone().detach().requires_grad_(True)
         optimizer = torch.optim.Adam([h0], lr=lr)
         optimizer.zero_grad()
@@ -259,7 +259,7 @@ def evaluate(
 
                 # compute loss and perform backprop
                 # we want the simulator to output 1 (listener will be right) so we need a fake target
-                loss_target = torch.as_tensor([[1.0]])
+                loss_target = torch.as_tensor([[1.0]]).to(device)
                 loss = criterion.bce(sim_out, loss_target)
                 loss.backward()
                 optimizer.step()
@@ -269,7 +269,7 @@ def evaluate(
                 return loss, sim_pred.detach().item() > 0.9
 
             if common_p.model_type == "binary":
-                loss,to_break = binary_sim(masks)
+                loss, to_break = binary_sim(masks)
             else:
                 loss, to_break = cloning_sim(masks)
 
