@@ -141,12 +141,14 @@ class SimLoss(torch.nn.Module):
         sim_list_accuracy=sim_list_accuracy.sum()
         sim_target_accuracy=sim_list_accuracy.sum()
         sim_list_neg_accuracy=sim_list_neg_accuracy.sum()
+        sim_list_pos_accuracy=sim_list_pos_accuracy.sum()
 
         # cast to list
         sim_list_accuracy = sim_list_accuracy.tolist()
         list_target_accuracy = list_target_accuracy.tolist()
         sim_target_accuracy = sim_target_accuracy.tolist()
         sim_list_neg_accuracy = sim_list_neg_accuracy.tolist()
+        sim_list_pos_accuracy = sim_list_pos_accuracy.tolist()
         list_preds = list_preds.tolist()
         sim_preds = sim_preds.tolist()
 
@@ -156,6 +158,7 @@ class SimLoss(torch.nn.Module):
             list_target_accuracy=list_target_accuracy,
             sim_target_accuracy=sim_target_accuracy,
             sim_list_neg_accuracy=sim_list_neg_accuracy,
+            sim_list_pos_accuracy=sim_list_pos_accuracy,
             list_preds=list_preds,
             sim_preds=sim_preds,
             neg_pred_len=len(list_neg_preds),
