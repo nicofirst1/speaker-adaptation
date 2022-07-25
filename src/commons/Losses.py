@@ -31,10 +31,8 @@ class SimLoss(torch.nn.Module):
 
         return loss
 
-    def bce(self, preds, targets, list_out, use_reduction=True):
-        list_preds = torch.argmax(list_out, dim=1)
-        list_target_accuracy = torch.eq(list_preds, targets).float()
-        loss = self.bce_loss(preds, list_target_accuracy)
+    def bce(self, preds, targets, use_reduction=True):
+        loss = self.bce_loss(preds, targets)
 
         if use_reduction:
             if self.reduction=="sum":
@@ -44,7 +42,7 @@ class SimLoss(torch.nn.Module):
 
         return loss
 
-    def focal_bce(self, preds, targets, list_out):
+    def focal_bce(self, preds, targets):
         """Binary focal loss.
 
             Per https://discuss.pytorch.org/t/is-this-a-correct-implementation-for-focal-loss-in-pytorch/43327/5 with
@@ -54,11 +52,9 @@ class SimLoss(torch.nn.Module):
             :param gamma: focal loss power parameter, a float scalar.
             :param alpha: weight of the class indicated by 1, a float scalar.
             """
-        bce_loss=self.bce(preds,targets,list_out, use_reduction=False)
+        bce_loss=self.bce(preds,targets, use_reduction=False)
         p_t = torch.exp(-bce_loss)
-        list_preds = torch.argmax(list_out, dim=1)
-        list_target_accuracy = torch.eq(list_preds, targets).float()
-        alpha_tensor = (1 - self.fbce_alpha) + list_target_accuracy * (2 * self.fbce_alpha - 1)
+        alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)
         f_loss = alpha_tensor * (1 - p_t) ** self.fbce_gamma * bce_loss
 
         if self.reduction=="sum":
@@ -70,15 +66,18 @@ class SimLoss(torch.nn.Module):
 
     def forward(self, preds, targets, list_out, domains):
 
+        list_preds = torch.argmax(list_out, dim=1)
+        list_target_accuracy = torch.eq(list_preds, targets).float()
+
         # estimate loss based on the type
         if self.loss_type == "ce":
             loss = self.ce(preds, list_out)
         elif self.loss_type == "kl":
             loss = self.kl(preds, list_out)
         elif self.loss_type == "bce":
-            loss = self.bce(preds, targets, list_out)
+            loss = self.bce(preds, list_target_accuracy)
         elif self.loss_type == "fbce":
-            loss = self.focal_bce(preds, targets, list_out)
+            loss = self.focal_bce(preds, list_target_accuracy)
         else:
             raise ValueError(f"Loss type {self.loss_type = } is invalid!")
 

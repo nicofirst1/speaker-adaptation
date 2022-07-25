@@ -5,13 +5,12 @@ import numpy as np
 import pandas as pd
 import rich.progress
 import torch
-from torch import nn
+import wandb
+from torch.nn.functional import normalize
 from torch.utils.data import DataLoader
 
-import wandb
-from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CE_CHK, SIM_DOMAIN_CE_CHK,
-                         SPEAKER_CHK, get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders, hypo2utterance,
+                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLoss)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -40,7 +39,6 @@ def generate_ood_table(df: pd.DataFrame):
         rows.append(
             [list_model.domain, sim_model.domain, d, golden_acc, original_acc, adapt_mean]
         )
-
 
     table = wandb.Table(columns=columns, data=rows)
     return table
@@ -88,15 +86,15 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 
 
 def evaluate(
-    data_loader: DataLoader,
-    speak_model: SpeakerModel_hist,
-    sim_model: SimulatorModel_hist,
-    list_model: ListenerModel_hist,
-    list_vocab: Vocab,
-    criterion,
-    split: str,
-    lr: float = 0.1,
-    s: int = 1,
+        data_loader: DataLoader,
+        speak_model: SpeakerModel_hist,
+        sim_model: SimulatorModel_hist,
+        list_model: ListenerModel_hist,
+        list_vocab: Vocab,
+        criterion,
+        split: str,
+        lr: float = 0.1,
+        s: int = 1,
 ) -> pd.DataFrame:
     """
     Perform evaluation of given split
@@ -122,7 +120,7 @@ def evaluate(
     original_accs = []
     golden_accs = []
     adapted_accs = []
-    sim_accs=[]
+    sim_accs = []
 
     original_hypos = []
     golden_hypos = []
@@ -137,9 +135,9 @@ def evaluate(
 
     target_domain = []
     for ii, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"Evaluating on split {split}",
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"Evaluating on split {split}",
     ):
 
         # filter out indomain data points
@@ -211,8 +209,10 @@ def evaluate(
         ################################################
         #   Get results with adapted hypo
         ################################################
+        decoder_hid = normalize(decoder_hid)
         h0 = decoder_hid.clone().detach().requires_grad_(True)
         optimizer = torch.optim.Adam([h0], lr=lr)
+        optimizer.zero_grad()
 
         # repeat for s interations
         s_hypo = ["" for _ in range(s)]
@@ -222,27 +222,58 @@ def evaluate(
         s_adapted_sim_outs = [-1 for _ in range(s)]
         s_loss = [-1 for _ in range(s)]
         s_grad = [-1 for _ in range(s)]
-        sim_accuracy= [-1 for _ in range(s)]
+        sim_accuracy = [-1 for _ in range(s)]
 
         # perform loop
         i = 0
         while i < s:
             set_seed(seed)
-            sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
-            s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
-            # get  accuracy
-            sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
-            sim_target_accuracy = (
-                torch.eq(sim_preds, targets.squeeze()).double().item()
-            )
-            sim_accuracy[i] = sim_target_accuracy
+            def cloning_sim(masks):
+                sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
+                s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
-            # compute loss and perform backprop
-            loss = criterion(sim_out, targets)
+                # get  accuracy
+                sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
+                sim_target_accuracy = (
+                    torch.eq(sim_preds, targets.squeeze()).double().item()
+                )
+                sim_accuracy[i] = sim_target_accuracy
+
+                # compute loss and perform backprop
+                loss = criterion(sim_out, targets)
+                loss.backward()
+                optimizer.step()
+
+                return loss, sim_target_accuracy
+
+            def binary_sim(masks):
+                """
+                Used for binary simulator
+                """
+                sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
+                sim_pred = torch.sigmoid(sim_out)
+                s_adapted_sim_outs[i] = sim_pred.detach().item()
+                # simulator target accuracy is irrelevant here
+                sim_accuracy[i] = 0
+
+                # compute loss and perform backprop
+                # we want the simulator to output 1 (listener will be right) so we need a fake target
+                loss_target = torch.as_tensor([[1.0]])
+                loss = criterion.bce(sim_out, loss_target)
+                loss.backward()
+                optimizer.step()
+
+                # save grads related infos
+
+                return loss, sim_pred.detach().item() > 0.9
+
+            if common_p.model_type == "binary":
+                loss,to_break = binary_sim(masks)
+            else:
+                loss, to_break = cloning_sim(masks)
+
             s_loss[i] = loss.detach().item()
-            loss.backward()
-            optimizer.step()
             s_h0[i] = h0[0].clone().detach().tolist()
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
@@ -270,7 +301,7 @@ def evaluate(
             s_accs[i] = list_target_accuracy
 
             # break if listener gets it right
-            if sim_target_accuracy:
+            if to_break:
                 break
             i += 1
 
@@ -384,7 +415,7 @@ def evaluate(
     )
 
     hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table=generate_ood_table(df)
+    ood_table = generate_ood_table(df)
 
     ##############################
     # METRICS
@@ -417,9 +448,11 @@ def evaluate(
 
     return df
 
+
 def set_seed(seed):
     torch.manual_seed(seed)
     np.random.seed(seed)
+
 
 if __name__ == "__main__":
 
@@ -508,10 +541,10 @@ if __name__ == "__main__":
     # SIMULATOR
     ##########################
 
-    if common_p.force_resume_url=="":
+    if common_p.force_resume_url == "":
         check = get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
     else:
-        check=common_p.force_resume_url
+        check = common_p.force_resume_url
     sim_check, _ = load_wandb_checkpoint(check, device)
 
     # load args
@@ -526,8 +559,8 @@ if __name__ == "__main__":
     sim_p.learning_rate = common_p.learning_rate
     sim_p.type_of_sim = common_p.type_of_sim
     sim_p.seed = seed
-    sim_p.test_split= common_p.test_split
-    sim_p.pretrain_loss=common_p.pretrain_loss
+    sim_p.test_split = common_p.test_split
+    sim_p.pretrain_loss = common_p.pretrain_loss
 
     sim_p.reset_paths()
 
@@ -543,7 +576,7 @@ if __name__ == "__main__":
         sim_p.device,
     ).to(device)
 
-    if common_p.type_of_sim!= "untrained":
+    if common_p.type_of_sim != "untrained":
         sim_model.load_state_dict(sim_check["model_state_dict"])
 
     sim_model = sim_model.to(device)
@@ -553,7 +586,7 @@ if __name__ == "__main__":
     ##  LOGGER
     ###################################
 
-    flag=common_p.type_of_sim
+    flag = common_p.type_of_sim
 
     logger = ListenerLogger(
         vocab=speak_vocab,
@@ -568,7 +601,7 @@ if __name__ == "__main__":
     metric = sim_p.metric
     sweep_config = wandb.config
 
-    logger.watch_model([sim_model],log_freq=10)
+    logger.watch_model([sim_model], log_freq=10)
 
     ###################################
     ##  Get speaker dataloader
@@ -585,21 +618,21 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-
+    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction,
+                     alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+                     list_domain=domain, all_domains=logger.domains)
     ###################################
     ##  EVAL LOOP
     ###################################
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     sim_model.eval()
 
     if common_p.log_train:
-
         ##################
         # ID TRAIN
         ##################
@@ -610,7 +643,7 @@ if __name__ == "__main__":
             sim_model,
             list_model,
             list_vocab,
-            criterion=cel,
+            criterion=loss_f,
             split="in_domain_train",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -638,7 +671,7 @@ if __name__ == "__main__":
             sim_model,
             list_model,
             list_vocab,
-            criterion=cel,
+            criterion=loss_f,
             split="in_domain_eval",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -666,7 +699,7 @@ if __name__ == "__main__":
             sim_model,
             list_model,
             list_vocab,
-            criterion=cel,
+            criterion=loss_f,
             split="in_domain_test",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -684,7 +717,6 @@ if __name__ == "__main__":
         )
 
     if common_p.log_train:
-
         ##################
         # OOD TRAIN
         ##################
@@ -695,7 +727,7 @@ if __name__ == "__main__":
             sim_model,
             list_model,
             list_vocab,
-            criterion=cel,
+            criterion=loss_f,
             split="out_domain_train",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -722,7 +754,7 @@ if __name__ == "__main__":
             sim_model,
             list_model,
             list_vocab,
-            criterion=cel,
+            criterion=loss_f,
             split="out_domain_eval",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -749,16 +781,11 @@ if __name__ == "__main__":
         sim_model,
         list_model,
         list_vocab,
-        criterion=cel,
+        criterion=loss_f,
         split="out_domain_test",
         lr=common_p.learning_rate,
         s=common_p.s_iter,
     )
-
-
-
-
-
 
     ### saving df
     file_name = "tmp.csv"
