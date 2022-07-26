@@ -32,8 +32,15 @@ def generate_ood_table(df: pd.DataFrame):
         # adapted accs are a matrix so remove -1, sum and get mean
         adapt_acc_idx = df.columns.get_loc('adapted_acc_s0')
         adapt_acc = ood_df.iloc[:, adapt_acc_idx:]
-        adapt_acc = adapt_acc.replace(-1, 0)
-        adapt_mean = adapt_acc.sum(axis=1).mean()
+        adapt_acc=adapt_acc[adapt_acc != -1]
+        adapt_acc=adapt_acc.dropna(axis=1,how="all")
+        adapt_mean=0
+        idx=0
+        for index, row in adapt_acc.iterrows():
+            row=row.dropna()
+            adapt_mean+=row[-1]
+            idx+=1
+        adapt_mean/=idx
 
         # append to rows
         rows.append(
@@ -352,8 +359,8 @@ def evaluate(
         # 16. the simulator's output distribution given h0' (for each backprop step) xs
         # 17. whether the listener makes a correct guess given the caption x1
         # 18. whether the listener makes a correct guess given the original utterance x1
-        # 19. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
-        # 20. whether the simulator makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
+        # 19. whether the simulator makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
+        # 20. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
 
         # size formula : 16+6s
 
@@ -371,8 +378,8 @@ def evaluate(
         row += s_adapted_sim_outs
         row += [golden_acc]
         row += [original_accs[-1]]
-        row += s_accs
         row += sim_accuracy
+        row += s_accs
 
         csv_data.append(row)
 
@@ -391,8 +398,8 @@ def evaluate(
     columns += [f"adapted_sim_out_s{i}" for i in range(s - 1)]
     columns += [f"golden_acc"]
     columns += [f"original_acc"]
-    columns += [f"adapted_acc_s{i}" for i in range(s)]
     columns += [f"sim_acc_s{i}" for i in range(s)]
+    columns += [f"adapted_acc_s{i}" for i in range(s)]
 
     df = pd.DataFrame(columns=columns, data=csv_data)
 
