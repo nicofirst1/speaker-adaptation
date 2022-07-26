@@ -312,7 +312,7 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
-    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction,
+    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction,common_p.model_type,
                      alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
                      list_domain=domain, all_domains=logger.domains)
 

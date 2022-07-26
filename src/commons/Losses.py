@@ -3,10 +3,11 @@ from torch import nn
 
 from src.commons import get_domain_accuracy
 
+device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class SimLoss(torch.nn.Module):
 
-    def __init__(self, loss_type, reduction, alpha, gamma, list_domain, all_domains):
+    def __init__(self, loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains):
 
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction=reduction)
@@ -17,6 +18,10 @@ class SimLoss(torch.nn.Module):
         self.fbce_gamma=gamma
         self.list_domain=list_domain
         self.all_domains=all_domains
+        self.sim_model_type=sim_model_type
+        # create an index dict for domains
+        self.domain2idx={d:idx for idx,d in enumerate(sorted(all_domains))}
+        self.idx2domain={idx:d for idx,d in self.domain2idx.items()}
 
         self.loss_type = loss_type
         self.reduction=reduction
@@ -71,7 +76,12 @@ class SimLoss(torch.nn.Module):
 
         # estimate loss based on the type
         if self.loss_type == "ce":
-            loss = self.ce(preds, list_out)
+            if self.sim_model_type=="domain":
+                doms=[self.domain2idx[d] for d in domains]
+                doms=torch.as_tensor(doms).to(device)
+                loss=self.ce(preds,doms)
+            else:
+                loss = self.ce(preds, list_out)
         elif self.loss_type == "kl":
             loss = self.kl(preds, list_out)
         elif self.loss_type == "bce":

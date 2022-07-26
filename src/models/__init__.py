@@ -2,6 +2,7 @@ from typing import Literal
 
 from .listener.ListenerModel_hist import ListenerModel_hist
 from .listener.ListenerModel_no_hist import ListenerModel_no_hist
+from .simualator.model_simulator_domain import SimulatorModel_domain
 from .simualator.model_simulator_hist import SimulatorModel_hist
 from .simualator.model_simulator_no_hist import SimulatorModel_no_hist
 from .simualator.model_simulator_binary import SimulatorModel_binary
@@ -17,6 +18,7 @@ __all__ = [
     "ListenerModel_no_hist",
     "SpeakerModel_no_hist",
     "SimulatorModel_binary",
+    "SimulatorModel_domain",
 ]
 
 
@@ -39,5 +41,8 @@ def get_model(model: Literal["list", "speak", "sim"], model_type: str):
             return SimulatorModel_no_hist
         elif model_type== "binary":
             return SimulatorModel_binary
+        elif model_type== "domain":
+            return SimulatorModel_domain
+
     else:
         raise KeyError(f"No model type named '{model}'")
