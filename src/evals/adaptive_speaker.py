@@ -40,7 +40,9 @@ def generate_ood_table(df: pd.DataFrame):
             row=row.dropna()
             adapt_mean+=row[-1]
             idx+=1
-        adapt_mean/=idx
+
+        if idx!=0:
+            adapt_mean/=idx
 
         # append to rows
         rows.append(
