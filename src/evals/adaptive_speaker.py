@@ -250,7 +250,8 @@ def evaluate(
                 sim_accuracy[i] = sim_target_accuracy
 
                 # compute loss and perform backprop
-                loss,aux = criterion(sim_out, targets,list_out,domain)
+                target_domain=[domain]*targets.shape[0]
+                loss,aux = criterion(sim_out, targets,list_out,target_domain)
                 loss.backward()
                 optimizer.step()
 
