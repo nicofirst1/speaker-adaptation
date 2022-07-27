@@ -121,7 +121,7 @@ class SimLoss(torch.nn.Module):
             sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
             if self.sim_model_type=="domain":
-                sim_list_accuracy = torch.as_tensor([-1])
+                sim_list_accuracy = torch.zeros(sim_preds.shape)
                 sim_target_accuracy = torch.eq(sim_preds, doms)
                 neg_idx = torch.ne(list_preds, targets)
                 list_neg_preds = list_preds[neg_idx]
