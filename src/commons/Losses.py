@@ -119,12 +119,21 @@ class SimLoss(torch.nn.Module):
 
         else:
             sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
-            sim_list_accuracy = torch.eq(list_preds, sim_preds)
-            sim_target_accuracy = torch.eq(sim_preds, targets)
-            neg_idx = torch.ne(list_preds, targets)
-            list_neg_preds = list_preds[neg_idx]
-            pos_idx = torch.eq(list_preds, targets)
-            list_pos_preds = list_preds[pos_idx]
+
+            if self.sim_model_type=="domain":
+                sim_list_accuracy = torch.as_tensor([-1])
+                sim_target_accuracy = torch.eq(sim_preds, doms)
+                neg_idx = torch.ne(list_preds, targets)
+                list_neg_preds = list_preds[neg_idx]
+                pos_idx = torch.eq(list_preds, targets)
+                list_pos_preds = list_preds[pos_idx]
+            else:
+                sim_list_accuracy = torch.eq(list_preds, sim_preds)
+                sim_target_accuracy = torch.eq(sim_preds, targets)
+                neg_idx = torch.ne(list_preds, targets)
+                list_neg_preds = list_preds[neg_idx]
+                pos_idx = torch.eq(list_preds, targets)
+                list_pos_preds = list_preds[pos_idx]
 
         sim_list_neg_accuracy = torch.eq(
             list_neg_preds,
