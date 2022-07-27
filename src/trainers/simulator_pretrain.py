@@ -20,7 +20,7 @@ from src.wandb_logging import ListenerLogger
 def normalize_aux(aux, data_length, max_targets=3):
     aux["list_loss"] = np.mean(aux["list_loss"])
     aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
-    aux["sim_loss"] = np.mean(aux["sim_loss"])
+    #aux["sim_loss"] = np.mean(aux["sim_loss"])
 
     aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
     aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
