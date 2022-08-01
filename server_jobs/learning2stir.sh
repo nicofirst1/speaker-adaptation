@@ -22,7 +22,7 @@ common_args=( --dropout 0.25 --model_type no_hist --metric accs --reduction sum 
 # restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )
 
-trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/learning_to_train.py"
+trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/learning_to_stir.py"
 out_file="learning_to_train_${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
