@@ -16,7 +16,8 @@ source activate uvapb
 
 #create output directory
 common_args=( --dropout 0.25 --model_type no_hist --metric accs --reduction sum --subset_size -1
---seed 42 --learning_rate 0.0001  -shuffle --embedding_dim 1024 --epochs 100 --patience 10 --s_iter 5 --learning_rate 0.01)
+--seed 42 --learning_rate 0.0001  -shuffle --embedding_dim 1024 --epochs 100 --patience 10 --s_iter 5
+--learning_rate 0.01 --type_of_sim domain --pretrain_loss ce)
 
 # restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )
