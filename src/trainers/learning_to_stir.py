@@ -14,34 +14,10 @@ import wandb
 from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk)
+                         merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLoss)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
-
-
-def normalize_aux(aux, data_length, max_targets=3):
-    aux["list_loss"] = np.mean(aux["list_loss"])
-    aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
-    aux["sim_loss"] = np.mean(aux["sim_loss"])
-
-    aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
-
-    aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
-
-    aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
-
-    aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / np.sum(aux["neg_pred_len"])
-
-    # flatten nested lists
-    aux["sim_preds"] = [x for xs in aux["sim_preds"] for x in xs]
-    aux["list_preds"] = [x for xs in aux["list_preds"] for x in xs]
-
-    if len(aux["target"]) > max_targets:
-        aux["target"] = np.random.choice(
-            aux["target"], size=max_targets, replace=False
-        ).tolist()
-
 
 def get_predictions(
         data: Dict,
@@ -185,6 +161,26 @@ if __name__ == "__main__":
     common_p = parse_args("sim")
     domain = common_p.train_domain
 
+    ###################################
+    ##  LOGGER
+    ###################################
+
+    # add debug label
+    tags = []
+    if common_p.debug or common_p.subset_size != -1:
+        tags = ["debug"]
+
+    speak_vocab = Vocab(parse_args("speak").vocab_file, is_speaker=True)
+
+    logger = ListenerLogger(
+        vocab=speak_vocab,
+        opts=vars(common_p),
+        train_logging_step=1,
+        val_logging_step=1,
+        tags=tags,
+        project="learning2stir",
+    )
+
     ##########################
     # LISTENER
     ##########################
@@ -310,7 +306,9 @@ if __name__ == "__main__":
     optimizer = optim.Adam(sim_model.parameters(), lr=sim_p.learning_rate)
     cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
     kl_loss = nn.KLDivLoss(reduction=sim_p.reduction, log_target=True)
-
+    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
+                     alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+                     list_domain=domain, all_domains=logger.domains)
 
     def logit2dist(preds, target):
         preds = torch.log_softmax(preds, dim=1)
@@ -336,23 +334,6 @@ if __name__ == "__main__":
         optimizer.load_state_dict(sim_check["optimizer_state_dict"])
         sim_model = sim_model.to(device)
 
-    ###################################
-    ##  LOGGER
-    ###################################
-
-    # add debug label
-    tags = []
-    if common_p.debug or common_p.subset_size != -1:
-        tags = ["debug"]
-
-    logger = ListenerLogger(
-        vocab=speak_vocab,
-        opts=vars(sim_p),
-        train_logging_step=1,
-        val_logging_step=1,
-        tags=tags,
-        project="learning2stir",
-    )
 
     metric = sim_p.metric
 
@@ -434,8 +415,6 @@ if __name__ == "__main__":
 
 
         print(f"\nTest")
-
-        print(f"\nEvaluation")
         aux = process_epoch(test_loader, sim_model, speaker_model,None, list_vocab, loss_f, "test", common_p)
 
         logger.on_eval_end(
