@@ -351,7 +351,7 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="simulator-pretrain",
+        project="learning2stir",
     )
 
     metric = sim_p.metric

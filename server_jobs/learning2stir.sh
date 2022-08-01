@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=sim_pre
+#SBATCH --job-name=lrn2stir
 #SBATCH --cpus-per-task=1
 #SBATCH --time=05:00:00
 #SBATCH --partition=gpu_shared
