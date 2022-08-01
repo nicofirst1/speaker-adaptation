@@ -357,6 +357,7 @@ class SpeakerModel_no_hist(nn.Module):
         decoder_embeds = self.embedding(sos_token)
 
         decoder_hid, _ = self.lstm_decoder(decoder_embeds, hx=(decoder_hid.squeeze(), decoder_hid.squeeze()))
+        decoder_hid = decoder_hid.unsqueeze(0)
 
         history_att = self.lin2att_hist(outputs)
 
