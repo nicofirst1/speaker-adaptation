@@ -75,4 +75,5 @@ dependencies:
     - wandb==0.12.14
     - xdg==5.1.1
     - yaspin==2.1.0
+    - spacy==3.3.1
 prefix: /home/brandizzi/anaconda3/envs/uvapb

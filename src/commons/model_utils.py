@@ -3,11 +3,17 @@ from collections import Counter, defaultdict
 from os.path import isfile, join
 from typing import Dict, List, Tuple
 
+import numpy as np
 import torch
 
 import wandb
 from src.commons.Params import Params
 from src.wandb_logging import WandbLogger
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
 
 def mask_attn(

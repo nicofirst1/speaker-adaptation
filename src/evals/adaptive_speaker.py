@@ -10,7 +10,7 @@ from torch.nn.functional import normalize
 from torch.utils.data import DataLoader
 
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLoss)
+                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLoss, set_seed)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -459,9 +459,6 @@ def evaluate(
     return df
 
 
-def set_seed(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
 
 
 if __name__ == "__main__":
