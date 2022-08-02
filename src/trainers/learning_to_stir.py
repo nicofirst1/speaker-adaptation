@@ -11,21 +11,79 @@ from torch import nn, optim
 from torch.utils.data import DataLoader
 
 import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
+from src.commons import ( LISTENER_CHK_DICT,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLoss)
+                         merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLoss, get_domain_accuracy)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
+
+
+
+def normalize_aux(aux, data_length, epoch=""):
+
+    mean_s = mean([len(x) for x in aux['sim_list_accuracy']])
+    accs=mean([x[-1]==1 for x in aux['sim_list_accuracy']])
+    aux['loss'] = mean([x[-1] for x in aux.pop('losses')])
+
+    aux['accs'] = accs
+    aux['mean_s'] = mean_s
+
+    # best attempt to tie accuracy to mean_s
+    s_norm = 1 - mean_s / common_p.s_iter
+    aux['s_acc'] = s_norm *accs
+
+    # add hypo table
+    hypos = aux.pop('hypos')
+    for idx in range(len(hypos)):
+        if len(hypos[idx]) < common_p.s_iter + 1:
+            hypos[idx] += ["/"] * (common_p.s_iter + 1 - len(hypos[idx]))
+
+    columns = ["original_hypo"]
+    columns += [f"hypo_{i}" for i in range(common_p.s_iter)]
+    aux[f"hypo_table_epoch{epoch}"] = wandb.Table(columns, data=hypos)
+
+    aux["list_loss"] = np.mean(aux["list_loss"])
+    aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
+    #aux["sim_loss"] = np.mean(aux["sim_loss"])
+
+    # a function to recursively flatten a list of lists into a single list
+    def flatten(l):
+        def inner():
+            for el in l:
+                if isinstance(el, list):
+                    yield from flatten(el)
+                else:
+                    yield el
+        return list(inner())
+
+
+    aux["sim_list_accuracy"] = np.sum(flatten(aux["sim_list_accuracy"])) / data_length
+    aux["list_target_accuracy"] = np.sum(flatten(aux["list_target_accuracy"])) / data_length
+    aux["sim_target_accuracy"] = np.sum(flatten(aux["sim_target_accuracy"])) / data_length
+    aux["sim_list_neg_accuracy"] = np.sum(flatten(aux["sim_list_neg_accuracy"])) / np.sum(flatten(aux["neg_pred_len"]))
+    aux["sim_list_pos_accuracy"] = np.sum(flatten(aux["sim_list_pos_accuracy"])) / np.sum(flatten(aux["pos_pred_len"]))
+
+
+    domains=flatten(aux.pop("domains"))
+    aux["domain/list_target_acc"]= get_domain_accuracy(flatten(aux.pop('list_target_accuracy_dom')), domains, logger.domains)
+    aux["domain/sim_list_acc"]= get_domain_accuracy(flatten(aux.pop('sim_list_accuracy_dom')), domains, logger.domains)
+    aux["domain/sim_target_acc"]= get_domain_accuracy(flatten(aux.pop('sim_target_accuracy_dom')), domains, logger.domains)
+
+
+    # flatten nested lists
+    aux["sim_preds"] = flatten(aux['sim_preds'])
+    aux["list_preds"] = flatten(aux['list_preds'])
 
 
 def get_predictions(
         data: Dict,
         sim_model: torch.nn.Module,
         speak_model: torch.nn.Module,
+        list_model: torch.nn.Module,
         optimizer: optim.Optimizer,
-        criterion: torch.nn.Module,
+        criterion: SimLoss,
         adapt_lr: float,
         s_iter: int,
         list_vocab: Vocab,
@@ -53,17 +111,20 @@ def get_predictions(
     #   Get results with original hypo
     ################################################
     # generate hypothesis
-    origin_hypo, logs, decoder_hid = speak_model.generate_hypothesis(
+    hypo, logs, decoder_hid = speak_model.generate_hypothesis(
         prev_utterance,
         prev_utt_lengths,
         context_concat,
         target_img_feats,
     )
-    utterance = hypo2utterance(origin_hypo, list_vocab)
+    utterance = hypo2utterance(hypo, list_vocab)
     lengths = [utterance.shape[1]]
+    max_length_tensor = utterance.shape[1]
     masks = mask_attn(lengths, max_length_tensor, device)
     history_att = logs["history_att"]
-
+    list_out = list_model(
+        utterance, context_separate, context_concat, prev_hist, masks
+    )
     ################################################
     #   Get results with adapted hypo
     ################################################
@@ -74,17 +135,20 @@ def get_predictions(
         optimizer.add_param_group({"params": h0, "lr": adapt_lr})
 
     losses = []
-    hypos = [origin_hypo]
+    hypos = []
     accs = []
 
     # perform loop
     i = 0
+    loss=0
+    infos=[]
     while i < s_iter:
+
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
         # compute loss and perform backprop
-        loss = criterion(sim_out, targets)
-        losses.append(loss.detach().item())
+        loss, info = criterion(sim_out, targets,list_out,data["domain"])
+        losses.append(loss.detach().cpu().item())
         loss.backward()
         optimizer.step()
 
@@ -92,15 +156,22 @@ def get_predictions(
         hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
         hypos.append(hypo)
 
-        # get  accuracy
-        sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
-        sim_target_accuracy = (
-            torch.eq(sim_preds, targets.squeeze()).double().item()
+        # generate utt for list
+        # translate utt to ids and feed to listener
+        utterance = hypo2utterance(hypo, list_vocab)
+        lengths = [utterance.shape[1]]
+        max_length_tensor = utterance.shape[1]
+
+        masks = mask_attn(lengths, max_length_tensor, device)
+        list_out = list_model(
+            utterance, context_separate, context_concat, prev_hist, masks
         )
-        accs.append(sim_target_accuracy)
+
+        # get  accuracy
+        infos.append(info)
 
         # break if sim gets it right
-        if sim_target_accuracy:
+        if info['sim_target_accuracy'] :
             break
         i += 1
 
@@ -110,13 +181,16 @@ def get_predictions(
         accs=accs,
 
     )
-    return mean(losses), sim_target_accuracy, aux
+    infos=merge_dict(infos)
+    aux.update(infos)
+    return mean(losses),  info['sim_target_accuracy'], aux
 
 
 def process_epoch(
         data_loader: DataLoader,
         sim_model: torch.nn.Module,
         speaker_model: torch.nn.Module,
+        list_model: torch.nn.Module,
         optimizer: Optional[optim.Optimizer],
         list_vocab: Vocab,
         loss_f: torch.nn.Module,
@@ -141,32 +215,14 @@ def process_epoch(
 
         # get datapoints
         loss, accuracy, aux = get_predictions(
-            data, sim_model, speaker_model, optimizer, loss_f, common_p.adapt_lr, common_p.s_iter, list_vocab
+            data, sim_model, speaker_model, list_model, optimizer, loss_f, common_p.adapt_lr, common_p.s_iter, list_vocab
         )
 
         auxs.append(aux)
 
     aux = merge_dict(auxs)
-    accs = mean([x[-1] for x in aux['accs']])
-    mean_s = mean([len(x) for x in aux['accs']])
+    normalize_aux(aux, len(data_loader.dataset.data),epoch)
 
-    aux['accs'] = accs
-    aux['mean_s'] = mean_s
-
-    # best attempt to tie accuracy to mean_s
-    s_norm = 1 - mean_s / common_p.s_iter
-    aux['s_acc'] = s_norm
-    aux['loss'] = mean([x[-1] for x in aux.pop('losses')])
-
-    # add hypo table
-    hypos = aux.pop('hypos')
-    for idx in range(len(hypos)):
-        if len(hypos[idx]) < common_p.s_iter + 1:
-            hypos[idx] += ["/"] * (common_p.s_iter + 1 - len(hypos[idx]))
-
-    columns = ["original_hypo"]
-    columns += [f"hypo_{i}" for i in range(common_p.s_iter)]
-    aux["hypo_table"] = wandb.Table(columns, data=hypos)
 
     return aux
 
@@ -288,7 +344,7 @@ if __name__ == "__main__":
     ##########################
     # SIMULATOR
     ##########################
-    check = get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
+    check = get_sim_chk(common_p.type_of_sim,common_p.model_type, common_p.pretrain_loss, domain)
     sim_check, _ = load_wandb_checkpoint(check, device)
 
     # load args
@@ -327,20 +383,6 @@ if __name__ == "__main__":
                      list_domain=domain, all_domains=logger.domains)
 
 
-    def logit2dist(preds, target):
-        preds = torch.log_softmax(preds, dim=1)
-        target = torch.log_softmax(target, dim=1)
-        loss = kl_loss(preds, target)
-
-        return loss
-
-
-    kl = logit2dist
-
-    if sim_p.pretrain_loss == "ce":
-        loss_f = cel
-    else:
-        loss_f = kl
 
     ###################################
     ## RESUME
@@ -367,6 +409,7 @@ if __name__ == "__main__":
     ##  Get speaker dataloader
     ###################################
     sim_p.batch_size = 1
+
     training_loader, test_loader, val_loader = get_dataloaders(
         sim_p, speak_vocab, domain
     )
@@ -388,6 +431,7 @@ if __name__ == "__main__":
         data = {}
 
         sim_model.train()
+        sim_model.use_batchnorm(False)
 
         # torch.enable_grad()
 
@@ -397,7 +441,7 @@ if __name__ == "__main__":
         ##  TRAIN LOOP
         ###################################
         with torch.set_grad_enabled(True):
-            aux = process_epoch(training_loader, sim_model, speaker_model, optimizer, list_vocab, loss_f, "train",
+            aux = process_epoch(training_loader, sim_model, speaker_model,list_model, optimizer, list_vocab, loss_f, "train",
                                 common_p)
 
         logger.on_eval_end(
@@ -419,7 +463,7 @@ if __name__ == "__main__":
 
         print(f"\nEvaluation")
 
-        aux = process_epoch(val_loader, sim_model, speaker_model, None, list_vocab, loss_f, "eval", common_p)
+        aux = process_epoch(val_loader, sim_model, speaker_model, list_model,None, list_vocab, loss_f, "eval", common_p)
 
         logger.on_eval_end(
             aux, list_domain=val_loader.dataset.domain, modality="eval"
@@ -431,7 +475,7 @@ if __name__ == "__main__":
         )
 
         print(f"\nTest")
-        aux = process_epoch(test_loader, sim_model, speaker_model, None, list_vocab, loss_f, "test", common_p)
+        aux = process_epoch(test_loader, sim_model, speaker_model, list_model,None, list_vocab, loss_f, "test", common_p)
 
         logger.on_eval_end(
             aux, list_domain=test_loader.dataset.domain, modality="test"

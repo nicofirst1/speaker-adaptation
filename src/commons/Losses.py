@@ -173,11 +173,15 @@ class SimLoss(torch.nn.Module):
 
         # build dict
         aux = dict(
+
+            # accuracy
             sim_list_accuracy=sim_list_accuracy,
             list_target_accuracy=list_target_accuracy,
             sim_target_accuracy=sim_target_accuracy,
             sim_list_neg_accuracy=sim_list_neg_accuracy,
             sim_list_pos_accuracy=sim_list_pos_accuracy,
+
+            #preds
             list_preds=list_preds,
             sim_preds=sim_preds,
             neg_pred_len=len(list_neg_preds),

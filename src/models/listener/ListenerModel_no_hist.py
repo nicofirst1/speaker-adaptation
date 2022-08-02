@@ -59,6 +59,14 @@ class ListenerModel_no_hist(nn.Module):
 
         self.init_weights()  # initialize layers
 
+    def use_batchnorm(self, use_bn):
+
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm1d):
+                if not use_bn:
+                    m.eval()
+                else:
+                    m.train()
     def init_weights(self):
         """
         Initializes some parameters with values from the uniform distribution, for easier convergence.

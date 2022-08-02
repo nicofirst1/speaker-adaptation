@@ -22,26 +22,70 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 ########
 # SIM
 ########
-SIM_ALL_CE_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1346"
-SIM_ALL_KL_CHK = "adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1140"
 
-SIM_DOMAIN_CE_CHK = dict(
+# regex for simulator checks is: SIM_{model_type}_{pretrain_loss}:
+# model_type:
+#      1. no_hist: predicts list out without using context hist
+#      2. hist: predicts list out using context hist
+#      3. binary: predicts if the list will be correct or not
+#      4. domain: predicts datapoint domain
+# pretrain_loss:
+#   pretrain loss for simulator == listener out,
+#       1. cross entropy [ce]
+#       2. Kullback-Leibler Divergence [kl]
+#   the following work only with model_type = binary
+#       3. Binary cross entropy [bce]
+#       4. Focal bce [fbce]
+
+
+SIM_NOHIST_CE_CHK = dict(
     # epoch 83
-    all=SIM_ALL_CE_CHK,
+    all="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1346",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v962",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v971",
     indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v1036",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v679",
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v1058",
 )
-SIM_DOMAIN_KL_CHK = dict(
+
+SIM_NOHIST_KL_CHK = dict(
     # epoch 20
-    all=SIM_ALL_KL_CHK,
+    all="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1140",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v1218",
     indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v934",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v843",
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v932",
+)
+
+SIM_BINARY_BCE_CHK = dict(
+    # epoch 83
+    all="",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel_binary_food:v223",
+    appliances="",
+    indoor="",
+    outdoor="",
+    vehicles="",
+)
+
+SIM_BINARY_FBCE_CHK = dict(
+    # epoch 83
+    all="",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel_binary_food:v171",
+    appliances="",
+    indoor="",
+    outdoor="",
+    vehicles="",
+)
+
+SIM_DOMAIN_CE_CHK = dict(
+    # epoch 83
+    all="",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel_domain_food:v139",
+    appliances="",
+    indoor="",
+    outdoor="",
+    vehicles="",
 )
 
 SIM_DOMAIN_KL_OOD_CHK = dict(
@@ -54,20 +98,26 @@ SIM_DOMAIN_KL_OOD_CHK = dict(
     vehicles="",
 )
 
+SIM_CHECKPOINTS = dict(
+    SIM_NOHIST_CE_CHK=SIM_NOHIST_CE_CHK,
+    SIM_NOHIST_KL_CHK=SIM_NOHIST_KL_CHK,
+    SIM_BINARY_BCE_CHK=SIM_BINARY_BCE_CHK,
+    SIM_BINARY_FBCE_CHK=SIM_BINARY_FBCE_CHK,
+    SIM_DOMAIN_CE_CHK=SIM_DOMAIN_CE_CHK,
+    SIM_DOMAIN_KL_OOD_CHK=SIM_DOMAIN_KL_OOD_CHK,
 
-def get_sim_chk(type_of_sim, pretrain_loss, domain):
+)
+
+
+def get_sim_chk(type_of_sim, model_type, pretrain_loss, domain):
     """
     Return the correct simulator checkpoint
     """
-    if type_of_sim == "general" and pretrain_loss == "ce":
-        return SIM_ALL_CE_CHK
-    elif type_of_sim == "general":
-        return SIM_ALL_KL_CHK
 
-    if type_of_sim == "domain" and pretrain_loss == "ce":
-        return SIM_DOMAIN_CE_CHK[domain]
-    elif type_of_sim == "domain":
-        return SIM_DOMAIN_KL_OOD_CHK[domain]
+    sim_chk="SIM_"+model_type.replace("_","").upper()+"_"+pretrain_loss.upper()+"_CHK"
+    sim_chk=SIM_CHECKPOINTS[sim_chk][domain]
+
+    return sim_chk
 
 
 ########

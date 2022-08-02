@@ -60,7 +60,7 @@ class Params:
     resume_train: Optional[bool] = False
 
     # Which simulator to use with domain specific listener.
-    # Can be either [domain, general].
+    # Can be either [domain, general, untrained].
     # If domain then symmetric setting, else use general simulator for all domains
     type_of_sim: Optional[str] = "domain"
 
@@ -346,6 +346,13 @@ class SimulatorArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
+
+    # Simulator model type, can be one of the following:
+    # 1. no_hist: predicts list out without using context hist
+    # 2. hist: predicts list out using context hist
+    # 3. binary: predicts if the list will be correct or not
+    # 4. domain: predicts datapoint domain
+
     model_type: Optional[str] = "no_hist"
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
