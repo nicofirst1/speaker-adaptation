@@ -41,8 +41,9 @@ def normalize_aux(aux, data_length, epoch=""):
         h = hypos[idx]
         # estimate dissimilarity between first and last hypo
         if len(h) > 1:
-            doc1 = nlp(h[0])
-            doc2 = nlp(h[-1])
+
+            doc1 = nlp(str(h[0]))
+            doc2 = nlp(str(h[-1]))
             sim = 1 - doc1.similarity(doc2)
         else:
             sim = 1
