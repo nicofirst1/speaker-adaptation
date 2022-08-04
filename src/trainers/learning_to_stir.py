@@ -215,7 +215,7 @@ def process_epoch(
     :param in_domain: when out_domain also estimate per domain accuracy
     :return:
     """
-
+    auxs=[]
     for i, data in rich.progress.track(
             enumerate(data_loader),
             total=len(data_loader),
