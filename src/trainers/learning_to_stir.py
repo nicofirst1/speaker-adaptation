@@ -38,6 +38,7 @@ def normalize_aux(aux, data_length, epoch=""):
     nlp = spacy.load("en_core_web_lg")
     hypos = aux.pop('hypos')
     for idx in range(len(hypos)):
+        list_acc= aux['list_target_accuracy'][idx][-1]
         h = hypos[idx]
         # estimate dissimilarity between first and last hypo
         if len(h) > 1:
@@ -50,11 +51,11 @@ def normalize_aux(aux, data_length, epoch=""):
 
         if len(h) < common_p.s_iter + 1:
             hypos[idx] += ["/"] * (common_p.s_iter + 1 - len(hypos[idx]))
-        hypos[idx] += [sim]
+        hypos[idx] += [sim,list_acc]
 
     columns = ["original_hypo"]
     columns += [f"hypo_{i}" for i in range(common_p.s_iter)]
-    columns += ["similarity"]
+    columns += ["similarity","is list correct?"]
 
     aux[f"hypo_table_epoch{epoch}"] = wandb.Table(columns, data=hypos)
 
