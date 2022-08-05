@@ -153,7 +153,6 @@ class Params:
         self.__parse_args()
         self.data_path = get_dataset_path()
 
-        self.check_parameters()
 
     def __post_init__(self):
         """
@@ -298,6 +297,8 @@ class ListenerArguments(Params):
 
     def __init__(self):
         super(ListenerArguments, self).__init__()
+        self.check_parameters()
+
         self.__post_init__()
 
     def __post_init__(self):
@@ -385,6 +386,10 @@ class SimulatorArguments(Params):
 
     def __init__(self):
         super(SimulatorArguments, self).__init__()
+        if self.adaptive_loss == "":
+            self.adaptive_loss = self.pretrain_loss
+        self.check_parameters()
+
         self.__post_init__()
 
     def __post_init__(self):
@@ -474,6 +479,7 @@ class SpeakerArguments(Params):
 
     def __init__(self):
         super(SpeakerArguments, self).__init__()
+        self.check_parameters()
 
         self.__post_init__()
 

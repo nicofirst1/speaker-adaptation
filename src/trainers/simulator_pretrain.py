@@ -7,10 +7,10 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
+from src.commons import (LISTENER_CHK_DICT,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, SimLossPretrain, get_domain_accuracy)
+                         merge_dict, parse_args, save_model, SimLossPretrain, get_domain_accuracy, AccuracyEstimator)
 from src.commons.Params import SpeakerArguments
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
@@ -18,9 +18,8 @@ from src.wandb_logging import ListenerLogger
 
 
 def normalize_aux(aux, data_length, max_targets=3):
-    aux["list_loss"] = np.mean(aux["list_loss"])
-    aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
-    #aux["sim_loss"] = np.mean(aux["sim_loss"])
+
+    aux['loss']=np.mean(aux['loss'])
 
     aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
     aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
@@ -65,6 +64,7 @@ def get_predictions(
         list_model: torch.nn.Module,
         sim_model: torch.nn.Module,
         loss_f: SimLossPretrain,
+        acc_estimator: AccuracyEstimator,
         list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
@@ -95,31 +95,10 @@ def get_predictions(
     targets = targets.to(device)
 
     # Losses and preds
-    list_loss = loss_f.ce(list_out, targets)
-    sim_list_loss, aux = loss_f(sim_out, targets, list_out, domains)
-    loss = sim_list_loss
+    loss = loss_f(sim_out, targets, list_out, domains)
+    aux=acc_estimator(sim_out, targets, list_out, domains)
 
-    # logging
-    # rnd_idx = np.random.randint(0, batch_size)
-    # hypo = list_vocab.decode(utterance[rnd_idx])
-    # caption = data["orig_utterance"][rnd_idx]
-    # target = data["image_set"][rnd_idx][data["target"][rnd_idx]]
-    # target = logger.img_id2path[str(target)]
-    # target = wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
-
-    # if split=="eval":
-    #     for rnd_idx in range(batch_size):
-    #         hypo=list_vocab.decode(utterance[rnd_idx])
-    #         caption=data['orig_utterance'][rnd_idx]
-    #         target=data['image_set'][rnd_idx][data['target'][rnd_idx]]
-    #         target=logger.img_id2path[str(target)]
-    #         target=wandb.Image(target, caption=f"Hypo:{hypo}\nCaption : {caption}")
-    #         d={k:v[rnd_idx:rnd_idx+1] for k,v in data.items()}
-    #         show_img(d, logger.img_id2path,f"modified_train", hypo=hypo)
-    #         a=1
-
-    aux["list_loss"] = list_loss.detach().cpu().item()
-    aux["sim_list_loss"] = sim_list_loss.detach().cpu().item()
+    aux["loss"] = loss.detach().cpu().item()
 
     return loss, aux['sim_list_accuracy'], aux
 
@@ -130,6 +109,7 @@ def evaluate(
         list_model: torch.nn.Module,
         list_vocab: Vocab,
         loss_f: torch.nn.Module,
+        acc_estimator: AccuracyEstimator,
         split: str,
 ) -> Dict:
     """
@@ -148,7 +128,7 @@ def evaluate(
             description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, loss_f, list_vocab=list_vocab
+        data, list_model, sim_model, loss_f, acc_estimator, list_vocab
         )
 
         auxs.append(aux)
@@ -277,23 +257,8 @@ if __name__ == "__main__":
     ##########################
     # SIMULATOR
     ##########################
-    if common_p.resume_train:
-        sim_check, _ = load_wandb_checkpoint(SIM_ALL_CE_CHK, device)
-        # load args
-        sim_p = sim_check["args"]
-        sim_p.train_domain = domain
-        sim_p.device = device
-        sim_p.resume_train = common_p.resume_train
 
-        # for debug
-        sim_p.subset_size = common_p.subset_size
-        sim_p.debug = common_p.debug
-        sim_p.pretrain_loss = common_p.pretrain_loss
-
-        sim_p.reset_paths()
-
-    else:
-        sim_p = common_p
+    sim_p = common_p
 
     model = get_model("sim", sim_p.model_type)
     sim_model = model(
@@ -315,15 +280,12 @@ if __name__ == "__main__":
     loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                              alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
                              list_domain=domain, all_domains=logger.domains)
+    acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
+
 
     ###################################
     ## RESUME AND EARLYSTOPPING
     ###################################
-
-    if common_p.resume_train:
-        sim_model.load_state_dict(sim_check["model_state_dict"])
-        optimizer.load_state_dict(sim_check["optimizer_state_dict"])
-        sim_model = sim_model.to(device)
 
     metric = sim_p.metric
 
@@ -441,7 +403,7 @@ if __name__ == "__main__":
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, loss_f, list_vocab
+                data, list_model, sim_model, loss_f, acc_estimator, list_vocab
             )
 
             auxs.append(aux)
@@ -458,7 +420,7 @@ if __name__ == "__main__":
         )
 
         print(
-            f"Train loss {aux['sim_list_loss']:.6f}, accuracy {aux['sim_list_accuracy']:.3f} "
+            f"Train loss {aux['loss']:.6f}, accuracy {aux['sim_list_accuracy']:.3f} "
         )
 
         ###################################
@@ -475,9 +437,10 @@ if __name__ == "__main__":
                 list_model,
                 list_vocab,
                 loss_f,
+                acc_estimator,
                 split="eval",
             )
-            eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
+            eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["loss"]
 
             print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy:.3f} ")
             logger.on_eval_end(
@@ -491,10 +454,11 @@ if __name__ == "__main__":
                 list_model,
                 list_vocab,
                 loss_f,
+                acc_estimator,
                 split="test",
             )
 
-            test_accuracy, test_loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
+            test_accuracy, test_loss = aux["sim_list_accuracy"], aux["loss"]
             print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
 
             logger.on_eval_end(
