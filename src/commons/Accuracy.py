@@ -17,6 +17,10 @@ class AccuracyEstimator(torch.nn.Module):
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
     def forward(self, preds, targets, list_out, domains, is_adaptive=False):
 
+        preds=preds.to("cpu")
+        targets=targets.to("cpu")
+        list_out=list_out.to("cpu")
+
         if is_adaptive:
             doms = [self.domain2idx[self.list_domain] for _ in domains]
 
