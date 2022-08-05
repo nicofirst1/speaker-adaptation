@@ -3,9 +3,10 @@ from torch import nn
 
 from src.commons import get_domain_accuracy
 
-device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-class SimLoss(torch.nn.Module):
+
+class SimLossPretrain(torch.nn.Module):
 
     def __init__(self, loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains):
 
@@ -14,17 +15,18 @@ class SimLoss(torch.nn.Module):
         self.kl_loss = nn.KLDivLoss(reduction=reduction, log_target=True)
         self.bce_loss = nn.BCEWithLogitsLoss(reduction="none")
 
-        self.fbce_alpha=alpha
-        self.fbce_gamma=gamma
-        self.list_domain=list_domain
-        self.all_domains=all_domains
-        self.sim_model_type=sim_model_type
+        self.fbce_alpha = alpha
+        self.fbce_gamma = gamma
+        self.list_domain = list_domain
+        self.all_domains = all_domains
+        self.sim_model_type = sim_model_type
         # create an index dict for domains
-        self.domain2idx={d:idx for idx,d in enumerate(sorted(all_domains))}
-        self.idx2domain={idx:d for idx,d in self.domain2idx.items()}
+        self.domain2idx = {d: idx for idx, d in enumerate(sorted(all_domains))}
+        self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
 
         self.loss_type = loss_type
-        self.reduction=reduction
+        self.reduction = reduction
+
 
     def ce(self, preds, targets):
         return self.ce_loss(preds, targets)
@@ -40,10 +42,10 @@ class SimLoss(torch.nn.Module):
         loss = self.bce_loss(preds, targets)
 
         if use_reduction:
-            if self.reduction=="sum":
-                loss=loss.sum()
-            elif self.reduction=="mean":
-                loss=loss.mean()
+            if self.reduction == "sum":
+                loss = loss.sum()
+            elif self.reduction == "mean":
+                loss = loss.mean()
 
         return loss
 
@@ -57,15 +59,15 @@ class SimLoss(torch.nn.Module):
             :param gamma: focal loss power parameter, a float scalar.
             :param alpha: weight of the class indicated by 1, a float scalar.
             """
-        bce_loss=self.bce(preds,targets, use_reduction=False)
+        bce_loss = self.bce(preds, targets, use_reduction=False)
         p_t = torch.exp(-bce_loss)
         alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)
         f_loss = alpha_tensor * (1 - p_t) ** self.fbce_gamma * bce_loss
 
-        if self.reduction=="sum":
-            f_loss=f_loss.sum()
+        if self.reduction == "sum":
+            f_loss = f_loss.sum()
         else:
-            f_loss=f_loss.mean()
+            f_loss = f_loss.mean()
 
         return f_loss
 
@@ -76,10 +78,10 @@ class SimLoss(torch.nn.Module):
 
         # estimate loss based on the type
         if self.loss_type == "ce":
-            if self.sim_model_type=="domain":
-                doms=[self.domain2idx[d] for d in domains]
-                doms=torch.as_tensor(doms).to(device)
-                loss=self.ce(preds,doms)
+            if self.sim_model_type == "domain":
+                doms = [self.domain2idx[d] for d in domains]
+                doms = torch.as_tensor(doms).to(device)
+                loss = self.ce(preds, doms)
             else:
                 loss = self.ce(preds, list_out)
         elif self.loss_type == "kl":
@@ -91,110 +93,39 @@ class SimLoss(torch.nn.Module):
         else:
             raise ValueError(f"Loss type {self.loss_type = } is invalid!")
 
-        # get list accuracy and preds
-        targets = targets.squeeze()
-        list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
-        list_target_accuracy = torch.eq(list_preds, targets)
 
-        # with bce the simulator has a binary output,
-        # so the making of the aux dict with the accuracies differs
-        if self.loss_type in ["bce","fbce"]:
+        return loss
 
-            # sim out is logits, need bool
-            sim_preds = torch.sigmoid(preds)
-            sim_preds = torch.round(sim_preds)
-            sim_preds = sim_preds.bool()
 
-            if sim_preds.ndim != 1:
-                sim_preds = sim_preds.squeeze(dim=-1)
+class SimLossAdapt(SimLossPretrain):
 
-            sim_list_accuracy = torch.eq(list_target_accuracy, sim_preds)
-            sim_target_accuracy = sim_list_accuracy
+    def init(self, loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains):
+        super(SimLossAdapt, self).__init__(loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains)
 
-            neg_idx = torch.ne(list_preds, targets)
-            list_neg_preds = list_target_accuracy[neg_idx]
+    def forward(self, preds, targets, list_out, domains):
 
-            pos_idx = torch.eq(list_preds, targets)
-            list_pos_preds = list_target_accuracy[pos_idx]
+        list_preds = torch.argmax(list_out, dim=1)
+        list_target_accuracy = torch.eq(list_preds, targets).float()
 
-        else:
-            sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
+        # when model is binary use as target a vector of ones
+        correct_accuracy = torch.ones(list_target_accuracy.size()).to(list_target_accuracy.device)
 
-            if self.sim_model_type=="domain":
-                sim_target_accuracy = torch.eq(sim_preds, doms)
-                sim_list_accuracy = sim_target_accuracy
-
-                neg_idx = torch.ne(list_preds, targets)
-                list_neg_preds = list_preds[neg_idx]
-                pos_idx = torch.eq(list_preds, targets)
-                list_pos_preds = list_preds[pos_idx]
+        # estimate loss based on the type
+        if self.loss_type == "ce":
+            if self.sim_model_type == "domain":
+                # create a vector of listener domain the size of the input
+                doms = [self.domain2idx[self.list_domain] for _ in domains]
+                doms = torch.as_tensor(doms).to(device)
+                loss = self.ce(preds, doms)
             else:
-                sim_list_accuracy = torch.eq(list_preds, sim_preds)
-                sim_target_accuracy = torch.eq(sim_preds, targets)
-                neg_idx = torch.ne(list_preds, targets)
-                list_neg_preds = list_preds[neg_idx]
-                pos_idx = torch.eq(list_preds, targets)
-                list_pos_preds = list_preds[pos_idx]
+                loss = self.ce(preds, targets)
 
-        sim_list_neg_accuracy = torch.eq(
-            list_neg_preds,
-            sim_preds[neg_idx],
-        )
-        sim_list_pos_accuracy = torch.eq(
-            list_pos_preds,
-            sim_preds[pos_idx],
-        )
-
-        list_target_accuracy_dom=list_target_accuracy.tolist()
-        sim_list_accuracy_dom=sim_list_accuracy.tolist()
-        sim_target_accuracy_dom=sim_target_accuracy.tolist()
-
-        d = [domains[idx] for idx in range(len(domains)) if neg_idx[idx]]
-        sim_list_neg_accuracy_dom = (sim_list_neg_accuracy, d)
-
-        d = [domains[idx] for idx in range(len(domains)) if pos_idx[idx]]
-        sim_list_pos_accuracy_dom = (sim_list_pos_accuracy, d)
+        elif self.loss_type == "bce":
+            loss = self.bce(preds, correct_accuracy)
+        elif self.loss_type == "fbce":
+            loss = self.focal_bce(preds, correct_accuracy)
+        else:
+            raise ValueError(f"Loss type {self.loss_type = } is invalid!")
 
 
-        list_target_accuracy = list_target_accuracy.sum()
-        sim_list_accuracy=sim_list_accuracy.sum()
-        sim_target_accuracy=sim_list_accuracy.sum()
-        sim_list_neg_accuracy=sim_list_neg_accuracy.sum()
-        sim_list_pos_accuracy=sim_list_pos_accuracy.sum()
-
-        # cast to list
-        sim_list_accuracy = sim_list_accuracy.tolist()
-        list_target_accuracy = list_target_accuracy.tolist()
-        sim_target_accuracy = sim_target_accuracy.tolist()
-        sim_list_neg_accuracy = sim_list_neg_accuracy.tolist()
-        sim_list_pos_accuracy = sim_list_pos_accuracy.tolist()
-        list_preds = list_preds.tolist()
-        sim_preds = sim_preds.tolist()
-
-        # build dict
-        aux = dict(
-
-            # accuracy
-            sim_list_accuracy=sim_list_accuracy,
-            list_target_accuracy=list_target_accuracy,
-            sim_target_accuracy=sim_target_accuracy,
-            sim_list_neg_accuracy=sim_list_neg_accuracy,
-            sim_list_pos_accuracy=sim_list_pos_accuracy,
-
-            #preds
-            list_preds=list_preds,
-            sim_preds=sim_preds,
-            neg_pred_len=len(list_neg_preds),
-            pos_pred_len=len(list_pos_preds),
-
-            # domain specific
-            list_target_accuracy_dom=list_target_accuracy_dom,
-            sim_list_accuracy_dom=sim_list_accuracy_dom,
-            sim_target_accuracy_dom=sim_target_accuracy_dom,
-            sim_list_neg_accuracy_dom=sim_list_neg_accuracy_dom,
-            sim_list_pos_accuracy_dom=sim_list_pos_accuracy_dom,
-            domains=domains,
-
-        )
-
-        return loss, aux
+        return loss

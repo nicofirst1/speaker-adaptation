@@ -1,3 +1,4 @@
+from .Accuracy import AccuracyEstimator
 from .data_utils import (get_dataloaders, load_wandb_dataset,
                          speaker_augmented_dataloader)
 from .EarlyStopping import EarlyStopping
@@ -6,7 +7,7 @@ from .model_utils import (get_domain_accuracy, hypo2utterance,
                           save_model, set_seed)
 from .Params import parse_args
 from .wandb_checkpoints import *
-from .Losses import SimLoss
+from .Losses import SimLossPretrain, SimLossAdapt
 
 __all__ = [
     "get_dataloaders",
@@ -34,6 +35,10 @@ __all__ = [
     "get_sim_chk",
 
     #Losses
-    "SimLoss",
+    "SimLossPretrain",
+    "SimLossAdapt",
+
+    # Accuracy
+    "AccuracyEstimator",
 ]
 

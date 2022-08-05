@@ -9,9 +9,9 @@ Meeting logs: https://docs.google.com/document/d/1ToHEaCEceFcVoE96sbZ5yTIKDOaP6x
 You can either instal by coopying the conda yaml file with the following command:
 
 ```bash
-conda env create -f uvabp.yml
+conda env create -f uvapb.yml
 ```
-the corresponding conda env `uvabp` will be created.
+the corresponding conda env `uvapb` will be created.
 
 ### Setup.py
 You can also install by running the following command:

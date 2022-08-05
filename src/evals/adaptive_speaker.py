@@ -10,7 +10,7 @@ from torch.nn.functional import normalize
 from torch.utils.data import DataLoader
 
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLoss, set_seed)
+                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLossPretrain, set_seed)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -549,7 +549,7 @@ if __name__ == "__main__":
     ##########################
 
     if common_p.force_resume_url == "":
-        check = get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
+        check = get_sim_chk(common_p.type_of_sim, common_p.model_type,common_p.pretrain_loss, domain)
     else:
         check = common_p.force_resume_url
     sim_check, _ = load_wandb_checkpoint(check, device)
@@ -625,9 +625,9 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction,common_p.model_type,
-                     alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
-                     list_domain=domain, all_domains=logger.domains)
+    loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
+                             alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+                             list_domain=domain, all_domains=logger.domains)
     ###################################
     ##  EVAL LOOP
     ###################################

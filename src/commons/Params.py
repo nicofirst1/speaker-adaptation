@@ -377,6 +377,7 @@ class SimulatorArguments(Params):
     # 3. Binary cross entropy [bce]
     # 4. Focal bce [fbce]
     pretrain_loss: Optional[str] = "ce"
+    adaptive_loss: Optional[str] = ""
 
     # alpha if target = 1 and 1 - alpha if target = 0
     focal_alpha: Optional[float] = 0.4
@@ -395,6 +396,8 @@ class SimulatorArguments(Params):
 
         if self.model_type == "binary" and self.pretrain_loss not in ['fbce', "bce"]:
             self.pretrain_loss = "bce"
+        if self.adaptive_loss=="":
+            self.adaptive_loss=self.pretrain_loss
 
     def check_parameters(self):
         super(SimulatorArguments, self).check_parameters()
@@ -414,6 +417,23 @@ class SimulatorArguments(Params):
         assert (
                 self.pretrain_loss in valid_pretrain_loss
         ), f"Invalid pretrain loss '{self.pretrain_loss}' not in '{valid_pretrain_loss}'"
+
+        valid_adaptive_loss = ['ce', "bce", 'fbce']
+
+        assert (
+                self.adaptive_loss in valid_adaptive_loss
+        ), f"Invalid adaptive loss '{self.adaptive_loss}' not in '{valid_adaptive_loss}'"
+
+        # cross-check model type and losses
+        if "hist" in self.model_type:
+            assert self.pretrain_loss in ['ce','kl']
+            assert self.adaptive_loss in ['ce']
+        elif "binary" in self.model_type:
+            assert self.pretrain_loss in ['bce', 'fbce']
+            assert self.adaptive_loss in ['bce', 'fbce']
+        elif "domain" in self.model_type:
+            assert self.pretrain_loss in ['ce']
+            assert self.adaptive_loss in ['ce']
 
         if self.embed_type == "sratch":
             assert (

@@ -16,13 +16,13 @@ source activate uvapb
 
 #create output directory
 common_args=( --dropout 0.25 --model_type binary --metric accs --reduction sum --subset_size -1
---seed 42 --learning_rate 0.0001  -shuffle --embedding_dim 1024 --epochs 100 --patience 10 --s_iter 5
---adapt_lr 0.3 --type_of_sim domain --pretrain_loss fbce --test_split seen --data_domain all)
+--seed 42 --learning_rate 0.001  --adapt_lr 0.3  -shuffle --embedding_dim 1024 --epochs 100 --patience 10 --s_iter 5
+--type_of_sim domain --pretrain_loss fbce --adaptive_loss bce --test_split seen --data_domain all)
 # restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/learning_to_stir.py"
-out_file="learning_to_train_${SLURM_ARRAY_TASK_ID}.log"
+out_file="learning2stir${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
 echo "Starting the process..."

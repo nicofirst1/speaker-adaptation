@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from src.commons import (LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, SimLoss, get_domain_accuracy)
+                         merge_dict, parse_args, save_model, SimLossPretrain, get_domain_accuracy)
 from src.commons.Params import SpeakerArguments
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
@@ -64,7 +64,7 @@ def get_predictions(
         data: Dict,
         list_model: torch.nn.Module,
         sim_model: torch.nn.Module,
-        loss_f: SimLoss,
+        loss_f: SimLossPretrain,
         list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
@@ -312,9 +312,9 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
-    loss_f = SimLoss(common_p.pretrain_loss, common_p.reduction,common_p.model_type,
-                     alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
-                     list_domain=domain, all_domains=logger.domains)
+    loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
+                             alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+                             list_domain=domain, all_domains=logger.domains)
 
     ###################################
     ## RESUME AND EARLYSTOPPING
