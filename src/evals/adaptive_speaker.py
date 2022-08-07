@@ -10,7 +10,8 @@ from torch.nn.functional import normalize
 from torch.utils.data import DataLoader
 
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLossPretrain, set_seed)
+                         load_wandb_checkpoint, mask_attn, parse_args, get_sim_chk, SimLossPretrain, set_seed,
+                         SimLossAdapt, AccuracyEstimator)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SimulatorModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -86,8 +87,9 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
         "original guess",
     ]
     table_columns += [f"adapted hypo {i}" for i in range(s)]
-    table_columns += [f"adapted guess {i}" for i in range(s)]
-    table_columns += [f"sim guess {i}" for i in range(s)]
+    table_columns += [f"adapted acc {i}" for i in range(s)]
+    table_columns += [f"sim acc {i}" for i in range(s)]
+    table_columns += [f"sim list acc {i}" for i in range(s)]
     table_columns += [f"diff {i}" for i in range(s)]
 
     table = wandb.Table(columns=table_columns, data=data)
@@ -101,6 +103,7 @@ def evaluate(
         list_model: ListenerModel_hist,
         list_vocab: Vocab,
         criterion,
+        acc_estimator: AccuracyEstimator,
         split: str,
         lr: float = 0.1,
         s: int = 1,
@@ -130,6 +133,7 @@ def evaluate(
     golden_accs = []
     adapted_accs = []
     sim_accs = []
+    sim_list_accs=[]
 
     original_hypos = []
     golden_hypos = []
@@ -232,70 +236,20 @@ def evaluate(
         s_loss = [-1 for _ in range(s)]
         s_grad = [-1 for _ in range(s)]
         sim_accuracy = [-1 for _ in range(s)]
+        sim_list_acc = [-1 for _ in range(s)]
 
         # perform loop
         i = 0
         while i < s:
             set_seed(seed)
-
-            def cloning_sim(masks):
-                sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
-                s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
-
-                # get  accuracy
-                sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
-                sim_target_accuracy = (
-                    torch.eq(sim_preds, targets.squeeze()).double().item()
-                )
-                sim_accuracy[i] = sim_target_accuracy
-
-                # compute loss and perform backprop
-                target_domain=[domain]*targets.shape[0]
-                loss,aux = criterion(sim_out, targets,list_out,target_domain)
-                loss.backward()
-                optimizer.step()
-
-                return loss, sim_target_accuracy
-
-            def binary_sim(masks):
-                """
-                Used for binary simulator
-                """
-                sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
-                sim_pred = torch.sigmoid(sim_out)
-                s_adapted_sim_outs[i] = sim_pred.detach().item()
-                # simulator target accuracy is irrelevant here
-                sim_accuracy[i] = 0
-
-                # compute loss and perform backprop
-                # we want the simulator to output 1 (listener will be right) so we need a fake target
-                loss_target = torch.as_tensor([[1.0]]).to(device)
-                loss = criterion.bce(sim_out, loss_target)
-                loss.backward()
-                optimizer.step()
-
-                # save grads related infos
-
-                return loss, sim_pred.detach().item() > 0.9
-
-            if common_p.model_type == "binary":
-                loss, to_break = binary_sim(masks)
-            else:
-                loss, to_break = cloning_sim(masks)
-
-            s_loss[i] = loss.detach().item()
-            s_h0[i] = h0[0].clone().detach().tolist()
-            s_grad[i] = h0.grad[0].clone().detach().tolist()
-
             # get modified hypo
             hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
             s_hypo[i] = hypo
-
+            # generate utt for list
             # translate utt to ids and feed to listener
             utterance = hypo2utterance(hypo, list_vocab)
             lengths = [utterance.shape[1]]
             max_length_tensor = utterance.shape[1]
-
             masks = mask_attn(lengths, max_length_tensor, device)
 
             list_out = list_model(
@@ -310,8 +264,23 @@ def evaluate(
             )
             s_accs[i] = list_target_accuracy
 
+            sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
+            s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
+
+            # compute loss and perform backprop
+            loss = criterion(sim_out, targets, list_out, data['domains'])
+            loss.backward()
+            optimizer.step()
+            aux = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=True)
+
+            sim_accuracy[i]=aux['sim_target_accuracy']
+            sim_list_acc[i]=aux['sim_list_accuracy']
+            s_loss[i] = loss.detach().item()
+            s_h0[i] = h0[0].clone().detach().tolist()
+            s_grad[i] = h0.grad[0].clone().detach().tolist()
+
             # break if listener gets it right
-            if to_break:
+            if aux['sim_target_accuracy']:
                 break
             i += 1
 
@@ -320,6 +289,7 @@ def evaluate(
         modified_hypos.append(s_hypo)
         adapted_accs.append(s_accs)
         sim_accs.append(sim_accuracy)
+        sim_list_accs.append(sim_list_acc)
         h0s.append([decoder_hid] + s_h0)
         target_domain.append(data["domain"][0])
         losses.append(s_loss)
@@ -364,8 +334,8 @@ def evaluate(
         # 18. whether the listener makes a correct guess given the original utterance x1
         # 19. whether the simulator makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
         # 20. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
-
-        # size formula : 16+6s
+        # 20. Simulator accuracy on listener (for each backprop step) x(s-1)
+        # size formula : 16+7s
 
         row = [data["domain"][0], list_model.domain, sim_model.domain, target_img_idx]
         row += distractors_img_path
@@ -383,6 +353,7 @@ def evaluate(
         row += [original_accs[-1]]
         row += sim_accuracy
         row += s_accs
+        row+=sim_list_acc
 
         csv_data.append(row)
 
@@ -403,6 +374,7 @@ def evaluate(
     columns += [f"original_acc"]
     columns += [f"sim_acc_s{i}" for i in range(s)]
     columns += [f"adapted_acc_s{i}" for i in range(s)]
+    columns += [f"sim_list_acc{i}" for i in range(s)]
 
     df = pd.DataFrame(columns=columns, data=csv_data)
 
@@ -419,6 +391,7 @@ def evaluate(
                 modified_hypos,
                 adapted_accs,
                 sim_accs,
+                sim_list_accs,
                 [[x != y1 for y1 in y] for x, y in zip(original_accs, adapted_accs)],
             )
         )
@@ -440,6 +413,9 @@ def evaluate(
     sim_accs = [[y for y in x if y != -1] for x in sim_accs]
     sim_accs = np.mean([x[-1] for x in sim_accs])
 
+    sim_list_accs = [[y for y in x if y != -1] for x in sim_list_accs]
+    sim_list_accs = np.mean([x[-1] for x in sim_list_accs])
+
     loss = [[y for y in x if y != -1] for x in losses]
     loss = np.mean(loss)
 
@@ -452,6 +428,7 @@ def evaluate(
         ood_table=ood_table,
         loss=loss,
         mean_s=mean_s,
+        sim_list_accs=sim_list_accs,
     )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
@@ -625,9 +602,11 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
+    loss_f = SimLossAdapt(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                              alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
                              list_domain=domain, all_domains=logger.domains)
+    acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
+
     ###################################
     ##  EVAL LOOP
     ###################################
@@ -651,6 +630,7 @@ if __name__ == "__main__":
             list_model,
             list_vocab,
             criterion=loss_f,
+            acc_estimator=acc_estimator,
             split="in_domain_train",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -679,6 +659,7 @@ if __name__ == "__main__":
             list_model,
             list_vocab,
             criterion=loss_f,
+            acc_estimator=acc_estimator,
             split="in_domain_eval",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -707,6 +688,7 @@ if __name__ == "__main__":
             list_model,
             list_vocab,
             criterion=loss_f,
+            acc_estimator=acc_estimator,
             split="in_domain_test",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -735,6 +717,7 @@ if __name__ == "__main__":
             list_model,
             list_vocab,
             criterion=loss_f,
+            acc_estimator=acc_estimator,
             split="out_domain_train",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -762,6 +745,7 @@ if __name__ == "__main__":
             list_model,
             list_vocab,
             criterion=loss_f,
+            acc_estimator=acc_estimator,
             split="out_domain_eval",
             lr=common_p.learning_rate,
             s=common_p.s_iter,
@@ -789,8 +773,9 @@ if __name__ == "__main__":
         list_model,
         list_vocab,
         criterion=loss_f,
+        acc_estimator=acc_estimator,
         split="out_domain_test",
-        lr=common_p.learning_rate,
+        lr=common_p.adapt_lr,
         s=common_p.s_iter,
     )
 
