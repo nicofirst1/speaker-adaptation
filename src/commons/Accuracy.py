@@ -26,7 +26,7 @@ class AccuracyEstimator(torch.nn.Module):
 
         else:
             doms = [self.domain2idx[d] for d in domains]
-        doms = torch.as_tensor(doms).to(device)
+        doms = torch.as_tensor(doms).to("cpu")
 
         # get list accuracy and preds
         targets = targets.squeeze()
