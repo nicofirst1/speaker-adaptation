@@ -465,8 +465,10 @@ if __name__ == "__main__":
     ###################################
     common_p.batch_size = 1
 
+    data_domain = common_p.data_domain
+
     training_loader, test_loader, val_loader = get_dataloaders(
-        common_p, speak_vocab, domain
+        common_p, speak_vocab, data_domain
     )
 
     ###################################
