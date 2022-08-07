@@ -98,7 +98,7 @@ class AccuracyEstimator(torch.nn.Module):
 
         list_target_accuracy = list_target_accuracy.sum()
         sim_list_accuracy = sim_list_accuracy.sum()
-        sim_target_accuracy = sim_list_accuracy.sum()
+        sim_target_accuracy = sim_target_accuracy.sum()
         sim_list_neg_accuracy = sim_list_neg_accuracy.sum()
         sim_list_pos_accuracy = sim_list_pos_accuracy.sum()
 
