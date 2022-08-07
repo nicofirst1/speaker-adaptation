@@ -175,7 +175,7 @@ def get_predictions(
     ################################################
     h0 = decoder_hid.clone().detach().requires_grad_(True)
     if optimizer is None:
-        optimizer = torch.optim.Adam([h0], lr=adapt_lr)
+        optimizer = torch.optim.SGD([h0], lr=adapt_lr)
     else:
         optimizer.add_param_group({"params": h0, "lr": adapt_lr})
 
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
-    optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
+    optimizer = optim.SGD(sim_model.parameters(), lr=common_p.learning_rate)
 
     pretrain_loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                                       alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
