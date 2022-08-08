@@ -15,10 +15,26 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-common_args=( --seed 69 --learning_rate 0.003 --s_iter 10 --type_of_sim general)
+common_args=( --seed 69
+--adapt_lr
+0.03
+--s_iter
+5
+--type_of_sim
+domain
+--test_split
+seen
+--pretrain_loss
+fbce
+--adaptive_loss
+bce
+--model_type
+binary
+--data_domain
+all
+)
+# --force_resume adaptive-speaker/learning2stir/SimulatorModel_binary_food:v10
 
-# restore the simulator
-#common_args=("${common_args[@]}" "${restore_arg[@]}")
 
 
 

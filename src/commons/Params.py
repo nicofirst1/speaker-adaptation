@@ -367,8 +367,8 @@ class SimulatorArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter: Optional[int] = 1
-    adapt_lr : Optional[float] = 0.01
+    s_iter: Optional[int] = 5
+    adapt_lr : Optional[float] = 0.03
     log_train: Optional[bool] = False
     # pretrain loss for simulator == listener out,
     # can be:

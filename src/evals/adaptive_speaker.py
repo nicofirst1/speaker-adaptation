@@ -102,7 +102,7 @@ def evaluate(
         sim_model: SimulatorModel_hist,
         list_model: ListenerModel_hist,
         list_vocab: Vocab,
-        criterion,
+        criterion:SimLossAdapt,
         acc_estimator: AccuracyEstimator,
         split: str,
         lr: float = 0.1,
@@ -242,6 +242,21 @@ def evaluate(
         i = 0
         while i < s:
             set_seed(seed)
+
+            sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
+            s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
+
+            # compute loss and perform backprop
+            loss = criterion(sim_out, targets, list_out, data["domain"])
+            aux = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=True)
+            loss.backward()
+            optimizer.step()
+
+
+            s_loss[i] = loss.detach().item()
+            s_h0[i] = h0[0].clone().detach().tolist()
+            s_grad[i] = h0.grad[0].clone().detach().tolist()
+
             # get modified hypo
             hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
             s_hypo[i] = hypo
@@ -690,6 +705,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="in_domain_test",
+            acc_estimator=acc_estimator,
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
@@ -719,6 +735,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="out_domain_train",
+            acc_estimator=acc_estimator,
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
@@ -747,6 +764,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="out_domain_eval",
+            acc_estimator=acc_estimator,
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
