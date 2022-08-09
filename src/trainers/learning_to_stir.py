@@ -10,7 +10,7 @@ import torch
 from numpy import mean
 from torch import nn, optim
 from torch.utils.data import DataLoader
-
+import torch.nn.functional as F
 import wandb
 from src.commons import (LISTENER_CHK_DICT,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
@@ -57,6 +57,7 @@ def normalize_aux(aux, data_length, s_iter):
     mean_s = mean([len(x) for x in aux['sim_list_accuracy']])
     accs = mean([x[-1] == 1 for x in aux['sim_list_accuracy']])
     aux['loss'] = mean([x[-1] for x in aux.pop('loss')])
+    aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
 
     aux['accs'] = accs
     aux['mean_s'] = mean_s
@@ -151,7 +152,7 @@ def get_predictions(
     prev_utterance = data["prev_utterance"]
     prev_utt_lengths = data["prev_length"]
     target_img_feats = data["target_img_feats"]
-
+    batch_size= context_concat.size(0)
     device = list_model.device
 
     max_length_tensor = prev_utterance.shape[1]
@@ -174,10 +175,8 @@ def get_predictions(
     #   Get results with adapted hypo
     ################################################
     h0 = decoder_hid.clone().detach().requires_grad_(True)
-    if optimizer is None:
-        optimizer = torch.optim.SGD([h0], lr=adapt_lr)
-    else:
-        optimizer.add_param_group({"params": h0, "lr": adapt_lr})
+    optimizer_h0 = torch.optim.Adam([h0], lr=adapt_lr)
+
 
     losses = []
     hypos = []
@@ -187,6 +186,10 @@ def get_predictions(
     p_infos = []
     a_infos = []
     while i < s_iter:
+
+        optimizer_h0.zero_grad()
+        optimizer.zero_grad()
+
         set_seed(seed)
 
         # get modified hypo
@@ -195,10 +198,18 @@ def get_predictions(
 
         # generate utt for list
         # translate utt to ids and feed to listener
-        utterance = hypo2utterance(hypo, list_vocab)
-        lengths = [utterance.shape[1]]
-        max_length_tensor = utterance.shape[1]
-        masks = mask_attn(lengths, max_length_tensor, device)
+        utterance = [hypo2utterance(h, list_vocab) for h in hypo]
+        lengths=[u.shape[1] for u in utterance]
+        max_len=max(lengths)
+
+        utterance = [
+            # The needed padding is the difference between the
+            # max width/height and the image's actual width/height.
+            F.pad(u, (0,max_len- u.shape[1]), value=list_vocab.word2index['<pad>'])
+            for u in utterance
+        ]
+        utterance=torch.concat(utterance).to(device)
+        masks = mask_attn(lengths, max_len, device)
 
         list_out = list_model(
             utterance, context_separate, context_concat, prev_hist, masks
@@ -206,13 +217,22 @@ def get_predictions(
 
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
-        # compute loss and perform backprop
+        # compute loss for pretraining
         p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
-        a_loss = adapt_loss_f(sim_out, targets, list_out, data["domain"])
-        loss = p_loss + a_loss
-        losses.append(loss.detach().cpu().item())
-        loss.backward()
+        if optimizer is not None:
+            p_loss.backward(retain_graph=True)
+            optimizer.step()
+
+
+        a_loss = 0.2* adapt_loss_f(sim_out, targets, list_out, data["domain"])
+        #list_loss=adapt_loss_f.ce(list_out,targets)
+
+        a_loss.backward(retain_graph=True)
+        optimizer_h0.step()
         optimizer.step()
+
+        loss = p_loss + a_loss  # +list_loss
+        losses.append(loss.detach().cpu().item())
 
         # get  accuracy
         p_info = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=False)
@@ -220,12 +240,15 @@ def get_predictions(
         # add loss
         p_info['loss'] = p_loss.detach().cpu().item()
         a_info['loss'] = a_loss.detach().cpu().item()
+        # a_info['list_loss'] = list_loss.detach().cpu().item()
+        # p_info['list_loss'] = list_loss.detach().cpu().item()
         # append to list
         p_infos.append(p_info)
         a_infos.append(a_info)
 
         # break if sim gets it right
-        if a_info['sim_target_accuracy']:
+        break_trh=batch_size*0.5
+        if a_info['list_target_accuracy']>break_trh:
             break
         i += 1
 
@@ -302,11 +325,11 @@ def process_epoch(
 
 if __name__ == "__main__":
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
 
     common_p = parse_args("sim")
     domain = common_p.train_domain
+    device = common_p.device
 
     ###################################
     ##  LOGGER
@@ -340,7 +363,6 @@ if __name__ == "__main__":
     list_args = list_checkpoint["args"]
 
     # update list args
-    list_args.batch_size = 1  # hypotesis generation does not support batch
     list_args.device = device
     list_args.reset_paths()
 
@@ -430,10 +452,16 @@ if __name__ == "__main__":
         common_p.device,
     ).to(device)
 
+    if common_p.force_resume_url != "":
+        check = common_p.force_resume_url
+        sim_check, _ = load_wandb_checkpoint(check, device)
+        sim_model.load_state_dict(sim_check["model_state_dict"])
+        sim_model = sim_model.to(device)
+
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
-    optimizer = optim.SGD(sim_model.parameters(), lr=common_p.learning_rate)
+    optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
 
     pretrain_loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                                       alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
@@ -463,7 +491,7 @@ if __name__ == "__main__":
     ###################################
     ##  Get speaker dataloader
     ###################################
-    common_p.batch_size = 1
+    common_p.batch_size = 32
 
     data_domain = common_p.data_domain
 
