@@ -705,7 +705,6 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="in_domain_test",
-            acc_estimator=acc_estimator,
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
@@ -735,7 +734,6 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="out_domain_train",
-            acc_estimator=acc_estimator,
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
@@ -764,7 +762,6 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="out_domain_eval",
-            acc_estimator=acc_estimator,
             lr=common_p.learning_rate,
             s=common_p.s_iter,
         )
