@@ -17,7 +17,7 @@ from src.commons import (LISTENER_CHK_DICT,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
                          merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
                          get_domain_accuracy,
-                         set_seed, SimLossAdapt, AccuracyEstimator)
+                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -217,19 +217,29 @@ def get_predictions(
 
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
+
+
+
         # compute loss for pretraining
         p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
+        a_loss = 0.1* adapt_loss_f(sim_out, targets, list_out, data["domain"])
+        loss=p_loss+a_loss
+        loss.backward()
+
+        # params = {f"sim/{k}":v for k, v in dict(list(sim_model.named_parameters())).items()}
+        # params.update({f"list/{k}":v for k, v in dict(list(list_model.named_parameters())).items()})
+        # params.update({f"speak/{k}":v for k, v in dict(list(speak_model.named_parameters())).items()})
+        # draw_grad_graph(params, h0, list_loss, file_name="listener_grad.png")
+
+
+
+
         if optimizer is not None:
-            p_loss.backward(retain_graph=True)
             optimizer.step()
 
-
-        a_loss = 0.2* adapt_loss_f(sim_out, targets, list_out, data["domain"])
         #list_loss=adapt_loss_f.ce(list_out,targets)
 
-        a_loss.backward(retain_graph=True)
         optimizer_h0.step()
-        optimizer.step()
 
         loss = p_loss + a_loss  # +list_loss
         losses.append(loss.detach().cpu().item())
@@ -376,7 +386,7 @@ if __name__ == "__main__":
     np.random.seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-
+    torch.autograd.set_detect_anomaly(True)
     # update paths
     # list_args.__parse_args()
     list_args.__post_init__()
@@ -397,6 +407,9 @@ if __name__ == "__main__":
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
+
+    for param in list_model.parameters():
+        param.requires_grad = False
 
     ##########################
     # SPEAKER

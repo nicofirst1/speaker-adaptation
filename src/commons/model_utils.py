@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
+import torchviz
 
 import wandb
 from src.commons.Params import Params
@@ -207,3 +208,13 @@ def merge_dict(dicts:List[Dict])->Dict:
             dd[key].append(value)
 
     return dd
+
+
+def draw_grad_graph(params, input, output, file_name="grad_graph.png"):
+    grad_x, = torch.autograd.grad(output, input, create_graph=True)
+    params.update(
+        {"grad_x": grad_x, "in": input, "out": output}
+    )
+    file   =torchviz.make_dot((grad_x, input, output), params=params)
+    file.render(file_name)
+    return file
