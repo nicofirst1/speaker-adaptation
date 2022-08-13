@@ -57,7 +57,7 @@ def normalize_aux(aux, data_length, s_iter):
     mean_s = mean([len(x) for x in aux['sim_list_accuracy']])
     accs = mean([x[-1] == 1 for x in aux['sim_list_accuracy']])
     aux['loss'] = mean([x[-1] for x in aux.pop('loss')])
-    aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
+    #aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
 
     aux['accs'] = accs
     aux['mean_s'] = mean_s
