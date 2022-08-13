@@ -75,4 +75,5 @@ dependencies:
     - xdg==5.1.1
     - yaspin==2.1.0
     - spacy==3.3.1
+    - torchviz==0.0.2
 prefix: /home/brandizzi/anaconda3/envs/uvapb
