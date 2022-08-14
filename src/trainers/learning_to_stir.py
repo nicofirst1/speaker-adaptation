@@ -329,7 +329,7 @@ def process_epoch(
     normalize_aux(p_info, len(data_loader.dataset.data), s_iter=common_p.s_iter)
 
     a_info = merge_dict(a_info)
-    aux[f"hypo_table_epoch{epoch}"] = make_hypo_table(aux.pop('hypos'), a_info['list_target_accuracy'])
+    #aux[f"hypo_table_epoch{epoch}"] = make_hypo_table(aux.pop('hypos'), a_info['list_target_accuracy'])
     normalize_aux(a_info, len(data_loader.dataset.data), s_iter=common_p.s_iter)
 
     aux.update({f"adaptive/{k}":v for k,v in a_info.items()})
