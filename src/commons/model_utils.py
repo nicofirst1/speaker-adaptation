@@ -25,7 +25,7 @@ def mask_attn(
     Parameters
     ----------
     actual_num_tokens : length of the utterance vector
-    max_num_tokens : max lenght
+    max_num_tokens : max length
     device
 
     Returns
@@ -42,7 +42,7 @@ def mask_attn(
 
         masks.append(mask)
 
-    masks = torch.tensor(masks).unsqueeze(2).to(device)
+    masks = torch.tensor(masks).unsqueeze(-1).to(device)
 
     return masks
 

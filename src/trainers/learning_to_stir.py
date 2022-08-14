@@ -162,7 +162,7 @@ def get_predictions(
     #   Get results with original hypo
     ################################################
     # generate hypothesis
-    hypo, logs, decoder_hid = speak_model.generate_hypothesis(
+    utts, logs, decoder_hid = speak_model.generate_hypothesis(
         prev_utterance,
         prev_utt_lengths,
         context_concat,
@@ -188,31 +188,38 @@ def get_predictions(
     while i < s_iter:
 
         optimizer_h0.zero_grad()
-        optimizer.zero_grad()
 
         set_seed(seed)
 
         # get modified hypo
-        hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+        completed_sentences = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+
+        hypo = [list_vocab.decode(sent) for sent in completed_sentences]
+
         hypos.append(hypo)
 
-        # generate utt for list
-        # translate utt to ids and feed to listener
-        utterance = [hypo2utterance(h, list_vocab) for h in hypo]
-        lengths=[u.shape[1] for u in utterance]
+        # get lengths
+        lengths=[]
+
+        for idx in range(batch_size):
+            nz=torch.nonzero(completed_sentences[idx])
+            if len(nz)>1:
+                nz=torch.max(nz)+1
+            else:
+                nz=1
+            lengths.append(nz)
+
         max_len=max(lengths)
 
-        utterance = [
-            # The needed padding is the difference between the
-            # max width/height and the image's actual width/height.
-            F.pad(u, (0,max_len- u.shape[1]), value=list_vocab.word2index['<pad>'])
-            for u in utterance
-        ]
-        utterance=torch.concat(utterance).to(device)
+
+        completed_sentences=completed_sentences.to(device)
         masks = mask_attn(lengths, max_len, device)
 
+        if batch_size == 1:
+            masks=masks.squeeze(1)
+
         list_out = list_model(
-            utterance, context_separate, context_concat, prev_hist, masks
+            completed_sentences, context_separate, context_concat, prev_hist, masks
         )
 
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
@@ -302,7 +309,7 @@ def process_epoch(
             description=f"{split} epoch {epoch}",
     ):
         if split == "train":
-            sim_model.zero_grad()
+            optimizer.zero_grad()
 
         # get datapoints
         loss, aux = get_predictions(

@@ -466,7 +466,10 @@ class SpeakerModel_no_hist(nn.Module):
                 sorted_indices_to_remove[..., 0] = 0
 
                 # scatter sorted tensors to original indexing
-                indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                if sorted_indices.dim() == 1:
+                    indices_to_remove = sorted_indices_to_remove.scatter(0, sorted_indices, sorted_indices_to_remove)
+                else:
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
                 word_pred=word_pred.masked_fill(indices_to_remove, filter_value)
 
             probabilities = F.softmax(word_pred, dim=-1)
@@ -475,35 +478,42 @@ class SpeakerModel_no_hist(nn.Module):
             decoder_input = next_token
 
             word_index = next_token % (len(self.vocab) - 1)  # predicted word
+            completed_sentences.append(word_index)
 
             if (word_index == eos_token).all():
                 break
 
             gen_len += 1
 
-            completed_sentences.append(word_index)
 
         # truncate after eos
-        completed_sentences=torch.concat(completed_sentences, dim =1)
+        completed_sentences=torch.concat(completed_sentences, dim =-1)
         completed_sentences=[sent for sent in completed_sentences]
-        eos_idx=[]
+
+        completed_sentences=torch.stack(completed_sentences)
+
+        if completed_sentences.ndim==1:
+            completed_sentences=completed_sentences.unsqueeze(0)
+
+
         for i in range(len(completed_sentences)):
             x=completed_sentences[i]
+
+            # get index of eos
             idx=(x == self.vocab["<eos>"]).nonzero(as_tuple=True)[0]
+            # if found
             if len(idx)>0:
-                eos_idx.append(idx[0].item())
-            else:
-                eos_idx.append(-1)
+                idx=idx[0]
+                # pad from index to max length with pad token
+                completed_sentences[i][idx:]=torch.tensor([self.vocab["<pad>"]])*(self.max_len-len(x))
 
-        completed_sentences=[sent[:idx].tolist() for sent,idx in zip(completed_sentences,eos_idx)]
 
-        # pad to max length
-        max_len=max([len(sent) for sent in completed_sentences])
-        completed_sentences=[sent + [self.vocab["<pad>"]]*(max_len-len(sent)) for sent in completed_sentences]
+        last_idx = torch.nonzero(completed_sentences)[:, -1]
+        if len(last_idx) > 0:
+            last_idx=torch.max(last_idx)+1
+            completed_sentences=completed_sentences[:,:last_idx]
 
-        completed_sentences=torch.asarray(completed_sentences)
 
-        completed_sentences = [self.vocab.decode(sent) for sent in completed_sentences]
 
         return completed_sentences
 
