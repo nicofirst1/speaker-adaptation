@@ -356,13 +356,13 @@ class SpeakerModel_no_hist(nn.Module):
         )
         #decoder_hid= F.normalize(decoder_hid)
 
-        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
-        sos_token=sos_token.repeat((batch_size,1))
-        decoder_embeds = self.embedding(sos_token)
-
-        decoder_embeds=decoder_embeds.squeeze(1)
-
-        decoder_hid, _ = self.lstm_decoder(decoder_embeds, hx=(decoder_hid, decoder_hid))
+        # sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
+        # sos_token=sos_token.repeat((batch_size,1))
+        # decoder_embeds = self.embedding(sos_token)
+        #
+        # decoder_embeds=decoder_embeds.squeeze(1)
+        #
+        # decoder_hid, _ = self.lstm_decoder(decoder_embeds, hx=(decoder_hid, decoder_hid))
 
         if decoder_hid.ndim==1:
             decoder_hid = decoder_hid.unsqueeze(0)

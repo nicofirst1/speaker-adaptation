@@ -168,6 +168,7 @@ def get_predictions(
         context_concat,
         target_img_feats,
     )
+    origin_h = [list_vocab.decode(sent) for sent in utts]
 
     history_att = logs["history_att"]
 
@@ -244,8 +245,6 @@ def get_predictions(
         if optimizer is not None:
             optimizer.step()
 
-        #list_loss=adapt_loss_f.ce(list_out,targets)
-
         optimizer_h0.step()
 
         loss = p_loss + a_loss  # +list_loss
@@ -308,8 +307,7 @@ def process_epoch(
             total=len(data_loader),
             description=f"{split} epoch {epoch}",
     ):
-        if split == "train":
-            optimizer.zero_grad()
+
 
         # get datapoints
         loss, aux = get_predictions(
@@ -537,6 +535,7 @@ if __name__ == "__main__":
 
         sim_model.train()
         sim_model.use_batchnorm(False)
+        optimizer.zero_grad()
 
         ###################################
         ##  TRAIN LOOP
