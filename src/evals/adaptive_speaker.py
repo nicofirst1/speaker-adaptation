@@ -285,7 +285,7 @@ def evaluate(
             s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
-            loss = criterion(sim_out, targets, list_out, data['domains'])
+            loss = criterion(sim_out, targets, list_out, data['domain'])
             loss.backward()
             optimizer.step()
             aux = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=True)
