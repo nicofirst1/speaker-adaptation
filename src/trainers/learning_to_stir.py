@@ -17,7 +17,7 @@ from src.commons import (LISTENER_CHK_DICT,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
                          merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
                          get_domain_accuracy,
-                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph)
+                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -125,6 +125,13 @@ def normalize_aux(aux, data_length, s_iter):
     aux.pop('neg_pred_len')
     aux.pop('pos_pred_len')
 
+def translate_utterance(speak2list_v):
+    def translate(utterance):
+        for idx in range(len(utterance)):
+            new_utt = [speak2list_v[x.item()] for x in utterance[idx]]
+            utterance[idx] = torch.as_tensor(new_utt).to(device)
+
+    return translate
 
 def get_predictions(
         data: Dict,
@@ -168,6 +175,8 @@ def get_predictions(
         context_concat,
         target_img_feats,
     )
+
+    translator(utts)
     origin_h = [list_vocab.decode(sent) for sent in utts]
 
     history_att = logs["history_att"]
@@ -193,9 +202,10 @@ def get_predictions(
         set_seed(seed)
 
         # get modified hypo
-        completed_sentences = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+        utts = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+        translator(utts)
 
-        hypo = [list_vocab.decode(sent) for sent in completed_sentences]
+        hypo = [list_vocab.decode(sent) for sent in utts]
 
         hypos.append(hypo)
 
@@ -203,7 +213,7 @@ def get_predictions(
         lengths=[]
 
         for idx in range(batch_size):
-            nz=torch.nonzero(completed_sentences[idx])
+            nz=torch.nonzero(utts[idx])
             if len(nz)>1:
                 nz=torch.max(nz)+1
             else:
@@ -213,20 +223,17 @@ def get_predictions(
         max_len=max(lengths)
 
 
-        completed_sentences=completed_sentences.to(device)
+        utts=utts.to(device)
         masks = mask_attn(lengths, max_len, device)
 
         if batch_size == 1:
             masks=masks.squeeze(1)
 
         list_out = list_model(
-            completed_sentences, context_separate, context_concat, prev_hist, masks
+            utts, context_separate, context_concat, prev_hist, masks
         )
 
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
-
-
-
 
         # compute loss for pretraining
         p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
@@ -237,7 +244,7 @@ def get_predictions(
         # params = {f"sim/{k}":v for k, v in dict(list(sim_model.named_parameters())).items()}
         # params.update({f"list/{k}":v for k, v in dict(list(list_model.named_parameters())).items()})
         # params.update({f"speak/{k}":v for k, v in dict(list(speak_model.named_parameters())).items()})
-        # draw_grad_graph(params, h0, list_loss, file_name="listener_grad.png")
+        # draw_grad_graph(params, h0, a_loss, file_name="./adaptive_grad.png")
 
 
 
@@ -516,7 +523,8 @@ if __name__ == "__main__":
     training_loader, test_loader, val_loader = get_dataloaders(
         common_p, speak_vocab, data_domain
     )
-
+    speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
+    translator=translate_utterance(speak2list_v)
     ###################################
     ##  START OF TRAINING LOOP
     ###################################

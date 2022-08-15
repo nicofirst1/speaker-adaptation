@@ -4,7 +4,7 @@ from .data_utils import (get_dataloaders, load_wandb_dataset,
 from .EarlyStopping import EarlyStopping
 from .model_utils import (get_domain_accuracy, hypo2utterance,
                           load_wandb_checkpoint, mask_attn, merge_dict,
-                          save_model, set_seed, draw_grad_graph)
+                          save_model, set_seed, draw_grad_graph, speak2list_vocab)
 from .Params import parse_args
 from .wandb_checkpoints import *
 from .Losses import SimLossPretrain, SimLossAdapt
@@ -23,6 +23,7 @@ __all__ = [
     "merge_dict",
     "set_seed",
     "draw_grad_graph",
+    "speak2list_vocab",
 
     # wandb checkpoints
     "LISTENER_CHK_DICT",

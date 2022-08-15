@@ -9,6 +9,7 @@ import torchviz
 
 import wandb
 from src.commons.Params import Params
+from src.data.dataloaders import Vocab
 from src.wandb_logging import WandbLogger
 
 
@@ -67,6 +68,14 @@ def hypo2utterance(hypo:str, vocab):
 
     return utterance
 
+def speak2list_vocab(speak_v:Vocab,list_v:Vocab)->Dict:
+
+    res={}
+    for k,v in speak_v.word2index.items():
+        if k in list_v.word2index.keys():
+            res[v] = list_v[k]
+
+    return res
 
 def get_domain_accuracy(
     accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
