@@ -192,18 +192,19 @@ def evaluate(
         #   Get results with original hypo
         ################################################
         # generate hypothesis
-        origin_hypo, logs, decoder_hid = speak_model.generate_hypothesis(
+        utterance, logs, decoder_hid = speak_model.generate_hypothesis(
             prev_utterance,
             prev_utt_lengths,
             context_concat,
             target_img_feats,
         )
 
+        origin_hypo = [list_vocab.decode(sent) for sent in utterance]
+
         original_hypos.append(origin_hypo)
         history_att = logs["history_att"]
 
         # translate utt to ids and feed to listener
-        utterance = hypo2utterance(origin_hypo, list_vocab)
         lengths = [utterance.shape[1]]
         max_length_tensor = utterance.shape[1]
 
@@ -258,11 +259,12 @@ def evaluate(
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # get modified hypo
-            hypo = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+            utterance = speak_model.nucleus_sampling(h0, history_att, speak_masks)
+            hypo = [list_vocab.decode(sent) for sent in utterance]
+
             s_hypo[i] = hypo
             # generate utt for list
             # translate utt to ids and feed to listener
-            utterance = hypo2utterance(hypo, list_vocab)
             lengths = [utterance.shape[1]]
             max_length_tensor = utterance.shape[1]
             masks = mask_attn(lengths, max_length_tensor, device)
@@ -559,7 +561,6 @@ if __name__ == "__main__":
     sim_p.type_of_sim = common_p.type_of_sim
     sim_p.seed = seed
     sim_p.test_split = common_p.test_split
-    sim_p.pretrain_loss = common_p.pretrain_loss
 
     sim_p.reset_paths()
 
@@ -617,10 +618,10 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    loss_f = SimLossAdapt(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
-                             alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+    loss_f = SimLossAdapt(sim_p.pretrain_loss, sim_p.reduction, sim_p.model_type,
+                             alpha=sim_p.focal_alpha, gamma=sim_p.focal_gamma,
                              list_domain=domain, all_domains=logger.domains)
-    acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
+    acc_estimator = AccuracyEstimator(domain, sim_p.model_type, all_domains=logger.domains)
 
     ###################################
     ##  EVAL LOOP
