@@ -55,7 +55,7 @@ def make_hypo_table(hypos, list_target_accuracy) -> wandb.Table:
 
 def normalize_aux(aux, data_length, s_iter):
     mean_s = mean([len(x) for x in aux['sim_list_accuracy']])
-    accs = mean([x[-1] == 1 for x in aux['sim_list_accuracy']])
+    accs = sum([x[-1]  for x in aux['sim_list_accuracy']])/data_length
     aux['loss'] = mean([x[-1] for x in aux.pop('loss')])
     #aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
 
@@ -63,13 +63,13 @@ def normalize_aux(aux, data_length, s_iter):
     aux['mean_s'] = mean_s
 
     # best attempt to tie accuracy to mean_s
-    s_norm = 1 - mean_s / common_p.s_iter
+    s_norm =1 - mean_s / common_p.s_iter
     aux['s_acc'] = s_norm * accs
 
     # aux["sim_loss"] = np.mean(aux["sim_loss"])
 
     # a function to recursively flatten a list of lists into a single list
-    def weighted_acc(l: List[List[float]]) -> List[float]:
+    def weighted_acc(l: List[List[float]],use_w=True) -> List[float]:
         """
         Return a list of weighted accuracies. Since each elem in the list is a list of len [1,s_iter],
         the shortest the list the better the accuracy, so filter out all the lists with only zeros and
@@ -82,17 +82,28 @@ def normalize_aux(aux, data_length, s_iter):
             if set(elem) == {0}:
                 acc = 0
             else:
-                acc = (s_iter - len(elem) + 1) / s_iter
+                w = (s_iter - len(elem) + 1) / s_iter
+                acc=elem[-1]
+                if use_w:
+                    acc = w * acc
 
             res.append(acc)
         return res
 
-    aux["sim_list_accuracy"] = np.sum(weighted_acc(aux["sim_list_accuracy"])) / data_length
-    aux["list_target_accuracy"] = np.sum(weighted_acc(aux["list_target_accuracy"])) / data_length
-    aux["sim_target_accuracy"] = np.sum(weighted_acc(aux["sim_target_accuracy"])) / data_length
-    aux["sim_list_neg_accuracy"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"])) / np.sum(
+    aux["sim_list_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_accuracy"])) / data_length
+    aux["list_target_accuracy_w"] = np.sum(weighted_acc(aux["list_target_accuracy"])) / data_length
+    aux["sim_target_accuracy_w"] = np.sum(weighted_acc(aux["sim_target_accuracy"])) / data_length
+    aux["sim_list_neg_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"])) / np.sum(
         np.sum(aux["neg_pred_len"]))
-    aux["sim_list_pos_accuracy"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"])) / np.sum(
+    aux["sim_list_pos_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"])) / np.sum(
+        np.sum(aux["pos_pred_len"]))
+
+    aux["sim_list_accuracy"] = np.sum(weighted_acc(aux["sim_list_accuracy"],use_w=False)) / data_length
+    aux["list_target_accuracy"] = np.sum(weighted_acc(aux["list_target_accuracy"],use_w=False)) / data_length
+    aux["sim_target_accuracy"] = np.sum(weighted_acc(aux["sim_target_accuracy"],use_w=False)) / data_length
+    aux["sim_list_neg_accuracy"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"],use_w=False)) / np.sum(
+        np.sum(aux["neg_pred_len"]))
+    aux["sim_list_pos_accuracy"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"],use_w=False)) / np.sum(
         np.sum(aux["pos_pred_len"]))
 
     def flatten(lst):
@@ -516,7 +527,6 @@ if __name__ == "__main__":
     ###################################
     ##  Get speaker dataloader
     ###################################
-    common_p.batch_size = 32
 
     data_domain = common_p.data_domain
 

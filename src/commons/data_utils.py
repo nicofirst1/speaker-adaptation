@@ -120,7 +120,7 @@ def get_dataloaders(
     }
 
     load_params_test = {
-        "batch_size": 1,
+        "batch_size": args_copy.batch_size,
         "shuffle": False,
         "collate_fn": AbstractDataset.get_collate_fn(
             args.device, vocab["<sos>"], vocab["<eos>"], vocab["<nohs>"]
