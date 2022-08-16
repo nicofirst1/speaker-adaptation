@@ -93,18 +93,18 @@ def normalize_aux(aux, data_length, s_iter):
     aux["sim_list_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_accuracy"])) / data_length
     aux["list_target_accuracy_w"] = np.sum(weighted_acc(aux["list_target_accuracy"])) / data_length
     aux["sim_target_accuracy_w"] = np.sum(weighted_acc(aux["sim_target_accuracy"])) / data_length
-    aux["sim_list_neg_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"])) / np.sum(
-        np.sum(aux["neg_pred_len"]))
-    aux["sim_list_pos_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"])) / np.sum(
-        np.sum(aux["pos_pred_len"]))
+    # aux["sim_list_neg_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"])) / np.sum(
+    #     np.sum(aux["neg_pred_len"]))
+    # aux["sim_list_pos_accuracy_w"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"])) / np.sum(
+    #     np.sum(aux["pos_pred_len"]))
 
     aux["sim_list_accuracy"] = np.sum(weighted_acc(aux["sim_list_accuracy"],use_w=False)) / data_length
     aux["list_target_accuracy"] = np.sum(weighted_acc(aux["list_target_accuracy"],use_w=False)) / data_length
     aux["sim_target_accuracy"] = np.sum(weighted_acc(aux["sim_target_accuracy"],use_w=False)) / data_length
-    aux["sim_list_neg_accuracy"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"],use_w=False)) / np.sum(
-        np.sum(aux["neg_pred_len"]))
-    aux["sim_list_pos_accuracy"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"],use_w=False)) / np.sum(
-        np.sum(aux["pos_pred_len"]))
+    # aux["sim_list_neg_accuracy"] = np.sum(weighted_acc(aux["sim_list_neg_accuracy"],use_w=False)) / np.sum(
+    #     np.sum(aux["neg_pred_len"]))
+    # aux["sim_list_pos_accuracy"] = np.sum(weighted_acc(aux["sim_list_pos_accuracy"],use_w=False)) / np.sum(
+    #     np.sum(aux["pos_pred_len"]))
 
     def flatten(lst):
 
@@ -131,8 +131,12 @@ def normalize_aux(aux, data_length, s_iter):
     aux["list_preds"] = flatten(aux['list_preds'])
     aux["sim_preds"] = flatten(aux['sim_preds'])
 
+
+    aux.pop("list_preds")
+    aux.pop("sim_preds")
     aux.pop('sim_list_neg_accuracy_dom')
-    aux.pop('sim_list_pos_accuracy_dom')
+    aux.pop('sim_list_neg_accuracy')
+    aux.pop('sim_list_pos_accuracy')
     aux.pop('neg_pred_len')
     aux.pop('pos_pred_len')
 
