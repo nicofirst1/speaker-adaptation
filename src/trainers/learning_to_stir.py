@@ -57,7 +57,9 @@ def normalize_aux(aux, data_length, s_iter):
     mean_s = mean([len(x) for x in aux['sim_list_accuracy']])
     accs = sum([x[-1]  for x in aux['sim_list_accuracy']])/data_length
     aux['loss'] = mean([x[-1] for x in aux.pop('loss')])
-    #aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
+
+    if "list_loss" in aux.keys():
+        aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
 
     aux['accs'] = accs
     aux['mean_s'] = mean_s
@@ -253,7 +255,8 @@ def get_predictions(
         # compute loss for pretraining
         p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
         a_loss = 0.1* adapt_loss_f(sim_out, targets, list_out, data["domain"])
-        loss=p_loss+a_loss
+        list_loss=pretrain_loss_f.ce(list_out, targets)
+        loss=p_loss+a_loss +list_loss
         loss.backward()
 
         # params = {f"sim/{k}":v for k, v in dict(list(sim_model.named_parameters())).items()}
@@ -278,8 +281,8 @@ def get_predictions(
         # add loss
         p_info['loss'] = p_loss.detach().cpu().item()
         a_info['loss'] = a_loss.detach().cpu().item()
-        # a_info['list_loss'] = list_loss.detach().cpu().item()
-        # p_info['list_loss'] = list_loss.detach().cpu().item()
+        a_info['list_loss'] = list_loss.detach().cpu().item()
+        p_info['list_loss'] = list_loss.detach().cpu().item()
         # append to list
         p_infos.append(p_info)
         a_infos.append(a_info)
