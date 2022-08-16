@@ -330,6 +330,8 @@ def process_epoch(
             description=f"{split} epoch {epoch}",
     ):
 
+        if optimizer is not None:
+            optimizer.zero_grad()
 
         # get datapoints
         loss, aux = get_predictions(
@@ -557,7 +559,6 @@ if __name__ == "__main__":
 
         sim_model.train()
         sim_model.use_batchnorm(False)
-        optimizer.zero_grad()
 
         ###################################
         ##  TRAIN LOOP
