@@ -118,13 +118,13 @@ def normalize_aux(aux, data_length, s_iter):
     domains = flatten(aux.pop("domains"))
 
     accs = flatten(aux.pop('list_target_accuracy_dom'))
-    aux["domain/list_target_acc"] = get_domain_accuracy(accs, domains, logger.domains)
+    #aux["domain/list_target_acc"] = get_domain_accuracy(accs, domains, logger.domains)
 
     accs = flatten(aux.pop('sim_list_accuracy_dom'))
-    aux["domain/sim_list_acc"] = get_domain_accuracy(accs, domains, logger.domains)
+    #aux["domain/sim_list_acc"] = get_domain_accuracy(accs, domains, logger.domains)
 
     accs = flatten(aux.pop('sim_target_accuracy_dom'))
-    aux["domain/sim_target_acc"] = get_domain_accuracy(accs, domains, logger.domains)
+    #aux["domain/sim_target_acc"] = get_domain_accuracy(accs, domains, logger.domains)
 
 
     # flatten nested lists
