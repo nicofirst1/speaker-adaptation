@@ -563,7 +563,7 @@ if __name__ == "__main__":
                                 pretrain_loss_f, adapt_loss_f, acc_estimator, "train", common_p)
 
         logger.on_eval_end(
-            aux, list_domain=training_loader.dataset.domain, modality="train"
+            aux, list_domain=training_loader.dataset.domain, modality="train",commit=True,
         )
 
         print(
@@ -585,7 +585,7 @@ if __name__ == "__main__":
                             common_p)
 
         logger.on_eval_end(
-            aux, list_domain=val_loader.dataset.domain, modality="eval"
+            aux, list_domain=val_loader.dataset.domain, modality="eval", commit=True,
         )
         eval_loss = mean(aux['loss'])
         eval_accuracy = mean(aux['adaptive/accs'])
