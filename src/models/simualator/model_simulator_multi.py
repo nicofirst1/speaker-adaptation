@@ -87,12 +87,12 @@ class SimulatorModel_multi(ListenerModel_no_hist):
         # outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
 
         # final attention weights
-        att_weights_list = self.softmax(outputs_list)
-        att_weights_targ = self.softmax(outputs_targ)
+        # att_weights_list = self.softmax(outputs_list)
+        # att_weights_targ = self.softmax(outputs_targ)
 
         # encoder context representation
-        attended_hids_list = (mm_reps * att_weights_list).sum(dim=1)
-        attended_hids_targ = (mm_reps * att_weights_targ).sum(dim=1)
+        attended_hids_list = (mm_reps * outputs_list).sum(dim=1)
+        attended_hids_targ = (mm_reps * outputs_targ).sum(dim=1)
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
