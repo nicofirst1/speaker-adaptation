@@ -261,9 +261,9 @@ def get_predictions(
         if isinstance(sim_out,tuple):
             eq_loss = adapt_loss_f.kl(sim_out[0], sim_out[1])
         else:
-            eq_loss =torch.zeros(1)
+            eq_loss =torch.zeros(1).to(device)
         #list_loss=pretrain_loss_f.ce(list_out, targets)
-        list_loss=torch.zeros(1)
+        list_loss=torch.zeros(1).to(device)
         loss=p_loss+a_loss +list_loss +eq_loss
         loss.backward()
 
