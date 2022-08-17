@@ -73,6 +73,9 @@ class SimLossPretrain(torch.nn.Module):
 
     def forward(self, preds, targets, list_out, domains):
 
+        if self.sim_model_type=="multi":
+            preds=preds[0]
+
         list_preds = torch.argmax(list_out, dim=1)
         list_target_accuracy = torch.eq(list_preds, targets).float()
 
@@ -103,6 +106,9 @@ class SimLossAdapt(SimLossPretrain):
         super(SimLossAdapt, self).__init__(loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains)
 
     def forward(self, preds, targets, list_out, domains):
+
+        if self.sim_model_type == "multi":
+            preds = preds[1]
 
         list_preds = torch.argmax(list_out, dim=1)
         list_target_accuracy = torch.eq(list_preds, targets).float()

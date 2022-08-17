@@ -60,6 +60,8 @@ def normalize_aux(aux, data_length, s_iter):
 
     if "list_loss" in aux.keys():
         aux['list_loss'] = mean([x[-1] for x in aux.pop('list_loss')])
+    if "eq_loss" in aux.keys():
+        aux['eq_loss'] = mean([x[-1] for x in aux.pop('eq_loss')])
 
     aux['accs'] = accs
     aux['mean_s'] = mean_s
@@ -250,13 +252,19 @@ def get_predictions(
             utts, context_separate, context_concat, prev_hist, masks
         )
 
+
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
         # compute loss for pretraining
         p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
         a_loss = 0.1* adapt_loss_f(sim_out, targets, list_out, data["domain"])
-        list_loss=pretrain_loss_f.ce(list_out, targets)
-        loss=p_loss+a_loss +list_loss
+        if isinstance(sim_out,tuple):
+            eq_loss = adapt_loss_f.kl(sim_out[0], sim_out[1])
+        else:
+            eq_loss =torch.zeros(1)
+        #list_loss=pretrain_loss_f.ce(list_out, targets)
+        list_loss=torch.zeros(1)
+        loss=p_loss+a_loss +list_loss +eq_loss
         loss.backward()
 
         # params = {f"sim/{k}":v for k, v in dict(list(sim_model.named_parameters())).items()}
@@ -282,7 +290,7 @@ def get_predictions(
         p_info['loss'] = p_loss.detach().cpu().item()
         a_info['loss'] = a_loss.detach().cpu().item()
         a_info['list_loss'] = list_loss.detach().cpu().item()
-        p_info['list_loss'] = list_loss.detach().cpu().item()
+        a_info['eq_loss'] = eq_loss.detach().cpu().item()
         # append to list
         p_infos.append(p_info)
         a_infos.append(a_info)

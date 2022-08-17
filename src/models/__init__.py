@@ -4,6 +4,7 @@ from .listener.ListenerModel_hist import ListenerModel_hist
 from .listener.ListenerModel_no_hist import ListenerModel_no_hist
 from .simualator.model_simulator_domain import SimulatorModel_domain
 from .simualator.model_simulator_hist import SimulatorModel_hist
+from .simualator.model_simulator_multi import SimulatorModel_multi
 from .simualator.model_simulator_no_hist import SimulatorModel_no_hist
 from .simualator.model_simulator_binary import SimulatorModel_binary
 from .speaker.model_speaker_hist import SpeakerModel_hist
@@ -19,6 +20,7 @@ __all__ = [
     "SpeakerModel_no_hist",
     "SimulatorModel_binary",
     "SimulatorModel_domain",
+    "SimulatorModel_multi"
 ]
 
 
@@ -43,6 +45,8 @@ def get_model(model: Literal["list", "speak", "sim"], model_type: str):
             return SimulatorModel_binary
         elif model_type== "domain":
             return SimulatorModel_domain
+        elif model_type== "multi":
+            return SimulatorModel_multi
 
     else:
         raise KeyError(f"No model type named '{model}'")

@@ -17,6 +17,12 @@ class AccuracyEstimator(torch.nn.Module):
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
     def forward(self, preds, targets, list_out, domains, is_adaptive=False):
 
+        if self.sim_model_type == "multi":
+            if is_adaptive:
+                preds=preds[1]
+            else:
+                preds=preds[0]
+
         preds=preds.to("cpu")
         targets=targets.to("cpu")
         list_out=list_out.to("cpu")
