@@ -216,7 +216,6 @@ def get_predictions(
     a_infos = []
     while i < s_iter:
 
-        optimizer_h0.zero_grad()
 
         set_seed(seed)
 
@@ -272,13 +271,13 @@ def get_predictions(
         # params.update({f"speak/{k}":v for k, v in dict(list(speak_model.named_parameters())).items()})
         # draw_grad_graph(params, h0, a_loss, file_name="./adaptive_grad.png")
 
-
-
-
         if optimizer is not None:
             optimizer.step()
+            optimizer.zero_grad()
 
         optimizer_h0.step()
+        optimizer_h0.zero_grad()
+
 
         loss = p_loss + a_loss  # +list_loss
         losses.append(loss.detach().cpu().item())
@@ -341,8 +340,7 @@ def process_epoch(
             description=f"{split} epoch {epoch}",
     ):
 
-        if optimizer is not None:
-            optimizer.zero_grad()
+
 
         # get datapoints
         loss, aux = get_predictions(
@@ -350,6 +348,9 @@ def process_epoch(
             common_p.adapt_lr, common_p.s_iter,
             list_vocab
         )
+
+        # if optimizer is not None:
+        #     optimizer.zero_grad()
 
         auxs.append(aux)
 
