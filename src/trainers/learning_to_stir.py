@@ -273,7 +273,6 @@ def get_predictions(
 
         if optimizer is not None:
             optimizer.step()
-            optimizer.zero_grad()
 
         optimizer_h0.step()
         optimizer_h0.zero_grad()
@@ -349,8 +348,8 @@ def process_epoch(
             list_vocab
         )
 
-        # if optimizer is not None:
-        #     optimizer.zero_grad()
+        if optimizer is not None:
+            optimizer.zero_grad()
 
         auxs.append(aux)
 
