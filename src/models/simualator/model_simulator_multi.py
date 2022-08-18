@@ -32,7 +32,10 @@ class SimulatorModel_multi(ListenerModel_no_hist):
         )
 
         self.att_linear_11 = nn.Linear(self.hidden_dim, self.attention_dim)
-        self.att_linear_21 = nn.Linear(self.attention_dim, 1)
+        self.att_linear_21 = nn.Linear(self.attention_dim, self.hidden_dim)
+        self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
+        self.lrelu = nn.LeakyReLU()
+
 
         self.init_weights()  # initialize layers
 
@@ -63,36 +66,38 @@ class SimulatorModel_multi(ListenerModel_no_hist):
 
         # utterance representations are processed
         representations = self.dropout(representations)
-        input_reps = self.relu(self.lin_emb2hid(representations))
-        # [32,512]
-        input_reps = input_reps.unsqueeze(dim=1)
+        representations=self.lin_emb2hid(representations)
+        input_reps = self.lrelu(representations)
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
-        projected_context = self.relu(self.lin_context(visual_context))
+        visual_context=self.lin_context(visual_context)
+        projected_context = self.lrelu(visual_context)
 
-        repeated_context = projected_context.unsqueeze(1).repeat(
-            1, input_reps.shape[1], 1
-        )
         # multimodal utterance representations
-        mm_reps = self.relu(
-            self.lin_mm(torch.cat((input_reps, repeated_context), dim=2))
-        )
+        mm_reps= self.lin_mm(torch.cat((input_reps, projected_context), dim=-1))
+        mm_reps = self.lrelu(mm_reps )
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
-        outputs_list = self.att_linear_2(self.tanh(self.att_linear_1(mm_reps)))
-        outputs_targ = self.att_linear_21(self.tanh(self.att_linear_11(mm_reps)))
+        outputs_list = self.att_linear_1(mm_reps)
+        outputs_list = self.tanh(outputs_list)
+        outputs_list = self.att_linear_2(outputs_list)
+
+        outputs_targ = self.att_linear_11(mm_reps)
+        outputs_targ = self.tanh(outputs_targ)
+        outputs_targ = self.att_linear_21(outputs_targ)
+
 
         # mask pads so that no attention is paid to them (with -inf)
         # outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
 
         # final attention weights
-        # att_weights_list = self.softmax(outputs_list)
-        # att_weights_targ = self.softmax(outputs_targ)
+        att_weights_list = self.softmax(outputs_list)
+        att_weights_targ = self.softmax(outputs_targ)
 
         # encoder context representation
-        attended_hids_list = (mm_reps * outputs_list).sum(dim=1)
-        attended_hids_targ = (mm_reps * outputs_targ).sum(dim=1)
+        attended_hids_list = mm_reps * att_weights_list
+        attended_hids_targ = mm_reps * att_weights_targ
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
