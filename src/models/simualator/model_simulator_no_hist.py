@@ -2,6 +2,7 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
+from torch import nn
 
 from src.models.listener.ListenerModel_hist import ListenerModel_hist
 from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
@@ -29,6 +30,7 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
             domain,
             device,
         )
+        self.relu=nn.LeakyReLU()
 
     def forward(
         self,
@@ -72,17 +74,6 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
             self.lin_mm(torch.cat((input_reps, repeated_context), dim=2))
         )
 
-        # attention over the multimodal utterance representations (tokens and visual context interact)
-        outputs_att = self.att_linear_2(self.tanh(self.att_linear_1(mm_reps)))
-
-        # mask pads so that no attention is paid to them (with -inf)
-        # outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
-
-        # final attention weights
-        att_weights = self.softmax(outputs_att)
-
-        # encoder context representation
-        attended_hids = (mm_reps * att_weights).sum(dim=1)
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
@@ -94,7 +85,7 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance
         dot = torch.bmm(
-            separate_images, attended_hids.view(batch_size, self.hidden_dim, 1)
+            separate_images, mm_reps.view(batch_size, self.hidden_dim, 1)
         )
         #[batch, 6, 1]
 
