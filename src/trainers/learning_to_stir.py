@@ -575,6 +575,9 @@ if __name__ == "__main__":
         ###################################
         ##  TRAIN LOOP
         ###################################
+        for param in sim_model.parameters():
+            param.requires_grad = True
+            
         with torch.set_grad_enabled(True):
             aux = process_epoch(training_loader, sim_model, speaker_model, list_model, optimizer, list_vocab,
                                 pretrain_loss_f, adapt_loss_f, acc_estimator, "train", common_p)
