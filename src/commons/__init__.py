@@ -7,7 +7,7 @@ from .model_utils import (get_domain_accuracy, hypo2utterance,
                           save_model, set_seed, draw_grad_graph, speak2list_vocab)
 from .Params import parse_args
 from .wandb_checkpoints import *
-from .Losses import SimLossPretrain, SimLossAdapt
+from .Losses import SimLossPretrain, SimLossAdapt, LossWeighted
 
 __all__ = [
     "get_dataloaders",
@@ -39,6 +39,7 @@ __all__ = [
     #Losses
     "SimLossPretrain",
     "SimLossAdapt",
+    "LossWeighted",
 
     # Accuracy
     "AccuracyEstimator",

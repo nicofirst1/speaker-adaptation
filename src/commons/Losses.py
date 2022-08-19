@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import torch
 from torch import nn
 
@@ -5,6 +7,38 @@ from src.commons import get_domain_accuracy
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
+class LossWeighted(nn.Module):
+    def __init__(self):
+        super(LossWeighted, self).__init__()
+        self.wp=1
+        self.wa=1
+        self.min_sim_list_acc=0.75
+        self.min_list_target_acc=0.50
+
+    def forward(self, pretrain, adaptive)->Tuple[float,float]:
+        batch_size=len(adaptive['list_preds'])
+
+        sim_list_acc=pretrain['sim_list_accuracy']/batch_size
+        list_target_acc=adaptive['list_target_accuracy']/batch_size
+
+        loss_mag_rateo=pretrain['loss']/adaptive['loss']
+
+        if sim_list_acc<self.min_sim_list_acc and 1/loss_mag_rateo<1:
+            self.wa=loss_mag_rateo *0.5
+            self.wp=1
+
+        elif sim_list_acc>self.min_sim_list_acc and loss_mag_rateo<1:
+            self.wp=loss_mag_rateo *0.5
+            self.wa=1
+
+
+
+
+
+
+    def get_losses(self):
+        return self.wp,self.wa
 
 class SimLossPretrain(torch.nn.Module):
 

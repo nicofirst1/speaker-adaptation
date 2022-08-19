@@ -17,7 +17,7 @@ from src.commons import (LISTENER_CHK_DICT,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
                          merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
                          get_domain_accuracy,
-                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab)
+                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -214,6 +214,7 @@ def get_predictions(
     i = 0
     p_infos = []
     a_infos = []
+    loss_w=LossWeighted()
     while i < s_iter:
 
 
@@ -254,9 +255,11 @@ def get_predictions(
 
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
+        wp,wa=loss_w.get_losses()
+
         # compute loss for pretraining
-        p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
-        a_loss = 0.1* adapt_loss_f(sim_out, targets, list_out, data["domain"])
+        p_loss = wp*pretrain_loss_f(sim_out, targets, list_out, data["domain"])
+        a_loss = wa*adapt_loss_f(sim_out, targets, list_out, data["domain"])
         if isinstance(sim_out,tuple):
             eq_loss = adapt_loss_f.kl(sim_out[0], sim_out[1])
         else:
@@ -293,6 +296,8 @@ def get_predictions(
         # append to list
         p_infos.append(p_info)
         a_infos.append(a_info)
+
+        loss_w(p_info,a_info)
 
         # break if sim gets it right
         break_trh=batch_size*0.5
@@ -348,9 +353,6 @@ def process_epoch(
             common_p.adapt_lr, common_p.s_iter,
             list_vocab
         )
-
-        # if optimizer is not None:
-        #     optimizer.zero_grad()
 
         auxs.append(aux)
 
@@ -515,7 +517,7 @@ if __name__ == "__main__":
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
-    optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
+    optimizer = optim.Adagrad(sim_model.parameters(), lr=common_p.learning_rate, lr_decay=common_p.learning_rate/2)
 
     pretrain_loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                                       alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
