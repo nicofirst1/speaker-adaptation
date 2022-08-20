@@ -207,7 +207,7 @@ class Params:
             self.__setattr__(k, v)
 
         if len(unk) > 0:
-            console.print(f"Some arguments are unk.\n{unk}", style="rgb(255,165,0)")
+            console.print(f"Some arguments are unk.\n{unk} for class {type(self).__name__}", style="rgb(255,165,0)")
 
     def __get_attributes(self):
         """
@@ -381,11 +381,17 @@ class SimulatorArguments(Params):
     adaptive_loss: Optional[str] = ""
 
     # multi task learning optimizer type
-    mlt_type: Optional[str] = "DWA"
+    mtl_type: Optional[str] = "DWA"
+    mtl_gamma_a: Optional[float] = 1.2
+    mtl_gamma_p: Optional[float] = 0.8
+    mtl_alpha: Optional[float] = 1.2
+    mtl_temp: Optional[float] = 2.0
 
     # alpha if target = 1 and 1 - alpha if target = 0
     focal_alpha: Optional[float] = 0.4
     focal_gamma: Optional[float] = 2.0
+
+
 
     def __init__(self):
         super(SimulatorArguments, self).__init__()
@@ -435,8 +441,8 @@ class SimulatorArguments(Params):
         valid_mlt_type = ["DWA","DTP","GradNorm"]
 
         assert (
-                self.mlt_type in valid_mlt_type
-        ), f"Invalid adaptive loss '{self.mlt_type}' not in '{valid_mlt_type}'"
+                self.mtl_type in valid_mlt_type
+        ), f"Invalid adaptive loss '{self.mtl_type}' not in '{valid_mlt_type}'"
 
         # cross-check model type and losses
         if "hist" in self.model_type:

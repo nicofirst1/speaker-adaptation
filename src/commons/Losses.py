@@ -43,7 +43,7 @@ class MLTOptim(nn.Module):
     DTP : Dynamic Task Prioritization
     GradNorm: Gradient Norm
     """
-    def __init__(self, type:Literal["DWA","DTP","GradNorm"]):
+    def __init__(self, type:Literal["DWA","DTP","GradNorm"], gamma_a:float, gamma_p:float, alpha:float, temp:float):
         super(MLTOptim, self).__init__()
         self.type=type
 
@@ -58,27 +58,27 @@ class MLTOptim(nn.Module):
         # T represents a temperature which controls the softness of task weighting, similar to .
         # A large T results in a more even distribution between different tasks.
         # If T is large enough, we have λi ≈ 1, and tasks are weighted equally
-        self.temp=2
+        self.temp=temp
         self.loss_p=[]
         self.loss_a=[]
 
         # GradNorm
         self.grads_p=[]
         self.grads_a=[]
-        #α sets the strength of the restoring force which pulls tasks back to a common training rate .
+        # α sets the strength of the restoring force which pulls tasks back to a common training rate .
         # In cases where tasks are very different in their complexity,
         # leading to dramatically different learning dynamics between tasks,
         # a higher value of α should be used to enforce stronger training rate balancing.
         # When tasks are more symmetric (e.g. the synthetic examples in Section 4), a lower value of α is appropriate.
         # Note that α = 0 will always try to pin the norms of backpropagated gradients from each task to be equal at W
-        self.alpha=1.2
+        self.alpha=alpha
         self.weights = torch.nn.Parameter(torch.ones(2).float())
 
         # DTP
         # Further, we define a task-level focusing parameter γi ≥ 0 that allows to adjust the
         # weight at which easy or hard tasks are down-weighted
-        self.gamma_a=1.2
-        self.gamma_p=0.8
+        self.gamma_a=gamma_a
+        self.gamma_p=gamma_p
         self.p_acc=0
         self.a_acc=0
 
@@ -192,8 +192,8 @@ class MLTOptim(nn.Module):
 
     def get_infos(self)->Dict:
         res=dict(
-            pretrain=self.wp,
-            adaptive=self.wa,
+            pretrain=self.wp.item(),
+            adaptive=self.wa.item(),
         )
         res={f"weights/{k}":v for k,v in res.items()}
         return res

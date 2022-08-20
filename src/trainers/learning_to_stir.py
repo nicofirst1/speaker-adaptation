@@ -379,7 +379,7 @@ def process_epoch(
     aux.update({f"adaptive/{k}":v for k,v in a_info.items()})
     aux.update({f"pretrain/{k}":v for k,v in p_info.items()})
     aux['loss'] = mean([x[-1] for x in aux.pop('loss')])
-    aux['weights/adapt'] = mean(aux['weights/adapt'])
+    aux['weights/adaptive'] = mean(aux['weights/adaptive'])
     aux['weights/pretrain'] = mean(aux['weights/pretrain'])
 
 
@@ -528,7 +528,8 @@ if __name__ == "__main__":
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    mlt_optim=MLTOptim(common_p.mlt_type)
+    mlt_optim=MLTOptim(common_p.mtl_type, common_p.mtl_gamma_a, common_p.mtl_gamma_p,common_p.mtl_alpha,
+                       common_p.mtl_temp)
 
     optimizer = optim.Adam(list(sim_model.parameters())+[mlt_optim.weights], lr=common_p.learning_rate)
 

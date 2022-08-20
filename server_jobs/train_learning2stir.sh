@@ -14,12 +14,26 @@ module load 2021
 module load Anaconda3/2021.05
 source activate uvapb
 
-#create output directory
-common_args=( --dropout 0.25 --model_type no_hist --metric accs --reduction sum --subset_size -1
---seed 42 --learning_rate 0.001  --adapt_lr 0.3  -shuffle --embedding_dim 1024 --epochs 200 --patience 50 --s_iter 5
---type_of_sim domain --pretrain_loss kl --adaptive_loss ce --mlt_type GradNorm --test_split seen --data_domain all --hidden_dim 512 )
-# restore the simulator
-#common_args=("${common_args[@]}" --resume_train true )
+# adaptive args
+common_args=( --model_type no_hist  --s_iter 5
+--pretrain_loss kl --adaptive_loss ce   )
+
+# static arguments
+common_args=("${common_args[@]}" --metric accs --reduction sum --subset_size -1  --seed 42
+-shuffle --test_split seen --data_domain all --type_of_sim domain )
+
+
+# train arguments
+common_args=("${common_args[@]}" --epochs 200 --patience 50 )
+
+# optimizer arguments
+# mlt_type [ GradNorm ,DWA , DTP]
+common_args=("${common_args[@]}" --learning_rate 0.001  --adapt_lr 0.3  --mlt_type GradNorm
+--mtl_gamma_a 1.2 --mtl_gamma_p 0.8 --mtl_alpha 1.2 --mtl_temp 2.0)
+
+
+# model arguments
+common_args=("${common_args[@]}"  --dropout 0.25  --embedding_dim 1024 --hidden_dim 512 )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/learning_to_stir.py"
 out_file="learning2stir${SLURM_ARRAY_TASK_ID}.log"
