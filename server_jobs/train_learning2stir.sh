@@ -2,7 +2,7 @@
 #SBATCH --nodes=1
 #SBATCH --job-name=lrn2stir
 #SBATCH --cpus-per-task=1
-#SBATCH --time=05:00:00
+#SBATCH --time=15:00:00
 #SBATCH --partition=gpu_shared
 #SBATCH --gpus-per-node=1
 
@@ -16,7 +16,7 @@ source activate uvapb
 
 #create output directory
 common_args=( --dropout 0.25 --model_type no_hist --metric accs --reduction sum --subset_size -1
---seed 42 --learning_rate 0.001  --adapt_lr 0.3  -shuffle --embedding_dim 1024 --epochs 10 --patience 5 --s_iter 5
+--seed 42 --learning_rate 0.001  --adapt_lr 0.3  -shuffle --embedding_dim 1024 --epochs 200 --patience 50 --s_iter 5
 --type_of_sim domain --pretrain_loss kl --adaptive_loss ce --test_split seen --data_domain all --hidden_dim 512)
 # restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )
