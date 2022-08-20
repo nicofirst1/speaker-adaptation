@@ -26,6 +26,8 @@ class ListenerModel_no_hist(nn.Module):
         self.device = device
         self.domain = domain
 
+
+
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(
             self.vocab_size, self.embedding_dim, padding_idx=0, scale_grad_by_freq=True,

@@ -380,6 +380,9 @@ class SimulatorArguments(Params):
     pretrain_loss: Optional[str] = "ce"
     adaptive_loss: Optional[str] = ""
 
+    # multi task learning optimizer type
+    mlt_type: Optional[str] = "DWA"
+
     # alpha if target = 1 and 1 - alpha if target = 0
     focal_alpha: Optional[float] = 0.4
     focal_gamma: Optional[float] = 2.0
@@ -428,6 +431,12 @@ class SimulatorArguments(Params):
         assert (
                 self.adaptive_loss in valid_adaptive_loss
         ), f"Invalid adaptive loss '{self.adaptive_loss}' not in '{valid_adaptive_loss}'"
+
+        valid_mlt_type = ["DWA","DTP","GradNorm"]
+
+        assert (
+                self.mlt_type in valid_mlt_type
+        ), f"Invalid adaptive loss '{self.mlt_type}' not in '{valid_mlt_type}'"
 
         # cross-check model type and losses
         if "hist" in self.model_type:

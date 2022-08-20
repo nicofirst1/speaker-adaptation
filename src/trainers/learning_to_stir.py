@@ -17,7 +17,8 @@ from src.commons import (LISTENER_CHK_DICT,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
                          merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
                          get_domain_accuracy,
-                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted)
+                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted,
+                         MLTOptim)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -204,7 +205,7 @@ def get_predictions(
     #   Get results with adapted hypo
     ################################################
     h0 = decoder_hid.clone().detach().requires_grad_(True)
-    optimizer_h0 = torch.optim.Adam([h0], lr=adapt_lr)
+    optimizer_h0 = torch.optim.Adam([h0, mlt_optim.weights], lr=adapt_lr)
 
 
     losses = []
@@ -214,7 +215,6 @@ def get_predictions(
     i = 0
     p_infos = []
     a_infos = []
-    loss_w=LossWeighted()
     while i < s_iter:
 
 
@@ -255,11 +255,14 @@ def get_predictions(
 
         sim_out = sim_model(h0, context_separate, context_concat, prev_hist, masks)
 
-        wp,wa=loss_w.get_losses()
 
         # compute loss for pretraining
-        p_loss = wp*pretrain_loss_f(sim_out, targets, list_out, data["domain"])
-        a_loss = wa*adapt_loss_f(sim_out, targets, list_out, data["domain"])
+        p_loss = pretrain_loss_f(sim_out, targets, list_out, data["domain"])
+        a_loss = adapt_loss_f(sim_out, targets, list_out, data["domain"])
+
+
+        p_loss,a_loss=mlt_optim(p_loss,a_loss)
+
         if isinstance(sim_out,tuple):
             eq_loss = adapt_loss_f.kl(sim_out[0], sim_out[1])
         else:
@@ -267,7 +270,9 @@ def get_predictions(
         #list_loss=pretrain_loss_f.ce(list_out, targets)
         list_loss=torch.zeros(1).to(device)
         loss=p_loss+a_loss +list_loss +eq_loss
-        loss.backward()
+        loss.backward(retain_graph=True)
+
+        mlt_optim.update_grads(sim_model,p_loss,a_loss)
 
         # params = {f"sim/{k}":v for k, v in dict(list(sim_model.named_parameters())).items()}
         # params.update({f"list/{k}":v for k, v in dict(list(list_model.named_parameters())).items()})
@@ -282,12 +287,15 @@ def get_predictions(
         optimizer_h0.zero_grad()
 
 
+
         loss = p_loss + a_loss  # +list_loss
         losses.append(loss.detach().cpu().item())
 
         # get  accuracy
         p_info = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=False)
         a_info = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=True)
+
+        mlt_optim.update_dtw( p_info, a_info)
         # add loss
         p_info['loss'] = p_loss.detach().cpu().item()
         a_info['loss'] = a_loss.detach().cpu().item()
@@ -297,7 +305,6 @@ def get_predictions(
         p_infos.append(p_info)
         a_infos.append(a_info)
 
-        loss_w(p_info,a_info)
 
         # break if sim gets it right
         break_trh=batch_size*0.5
@@ -314,7 +321,7 @@ def get_predictions(
     a_infos = merge_dict(a_infos)
     aux["p_info"] = p_infos
     aux["a_info"] = a_infos
-    aux['weights/adapt'],aux['weights/pretrain']=loss_w.get_losses()
+    aux.update(mlt_optim.get_infos())
 
     return mean(losses), aux
 
@@ -520,7 +527,10 @@ if __name__ == "__main__":
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
-    optimizer = optim.Adagrad(sim_model.parameters(), lr=common_p.learning_rate, lr_decay=common_p.learning_rate/2)
+
+    mlt_optim=MLTOptim(common_p.mlt_type)
+
+    optimizer = optim.Adam(list(sim_model.parameters())+[mlt_optim.weights], lr=common_p.learning_rate)
 
     pretrain_loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                                       alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
@@ -530,6 +540,7 @@ if __name__ == "__main__":
                                 list_domain=domain, all_domains=logger.domains)
 
     acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
+
 
     ###################################
     ## RESUME
@@ -575,6 +586,7 @@ if __name__ == "__main__":
         data = {}
 
         sim_model.train()
+        mlt_optim.is_train=True
         sim_model.use_batchnorm(False)
 
         ###################################
@@ -600,6 +612,7 @@ if __name__ == "__main__":
         ###################################
 
         sim_model.eval()
+        mlt_optim.is_train=False
 
         for param in sim_model.parameters():
             param.requires_grad = False
