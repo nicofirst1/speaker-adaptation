@@ -314,6 +314,7 @@ def get_predictions(
     a_infos = merge_dict(a_infos)
     aux["p_info"] = p_infos
     aux["a_info"] = a_infos
+    aux['weights/adapt'],aux['weights/pretrain']=loss_w.get_losses()
 
     return mean(losses), aux
 
@@ -371,6 +372,8 @@ def process_epoch(
     aux.update({f"adaptive/{k}":v for k,v in a_info.items()})
     aux.update({f"pretrain/{k}":v for k,v in p_info.items()})
     aux['loss'] = mean([x[-1] for x in aux.pop('loss')])
+    aux['weights/adapt'] = mean(aux['weights/adapt'])
+    aux['weights/pretrain'] = mean(aux['weights/pretrain'])
 
 
     return aux

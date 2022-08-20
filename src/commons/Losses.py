@@ -22,14 +22,16 @@ class LossWeighted(nn.Module):
         sim_list_acc=pretrain['sim_list_accuracy']/batch_size
         list_target_acc=adaptive['list_target_accuracy']/batch_size
 
-        loss_mag_rateo=pretrain['loss']/adaptive['loss']
+        p_loss=pretrain['loss']
+        adapt_loss=adaptive['loss']
+        loss_mag_rateo=p_loss/(adapt_loss+ 1e-6)
 
-        if sim_list_acc<self.min_sim_list_acc and 1/loss_mag_rateo<1:
+        if sim_list_acc<self.min_sim_list_acc and loss_mag_rateo<1:
             self.wa=loss_mag_rateo *0.5
             self.wp=1
 
-        elif sim_list_acc>self.min_sim_list_acc and loss_mag_rateo<1:
-            self.wp=loss_mag_rateo *0.5
+        elif sim_list_acc>self.min_sim_list_acc and loss_mag_rateo>1:
+            self.wp=1/loss_mag_rateo *0.5
             self.wa=1
 
 
