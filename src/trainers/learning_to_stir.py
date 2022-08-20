@@ -18,7 +18,7 @@ from src.commons import (LISTENER_CHK_DICT,
                          merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
                          get_domain_accuracy,
                          set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted,
-                         MLTOptim)
+                         MTLOptim)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -528,7 +528,7 @@ if __name__ == "__main__":
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    mlt_optim=MLTOptim(common_p.mtl_type, common_p.mtl_gamma_a, common_p.mtl_gamma_p,common_p.mtl_alpha,
+    mlt_optim=MTLOptim(common_p.mtl_type, common_p.mtl_gamma_a, common_p.mtl_gamma_p, common_p.mtl_alpha,
                        common_p.mtl_temp)
 
     optimizer = optim.Adam(list(sim_model.parameters())+[mlt_optim.weights], lr=common_p.learning_rate)

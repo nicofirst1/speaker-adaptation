@@ -35,7 +35,7 @@ class LossWeighted(nn.Module):
             self.wp=1/loss_mag_rateo *0.5
             self.wa=1
 
-class MLTOptim(nn.Module):
+class MTLOptim(nn.Module):
     """
     Implements different types of multi task learning optimization techniques taken from https://arxiv.org/pdf/2004.13379.pdf
 
@@ -44,7 +44,7 @@ class MLTOptim(nn.Module):
     GradNorm: Gradient Norm
     """
     def __init__(self, type:Literal["DWA","DTP","GradNorm"], gamma_a:float, gamma_p:float, alpha:float, temp:float):
-        super(MLTOptim, self).__init__()
+        super(MTLOptim, self).__init__()
         self.type=type
 
 

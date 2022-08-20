@@ -28,7 +28,7 @@ common_args=("${common_args[@]}" --epochs 200 --patience 50 )
 
 # optimizer arguments
 # mlt_type [ GradNorm ,DWA , DTP]
-common_args=("${common_args[@]}" --learning_rate 0.001  --adapt_lr 0.3  --mlt_type GradNorm
+common_args=("${common_args[@]}" --learning_rate 0.001  --adapt_lr 0.3  --mtl_type GradNorm
 --mtl_gamma_a 1.2 --mtl_gamma_p 0.8 --mtl_alpha 1.2 --mtl_temp 2.0)
 
 
