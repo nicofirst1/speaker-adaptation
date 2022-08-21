@@ -76,7 +76,7 @@ class MTLOptim(nn.Module):
 
         # DTP
         # Further, we define a task-level focusing parameter γi ≥ 0 that allows to adjust the
-        # weight at which easy or hard tasks are down-weighted
+        # weight at which easy or hard tasks are down-weighted, higher values result tasks being down-weighted.
         self.gamma_a=gamma_a
         self.gamma_p=gamma_p
         self.p_acc=0
@@ -146,15 +146,17 @@ class MTLOptim(nn.Module):
         if len(self.loss_p)<=1:
             return p_loss, a_loss
 
-        r_a=self.loss_a[-1]/(self.loss_a[-2]+self.eps)
-        r_p=self.loss_p[-1]/(self.loss_p[-2]+self.eps)
+        eps=1 if self.loss_a[-2] ==0 else self.loss_a[-2]
+        r_a=self.loss_a[-1]/(self.loss_a[-2]+eps)
+        eps=1 if self.loss_p[-2] ==0 else self.loss_p[-2]
+        r_p=self.loss_p[-1]/(self.loss_p[-2]+eps)
 
         self.wa=(2*exp(r_a/self.temp))/(exp(r_a/self.temp)+exp(r_p/self.temp))
         self.wp=(2*exp(r_p/self.temp))/(exp(r_a/self.temp)+exp(r_p/self.temp))
 
         return self.wp*p_loss,self.wa*a_loss
 
-    def update_dtw(self, p_acc, a_acc):
+    def update_dtp(self, p_acc, a_acc):
 
         if not self.is_train:
             return
@@ -165,7 +167,7 @@ class MTLOptim(nn.Module):
         self.p_acc=p_acc['sim_list_accuracy']/btc_size
         self.a_acc=a_acc['list_target_accuracy']/btc_size
 
-    def dtw(self,p_loss, a_loss ):
+    def dtp(self, p_loss, a_loss):
 
         self.wp=-(1-self.p_acc)**self.gamma_p* np.log(self.p_acc + self.eps)
         self.wa=-(1-self.a_acc)**self.gamma_a* np.log(self.a_acc + self.eps)
@@ -185,7 +187,7 @@ class MTLOptim(nn.Module):
         elif self.type=="GradNorm":
             return self.grad_norm(p_loss, a_loss)
         elif self.type=="DTP":
-            return self.dtw(p_loss, a_loss)
+            return self.dtp(p_loss, a_loss)
         else:
             raise ValueError("Unknown optimization type")
 

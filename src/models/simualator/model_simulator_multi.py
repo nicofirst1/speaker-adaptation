@@ -80,16 +80,15 @@ class SimulatorModel_multi(ListenerModel_no_hist):
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_list = self.att_linear_1(mm_reps)
-        outputs_list = self.tanh(outputs_list)
+        outputs_list = self.lrelu(outputs_list)
         outputs_list = self.att_linear_2(outputs_list)
+        outputs_list= F.normalize(outputs_list, p=2, dim=1)
 
         outputs_targ = self.att_linear_11(mm_reps)
-        outputs_targ = self.tanh(outputs_targ)
+        outputs_targ = self.lrelu(outputs_targ)
         outputs_targ = self.att_linear_21(outputs_targ)
+        outputs_targ= F.normalize(outputs_targ, p=2, dim=1)
 
-
-        # mask pads so that no attention is paid to them (with -inf)
-        # outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
 
         # final attention weights
         att_weights_list = self.softmax(outputs_list)
@@ -103,7 +102,7 @@ class SimulatorModel_multi(ListenerModel_no_hist):
         separate_images = self.dropout(separate_images)
         separate_images = self.linear_separate(separate_images)
 
-        separate_images = self.relu(separate_images)
+        separate_images = self.lrelu(separate_images)
         separate_images = F.normalize(separate_images, p=2, dim=2)
 
         # dot product between the candidate images and

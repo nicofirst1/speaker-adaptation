@@ -279,12 +279,14 @@ def get_predictions(
         # params.update({f"speak/{k}":v for k, v in dict(list(speak_model.named_parameters())).items()})
         # draw_grad_graph(params, h0, a_loss, file_name="./adaptive_grad.png")
 
+
+        optimizer_h0.step()
+        optimizer_h0.zero_grad()
+
         if optimizer is not None:
             optimizer.step()
             optimizer.zero_grad()
 
-        optimizer_h0.step()
-        optimizer_h0.zero_grad()
 
 
 
@@ -295,7 +297,7 @@ def get_predictions(
         p_info = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=False)
         a_info = acc_estimator(sim_out, targets, list_out, data["domain"], is_adaptive=True)
 
-        mlt_optim.update_dtw( p_info, a_info)
+        mlt_optim.update_dtp(p_info, a_info)
         # add loss
         p_info['loss'] = p_loss.detach().cpu().item()
         a_info['loss'] = a_loss.detach().cpu().item()
