@@ -80,7 +80,7 @@ class AccuracyEstimator(torch.nn.Module):
             else:
                 # sim is predicting the listener output
                 sim_list_accuracy = torch.eq(list_preds, sim_preds)
-                sim_target_accuracy = torch.eq(sim_preds, targets)
+                sim_target_accuracy = sim_list_accuracy
 
 
         sim_list_neg_accuracy = torch.eq(
