@@ -282,13 +282,13 @@ def get_predictions(
 
 
         optimizer_h0.step()
-        optimizer_h0.zero_grad()
 
         if optimizer is not None:
             optimizer.step()
             optimizer.zero_grad()
 
 
+        optimizer_h0.zero_grad()
 
 
         loss = p_loss + a_loss  # +list_loss
@@ -560,7 +560,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([sim_model])
+    #logger.watch_model([sim_model])
 
     ###################################
     ##  Get speaker dataloader
