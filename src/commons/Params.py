@@ -382,8 +382,8 @@ class SimulatorArguments(Params):
 
     # multi task learning optimizer type
     mtl_type: Optional[str] = "DWA"
-    mtl_gamma_a: Optional[float] = 1.5
-    mtl_gamma_p: Optional[float] = 0.5
+    mtl_gamma_a: Optional[float] = 3.0
+    mtl_gamma_p: Optional[float] = 0.1
     mtl_alpha: Optional[float] = 1.2
     mtl_temp: Optional[float] = 2.0
 

@@ -165,7 +165,7 @@ class MTLOptim(nn.Module):
 
 
         self.p_acc=p_acc['sim_list_accuracy']/btc_size
-        self.a_acc=a_acc['list_target_accuracy']/btc_size
+        self.a_acc=a_acc['sim_target_accuracy']/btc_size
 
     def dtp(self, p_loss, a_loss):
 
