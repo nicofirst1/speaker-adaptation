@@ -43,7 +43,7 @@ class MTLOptim(nn.Module):
     DTP : Dynamic Task Prioritization
     GradNorm: Gradient Norm
     """
-    def __init__(self, type:Literal["DWA","DTP","GradNorm"], gamma_a:float, gamma_p:float, alpha:float, temp:float):
+    def __init__(self, type:Literal["DWA","DTP","GradNorm","None"], gamma_a:float, gamma_p:float, alpha:float, temp:float):
         super(MTLOptim, self).__init__()
         self.type=type
 
@@ -190,6 +190,8 @@ class MTLOptim(nn.Module):
             return self.grad_norm(p_loss, a_loss)
         elif self.type=="DTP":
             return self.dtp(p_loss, a_loss)
+        elif self.type=="None":
+            return p_loss, a_loss
         else:
             raise ValueError("Unknown optimization type")
 

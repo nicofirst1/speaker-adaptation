@@ -438,7 +438,7 @@ class SimulatorArguments(Params):
                 self.adaptive_loss in valid_adaptive_loss
         ), f"Invalid adaptive loss '{self.adaptive_loss}' not in '{valid_adaptive_loss}'"
 
-        valid_mlt_type = ["DWA","DTP","GradNorm"]
+        valid_mlt_type = ["DWA","DTP","GradNorm","None"]
 
         assert (
                 self.mtl_type in valid_mlt_type
