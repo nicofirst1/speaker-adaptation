@@ -51,8 +51,8 @@ class MTLOptim(nn.Module):
         self.eps=1e-6
         self.is_train=True
 
-        self.wa=1
-        self.wp=1
+        self.wa=torch.as_tensor(1)
+        self.wp=torch.as_tensor(1)
 
         #DWA
         # T represents a temperature which controls the softness of task weighting, similar to .
