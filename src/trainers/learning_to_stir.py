@@ -268,7 +268,7 @@ def get_predictions(
         p_loss,a_loss=mlt_optim(p_loss,a_loss)
 
         if isinstance(sim_out,tuple):
-            eq_loss = adapt_loss_f.ce(sim_out[0], sim_out[1])
+            eq_loss = adapt_loss_f.kl(sim_out[0], sim_out[1])
         else:
             eq_loss =torch.zeros(1).to(device)
         #list_loss=pretrain_loss_f.ce(list_out, targets)
