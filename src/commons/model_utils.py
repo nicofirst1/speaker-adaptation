@@ -145,7 +145,7 @@ def save_model(
         "args": args,  # more detailed info, metric, model_type etc
         "epoch": str(epoch),
         "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
+        #"optimizer_state_dict": optimizer.state_dict(),
     }
     save_dict.update(kwargs)
     torch.save(save_dict, file_name, pickle_protocol=5)

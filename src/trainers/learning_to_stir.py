@@ -206,7 +206,10 @@ def get_predictions(
     #   Get results with adapted hypo
     ################################################
     h0 = decoder_hid.clone().detach().requires_grad_(True)
-    optimizer_h0 = torch.optim.Adam([h0, mlt_optim.weights], lr=adapt_lr)
+    if len(optimizer.param_groups)>1:
+        optimizer.param_groups[1]['params']=[h0]
+    else:
+        optimizer.add_param_group({"params": h0, "lr": adapt_lr})
 
 
     losses = []
@@ -265,7 +268,7 @@ def get_predictions(
         p_loss,a_loss=mlt_optim(p_loss,a_loss)
 
         if isinstance(sim_out,tuple):
-            eq_loss = adapt_loss_f.kl(sim_out[0], sim_out[1])
+            eq_loss = adapt_loss_f.ce(sim_out[0], sim_out[1])
         else:
             eq_loss =torch.zeros(1).to(device)
         #list_loss=pretrain_loss_f.ce(list_out, targets)
@@ -281,14 +284,8 @@ def get_predictions(
         # draw_grad_graph(params, h0, a_loss, file_name="./adaptive_grad.png")
 
 
-        optimizer_h0.step()
-
-        if optimizer is not None:
-            optimizer.step()
-            optimizer.zero_grad()
-
-
-        optimizer_h0.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
 
 
         loss = p_loss + a_loss  # +list_loss
@@ -521,11 +518,6 @@ if __name__ == "__main__":
         common_p.device,
     ).to(device)
 
-    if common_p.force_resume_url != "":
-        check = common_p.force_resume_url
-        sim_check, _ = load_wandb_checkpoint(check, device)
-        sim_model.load_state_dict(sim_check["model_state_dict"])
-        sim_model = sim_model.to(device)
 
     ###################################
     ##  LOSS AND OPTIMIZER
@@ -535,6 +527,8 @@ if __name__ == "__main__":
                        common_p.mtl_temp)
 
     optimizer = optim.Adam(list(sim_model.parameters())+[mlt_optim.weights], lr=common_p.learning_rate)
+
+
 
     pretrain_loss_f = SimLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
                                       alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
@@ -549,6 +543,14 @@ if __name__ == "__main__":
     ###################################
     ## RESUME
     ###################################
+
+    if common_p.force_resume_url != "":
+        check = common_p.force_resume_url
+        sim_check, _ = load_wandb_checkpoint(check, device)
+        sim_model.load_state_dict(sim_check["model_state_dict"])
+        optimizer.load_state_dict(sim_check["optimizer_state_dict"])
+        sim_model = sim_model.to(device)
+
 
     metric = common_p.metric
 
@@ -623,7 +625,7 @@ if __name__ == "__main__":
 
         print(f"\nEvaluation")
 
-        aux = process_epoch(val_loader, sim_model, speaker_model, list_model, None, list_vocab, pretrain_loss_f, adapt_loss_f, acc_estimator, "eval",
+        aux = process_epoch(val_loader, sim_model, speaker_model, list_model, optimizer, list_vocab, pretrain_loss_f, adapt_loss_f, acc_estimator, "eval",
                             common_p)
 
         logger.on_eval_end(
