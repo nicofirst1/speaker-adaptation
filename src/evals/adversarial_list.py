@@ -328,7 +328,7 @@ if __name__ == "__main__":
         group=list_args.train_domain,
         train_logging_step=1,
         val_logging_step=1,
-        project="speaker-list-dom",
+        project="adversarial_list",
         tags=common_args.tags,
 
     )
