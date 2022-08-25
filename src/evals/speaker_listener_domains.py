@@ -134,14 +134,17 @@ def evaluate_trained_model(
             visual_context = data["concat_context"]
 
             # generate hypo with speaker
-            hypo, _, _ = speak_model.generate_hypothesis(
+            utterance, _, _ = speak_model.generate_hypothesis(
                 prev_utterance, prev_utt_lengths, visual_context, target_img_feats
             )
-            utterance = hypo2utterance(hypo, vocab)
+
+            hypo  = [speak_vocab.decode(sent) for sent in utterance][0]
+
+            #utterance = hypo2utterance(hypo, vocab)
         else:
             # else take them from golden caption
             utterance = data["utterance"]
-            hypo = data["orig_caption"]
+            hypo = data["orig_utterance"]
 
         # get datapoints
         context_separate = data["separate_images"]
