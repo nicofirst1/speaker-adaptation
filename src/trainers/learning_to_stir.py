@@ -18,7 +18,7 @@ from src.commons import (LISTENER_CHK_DICT,
                          merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
                          get_domain_accuracy,
                          set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted,
-                         MTLOptim)
+                         MTLOptim, translate_utterance)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -146,13 +146,6 @@ def normalize_aux(aux, data_length, s_iter):
     aux.pop('neg_pred_len')
     aux.pop('pos_pred_len')
 
-def translate_utterance(speak2list_v):
-    def translate(utterance):
-        for idx in range(len(utterance)):
-            new_utt = [speak2list_v[x.item()] for x in utterance[idx]]
-            utterance[idx] = torch.as_tensor(new_utt).to(device)
-
-    return translate
 
 def get_predictions(
         data: Dict,

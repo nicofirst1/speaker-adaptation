@@ -11,10 +11,9 @@ from torch.utils.data import DataLoader
 import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          get_domain_accuracy, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, speak2list_vocab)
+                         load_wandb_checkpoint, mask_attn, parse_args, speak2list_vocab, translate_utterance)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
-from src.trainers.learning_to_stir import translate_utterance
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 

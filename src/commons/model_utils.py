@@ -227,3 +227,11 @@ def draw_grad_graph(params, input, output, file_name="grad_graph.png"):
     file   =torchviz.make_dot((grad_x, input, output), params=params)
     file.render(file_name)
     return file
+
+def translate_utterance(speak2list_v, device):
+    def translate(utterance):
+        for idx in range(len(utterance)):
+            new_utt = [speak2list_v[x.item()] for x in utterance[idx]]
+            utterance[idx] = torch.as_tensor(new_utt).to(device)
+
+    return translate
