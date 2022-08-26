@@ -333,7 +333,7 @@ if __name__ == "__main__":
     )
 
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
-    translator=translate_utterance(speak2list_v)
+    translator=translate_utterance(speak2list_v,device)
 
     list_model.eval()
 
