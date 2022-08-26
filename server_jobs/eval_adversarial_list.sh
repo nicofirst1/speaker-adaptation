@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=sp-lst
+#SBATCH --job-name=adv_list
 #SBATCH --cpus-per-task=1
 #SBATCH --time=00:20:00
 #SBATCH --partition=gpu_shared

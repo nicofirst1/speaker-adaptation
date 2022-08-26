@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=sp-lst
+#SBATCH --job-name=adv_adapt
 #SBATCH --cpus-per-task=1
-#SBATCH --time=00:20:00
+#SBATCH --time=10:30:00
 #SBATCH --partition=gpu_shared
 #SBATCH --gpus-per-node=1
 
