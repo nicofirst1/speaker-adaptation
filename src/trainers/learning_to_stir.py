@@ -215,7 +215,7 @@ def get_predictions(
     while i < s_iter:
 
 
-        set_seed(seed)
+        #set_seed(seed)
 
         # get modified hypo
         utts = speak_model.nucleus_sampling(h0, history_att, speak_masks)
@@ -541,7 +541,7 @@ if __name__ == "__main__":
         check = common_p.force_resume_url
         sim_check, _ = load_wandb_checkpoint(check, device)
         sim_model.load_state_dict(sim_check["model_state_dict"])
-        optimizer.load_state_dict(sim_check["optimizer_state_dict"])
+        #optimizer.load_state_dict(sim_check["optimizer_state_dict"])
         sim_model = sim_model.to(device)
 
 

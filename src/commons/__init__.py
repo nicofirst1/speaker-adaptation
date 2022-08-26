@@ -1,4 +1,5 @@
 from .Accuracy import AccuracyEstimator
+from .adversarial_utils import hsja
 from .data_utils import (get_dataloaders, load_wandb_dataset,
                          speaker_augmented_dataloader)
 from .EarlyStopping import EarlyStopping
@@ -45,5 +46,8 @@ __all__ = [
 
     # Accuracy
     "AccuracyEstimator",
+
+    # adversarial
+    "hsja"
 ]
 

@@ -146,6 +146,7 @@ def evaluate_trained_model(
 
 
             utterance=torch.as_tensor(perturbed_utts).unsqueeze(0)
+            utterance = utterance.to(device)
             hypo = [speak_vocab.decode(sent) for sent in utterance][0]
 
             # get listener output
