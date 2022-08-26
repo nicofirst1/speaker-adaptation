@@ -56,7 +56,7 @@ def hsja(model,
     """
     # Set parameters
     original_label = torch.argmax(model(sample),dim=1)
-    params = {'clip_max': clip_max, 'clip_min': clip_min,
+    params = {'clip_max': torch.as_tensor(clip_max).to(device), 'clip_min': torch.as_tensor(clip_min).to(device),
               'shape': sample.shape,
               'original_label': original_label,
               'target_label': target_label,

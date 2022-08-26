@@ -234,7 +234,7 @@ if __name__ == "__main__":
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="learning2stir",
+        project="adversarial_adapt",
     )
 
     ##########################
@@ -245,7 +245,6 @@ if __name__ == "__main__":
         LISTENER_CHK_DICT[domain],
         device,
     )
-    # datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
     list_args = list_checkpoint["args"]
 
     # update list args
