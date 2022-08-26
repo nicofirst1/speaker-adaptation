@@ -332,7 +332,7 @@ if __name__ == "__main__":
     common_p.batch_size = 1
 
     training_loader, test_loader, val_loader = get_dataloaders(
-        common_p, speak_vocab, data_domain
+        common_p, speak_vocab, "all"
     )
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
     translator = translate_utterance(speak2list_v, device)
