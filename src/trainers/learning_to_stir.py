@@ -565,7 +565,7 @@ if __name__ == "__main__":
         common_p, speak_vocab, data_domain
     )
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
-    translator=translate_utterance(speak2list_v)
+    translator=translate_utterance(speak2list_v, device)
     ###################################
     ##  START OF TRAINING LOOP
     ###################################
