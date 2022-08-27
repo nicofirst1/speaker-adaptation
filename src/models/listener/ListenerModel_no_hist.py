@@ -54,6 +54,7 @@ class ListenerModel_no_hist(nn.Module):
 
         self.tanh = nn.Tanh()
         self.relu = nn.ReLU()
+        self.lrelu = nn.LeakyReLU()
 
         self.softmax = nn.Softmax(dim=1)
 
@@ -119,16 +120,20 @@ class ListenerModel_no_hist(nn.Module):
 
         # utterance representations are processed
         representations = self.dropout(representations)
-        input_reps = self.relu(self.lin_emb2hid(representations))
+        input_reps = self.lrelu(self.lin_emb2hid(representations))
+        input_reps = F.normalize(input_reps, p=2, dim=1)
+
         # [32,33,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
         projected_context = self.relu(self.lin_context(visual_context))
+        projected_context = F.normalize(projected_context, p=2, dim=1)
 
         repeated_context = projected_context.unsqueeze(1).repeat(
             1, input_reps.shape[1], 1
         )
+
 
         # multimodal utterance representations
         mm_reps = self.relu(
@@ -136,7 +141,12 @@ class ListenerModel_no_hist(nn.Module):
         )
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
-        outputs_att = self.att_linear_2(self.tanh(self.att_linear_1(mm_reps)))
+        outputs_att = self.att_linear_1(mm_reps)
+        outputs_att = self.relu(outputs_att)
+        outputs_att = F.normalize(outputs_att, p=2, dim=1)
+        outputs_att = self.att_linear_2(outputs_att)
+        #outputs_att = self.relu(outputs_att)
+
 
         # mask pads so that no attention is paid to them (with -inf)
         masks = masks.bool()
@@ -155,7 +165,8 @@ class ListenerModel_no_hist(nn.Module):
         separate_images = self.relu(separate_images)
         separate_images = F.normalize(separate_images, p=2, dim=2)
 
-        # dot product between the candidate images and
+
+        # dot product between the candid ate images and
         # the final multimodal representation of the input utterance
         dot = torch.bmm(
             separate_images, attended_hids.view(batch_size, self.hidden_dim, 1)

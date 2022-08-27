@@ -88,6 +88,7 @@ class SpeakerModel_no_hist(nn.Module):
         self.attention = nn.Linear(self.attention_dim, 1)
 
         self.relu = nn.ReLU()
+        self.lrelu = nn.LeakyReLU()
 
         self.tanh = nn.Tanh()
 
@@ -354,7 +355,7 @@ class SpeakerModel_no_hist(nn.Module):
         decoder_hid = self.linear_dec(
             torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
         )
-        #decoder_hid= F.normalize(decoder_hid)
+        decoder_hid = self.tanh(decoder_hid)
 
         # sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
         # sos_token=sos_token.repeat((batch_size,1))
@@ -428,7 +429,9 @@ class SpeakerModel_no_hist(nn.Module):
 
             h1_att = self.lin2att_hid(h1)
             h1_att=h1_att.unsqueeze(1)
-            attention_out = self.attention(self.tanh(history_att + h1_att))
+            attention_out = self.relu(history_att + h1_att)
+            attention_out = F.normalize(attention_out, p=2, dim=1)
+            attention_out = self.attention(attention_out)
 
             attention_out = attention_out.masked_fill_(masks, float("-inf"))
 

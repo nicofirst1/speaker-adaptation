@@ -123,6 +123,7 @@ def get_predictions(
                 # get modified hypo
                 utts = speak_model.nucleus_sampling(h0, history_att, speak_masks)
                 translator(utts)
+                tmp = [list_vocab.decode(sent) for sent in utts]
 
                 masks = get_mask(utts)
                 batch_size = utts.shape[0]
@@ -142,17 +143,18 @@ def get_predictions(
         model_fn = hsja_model(context_separate, context_concat, prev_hist)
         h0 = hsja(model_fn,
                   h0,
-                  clip_max=1,
-                  clip_min=0,
+                  clip_max=200,
+                  clip_min=-200,
                   constraint='l2',
                   num_iterations=5,
                   gamma=1.0,
                   target_label=targets,
                   target_image=None,
                   stepsize_search='geometric_progression',
-                  max_num_evals=1e4,
+                  max_num_evals=70,
                   init_num_evals=100,
-                  verbose=True, device=device)
+                  verbose=True,
+                  device=device)
 
         utts = speak_model.nucleus_sampling(h0, history_att, speak_masks)
         translator(utts)
@@ -279,7 +281,7 @@ if __name__ == "__main__":
         device=device,
     ).to(device)
 
-    list_model.load_state_dict(list_checkpoint["model_state_dict"])
+    #list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
 

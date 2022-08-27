@@ -56,7 +56,10 @@ def hsja(model,
     """
     # Set parameters
     original_label = torch.argmax(model(sample),dim=1)
-    params = {'clip_max': torch.as_tensor(clip_max).to(device), 'clip_min': torch.as_tensor(clip_min).to(device),
+
+    clip_max=torch.as_tensor(clip_max).to(device)
+    clip_min=torch.as_tensor(clip_min).to(device)
+    params = {'clip_max': clip_max, 'clip_min': clip_min,
               'shape': sample.shape,
               'original_label': original_label,
               'target_label': target_label,
@@ -149,23 +152,24 @@ def decision_function(model, images, params):
     images = clip_image(images, params['clip_min'], params['clip_max'])
     images=torch.as_tensor(images).squeeze(dim=1).float()
     prob = model(images)
+    pred=torch.argmax(prob, dim=1)
     if params['target_label'] is None:
-        return torch.argmax(prob, axis=1) != params['original_label']
+        return pred != params['original_label']
     else:
-        return torch.argmax(prob, axis=1) == params['target_label']
+        return pred == params['target_label']
 
 
 def clip_image(image, clip_min, clip_max):
     # Clip an image, or an image batch, with upper and lower threshold.
-    return np.minimum(np.maximum(clip_min, image), clip_max)
+    return torch.minimum(torch.maximum(clip_min, image), clip_max)
 
 
 def compute_distance(x_ori, x_pert, constraint='l2'):
     # Compute the distance between two images.
     if constraint == 'l2':
-        return np.linalg.norm(x_ori - x_pert)
+        return torch.linalg.norm(x_ori - x_pert)
     elif constraint == 'linf':
-        return np.max(abs(x_ori - x_pert))
+        return torch.max(abs(x_ori - x_pert))
 
 
 def approximate_gradient(model, sample, num_evals, delta, params):
@@ -199,7 +203,7 @@ def approximate_gradient(model, sample, num_evals, delta, params):
         gradf = torch.mean(fval * rv, axis=0)
 
     # Get the gradient direction.
-    gradf = gradf / np.linalg.norm(gradf)
+    gradf = gradf / torch.linalg.norm(gradf)
 
     return gradf
 
@@ -235,7 +239,7 @@ def binary_search_batch(original_image, perturbed_images, model, params):
     if params['constraint'] == 'linf':
         highs = dists_post_update
         # Stopping criteria.
-        thresholds = np.minimum(dists_post_update * params['theta'], params['theta'])
+        thresholds = torch.minimum(dists_post_update * params['theta'], params['theta'])
     else:
         highs = torch.ones(len(perturbed_images)).to(params['device'])
         thresholds = params['theta']
@@ -288,8 +292,6 @@ def initialize(model, sample, params):
             num_evals += 1
             if success:
                 break
-            assert num_evals < 1e4, "Initialization failed! "
-            "Use a misclassified image as `target_image`"
 
         # Binary search to minimize l2 distance to original image.
         low = 0.0
@@ -317,7 +319,7 @@ def geometric_progression_for_stepsize(x, update, dist, model, params):
     Keep decreasing stepsize by half until reaching
     the desired side of the boundary,
     """
-    epsilon = dist / np.sqrt(params['cur_iter'])
+    epsilon = dist / torch.sqrt(torch.as_tensor(params['cur_iter']))
 
     def phi(epsilon):
         new = x + epsilon * update
@@ -340,7 +342,7 @@ def select_delta(params, dist_post_update):
         delta = 0.1 * (params['clip_max'] - params['clip_min'])
     else:
         if params['constraint'] == 'l2':
-            delta = np.sqrt(params['d']) * params['theta'] * dist_post_update
+            delta = torch.sqrt(params['d']) * params['theta'] * dist_post_update
         elif params['constraint'] == 'linf':
             delta = params['d'] * params['theta'] * dist_post_update
 
