@@ -305,6 +305,9 @@ class SimLossAdapt(SimLossPretrain):
 
     def forward(self, preds, targets, list_out, domains):
 
+        if self.loss_type=="none":
+            return torch.tensor(0)
+
         if self.sim_model_type == "multi":
             preds = preds[1]
 

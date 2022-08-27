@@ -32,7 +32,7 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
         )
         self.relu=nn.LeakyReLU()
 
-        self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
+        #self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
         self.init_weights()  # initialize layers
 
     def forward(

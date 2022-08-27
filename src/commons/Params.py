@@ -413,6 +413,9 @@ class SimulatorArguments(Params):
         if self.adaptive_loss=="":
             self.adaptive_loss=self.pretrain_loss
 
+        if self.adaptive_loss=="none":
+            self.mtl_type="None"
+
     def check_parameters(self):
         super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
@@ -432,7 +435,7 @@ class SimulatorArguments(Params):
                 self.pretrain_loss in valid_pretrain_loss
         ), f"Invalid pretrain loss '{self.pretrain_loss}' not in '{valid_pretrain_loss}'"
 
-        valid_adaptive_loss = ['ce', "bce", 'fbce']
+        valid_adaptive_loss = ['ce', "bce", 'fbce',"none"]
 
         assert (
                 self.adaptive_loss in valid_adaptive_loss
