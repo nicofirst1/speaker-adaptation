@@ -120,15 +120,19 @@ def normalize_aux(aux, data_length, s_iter):
 
         return lst
 
-    domains = flatten(aux.pop("domains"))
+    domains = [x[-1] for x in aux.pop("domains")]
+    domains = [x for sub in domains for x in sub]
 
-    accs = flatten(aux.pop('list_target_accuracy_dom'))
+    accs=[x[-1] for x in aux.pop('list_target_accuracy_dom')]
+    accs=[x for sub in accs for x in sub]
     aux["domain/list_target_acc"] = get_domain_accuracy(accs, domains, logger.domains)
 
-    accs = flatten(aux.pop('sim_list_accuracy_dom'))
+    accs=[x[-1] for x in aux.pop('sim_list_accuracy_dom')]
+    accs=[x for sub in accs for x in sub]
     aux["domain/sim_list_acc"] = get_domain_accuracy(accs, domains, logger.domains)
 
-    accs = flatten(aux.pop('sim_target_accuracy_dom'))
+    accs=[x[-1] for x in aux.pop('sim_target_accuracy_dom')]
+    accs=[x for sub in accs for x in sub]
     aux["domain/sim_target_acc"] = get_domain_accuracy(accs, domains, logger.domains)
 
 
