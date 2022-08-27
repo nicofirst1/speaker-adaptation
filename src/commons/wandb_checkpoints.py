@@ -8,7 +8,7 @@
 LISTENER_CHK_DICT = dict(
     all="adaptive-speaker/listener/ListenerModel_all:v184",
     appliances="adaptive-speaker/listener/ListenerModel_appliances:v297",
-    food="adaptive-speaker/listener/ListenerModel_food:v225",
+    food="adaptive-speaker/listener/ListenerModel_no_hist_food:v42",
     indoor="adaptive-speaker/listener/ListenerModel_indoor:v293",
     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v274",
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
