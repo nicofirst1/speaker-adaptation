@@ -450,13 +450,13 @@ class SimulatorArguments(Params):
         # cross-check model type and losses
         if "hist" in self.model_type:
             assert self.pretrain_loss in ['ce','kl']
-            assert self.adaptive_loss in ['ce']
+            assert self.adaptive_loss in ['ce',"none"]
         elif "binary" in self.model_type:
             assert self.pretrain_loss in ['bce', 'fbce']
-            assert self.adaptive_loss in ['bce', 'fbce']
+            assert self.adaptive_loss in ['bce', 'fbce',"none"]
         elif "domain" in self.model_type:
             assert self.pretrain_loss in ['ce']
-            assert self.adaptive_loss in ['ce']
+            assert self.adaptive_loss in ['ce' ,"none"]
 
         if self.embed_type == "sratch":
             assert (
