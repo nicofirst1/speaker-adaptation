@@ -325,9 +325,10 @@ def geometric_progression_for_stepsize(x, update, dist, model, params):
         new = x + epsilon * update
         success = decision_function(model, new[None], params)
         return success
-
-    while not phi(epsilon):
+    idx=0
+    while not phi(epsilon) and idx<300:
         epsilon /= 2.0
+        idx+=1
 
     return epsilon
 

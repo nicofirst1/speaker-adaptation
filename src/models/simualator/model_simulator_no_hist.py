@@ -61,12 +61,15 @@ class SimulatorModel_no_hist(ListenerModel_no_hist):
 
         # utterance representations are processed
         representations = self.dropout(representations)
-        input_reps = self.relu(self.lin_emb2hid(representations))
+        input_reps = self.lrelu(self.lin_emb2hid(representations))
+        input_reps = F.normalize(input_reps, p=2, dim=1)
+
         # [32,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
         projected_context = self.relu(self.lin_context(visual_context))
+        projected_context = F.normalize(projected_context, p=2, dim=1)
 
 
         # multimodal utterance representations

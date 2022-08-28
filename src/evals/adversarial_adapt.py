@@ -143,8 +143,8 @@ def get_predictions(
         model_fn = hsja_model(context_separate, context_concat, prev_hist)
         h0 = hsja(model_fn,
                   h0,
-                  clip_max=200,
-                  clip_min=-200,
+                  clip_max=1,
+                  clip_min=-1,
                   constraint='l2',
                   num_iterations=5,
                   gamma=1.0,
@@ -372,10 +372,10 @@ if __name__ == "__main__":
 
     print(f"\nTEST")
 
-    aux = process_epoch(test_loader, speaker_model, list_model, list_vocab, "eval", common_p)
+    aux = process_epoch(test_loader, speaker_model, list_model, list_vocab, "test", common_p)
 
     logger.on_eval_end(
-        aux, list_domain=test_loader.dataset.domain, modality="eval", commit=True,
+        aux, list_domain=test_loader.dataset.domain, modality="test", commit=True,
     )
 
     logger.on_train_end({}, epoch_id=0)
