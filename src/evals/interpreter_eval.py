@@ -1,24 +1,17 @@
 import datetime
-import operator
-from typing import Dict, Tuple
+from typing import Dict
 
 import numpy as np
-import rich.progress
 import torch
-from rich.pretty import pprint
-from torch import nn, optim
-from torch.utils.data import DataLoader
+from torch import nn
 
-import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT, SIM_ALL_CE_CHK,
-                         SIM_NOHIST_CE_CHK, SPEAKER_CHK, EarlyStopping,
-                         get_dataloaders, load_wandb_checkpoint,
-                         load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model, get_sim_chk)
+from src.commons import (LISTENER_CHK_DICT,
+                         SPEAKER_CHK, get_dataloaders, load_wandb_checkpoint,
+                         load_wandb_dataset, parse_args,
+                         get_int_chk, AccuracyEstimator, IntLossPretrain)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
-from src.trainers.simulator_pretrain import (evaluate, get_predictions,
-                                             normalize_aux)
+from src.trainers.interpreter_pretrain import (evaluate)
 from src.wandb_logging import ListenerLogger
 
 if __name__ == "__main__":
@@ -26,7 +19,7 @@ if __name__ == "__main__":
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
 
-    common_p = parse_args("sim")
+    common_p = parse_args("int")
     domain = common_p.train_domain
 
     ##########################
@@ -116,39 +109,39 @@ if __name__ == "__main__":
     speaker_model = speaker_model.eval()
 
     ##########################
-    # SIMULATOR
+    # INTERPRETER
     ##########################
 
-    check=get_sim_chk(common_p.type_of_sim, common_p.pretrain_loss, domain)
-    sim_check, _ = load_wandb_checkpoint(check, device)
+    check=get_int_chk(common_p.model_type, common_p.pretrain_loss, domain)
+    int_check, _ = load_wandb_checkpoint(check, device)
 
     # load args
-    sim_p = sim_check["args"]
-    sim_p.train_domain = domain
-    sim_p.device = device
-    sim_p.resume_train = common_p.resume_train
-    sim_p.test_split = common_p.test_split
+    int_p = int_check["args"]
+    int_p.train_domain = domain
+    int_p.device = device
+    int_p.resume_train = common_p.resume_train
+    int_p.test_split = common_p.test_split
 
     # for debug
-    sim_p.subset_size = common_p.subset_size
-    sim_p.debug = common_p.debug
+    int_p.subset_size = common_p.subset_size
+    int_p.debug = common_p.debug
 
-    sim_p.reset_paths()
+    int_p.reset_paths()
 
-    model = get_model("sim", sim_p.model_type)
-    sim_model = model(
+    model = get_model("int", int_p.model_type)
+    int_model = model(
         len(list_vocab),
         speak_p.hidden_dim,
-        sim_p.hidden_dim,
+        int_p.hidden_dim,
         img_dim,
-        sim_p.attention_dim,
-        sim_p.dropout_prob,
-        sim_p.train_domain,
-        sim_p.device,
+        int_p.attention_dim,
+        int_p.dropout_prob,
+        int_p.train_domain,
+        int_p.device,
     ).to(device)
 
-    sim_model.load_state_dict(sim_check["model_state_dict"])
-    sim_model = sim_model.to(device)
+    int_model.load_state_dict(int_check["model_state_dict"])
+    int_model = int_model.to(device)
 
     ###################################
     ##  LOGGER
@@ -156,10 +149,10 @@ if __name__ == "__main__":
 
     logger = ListenerLogger(
         vocab=speak_vocab,
-        opts=vars(sim_p),
+        opts=vars(int_p),
         train_logging_step=1,
+        project = f"speaker-eval-{common_p.type_of_int}",
         val_logging_step=1,
-        project=f"speaker-eval-{common_p.type_of_sim}",
         tags=common_p.tags,
     )
 
@@ -167,25 +160,29 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    cel = nn.CrossEntropyLoss(reduction=sim_p.reduction)
-    criterion = nn.KLDivLoss(reduction=sim_p.reduction)
+
+    loss_f = IntLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
+                             alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
+                             list_domain=domain, all_domains=logger.domains)
+    acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
+
 
     ###################################
     ##  Get speaker dataloader
     ###################################
     bs = common_p.batch_size
     # need batchsize =1 for generating the new dataloaders
-    sim_p.batch_size = 1
-    sim_p.shuffle = False
+    int_p.batch_size = 1
+    int_p.shuffle = False
 
     shuffle = common_p.shuffle
     training_loader, test_loader, val_loader = get_dataloaders(
-        sim_p, speak_vocab, domain
+        int_p, speak_vocab, domain
     )
 
     if common_p.is_test:
         training_loader = []
-        sim_p.epochs = 1
+        int_p.epochs = 1
 
     # train
     load_params = {
@@ -252,15 +249,15 @@ if __name__ == "__main__":
         """
         from rich import print
 
-        accuracy, loss = aux["sim_list_accuracy"], aux["sim_list_loss"]
+        accuracy, loss = aux["int_list_accuracy"], aux["loss"]
         split_len = len(aux.pop("list_preds"))
-        aux.pop("sim_preds")
+        aux.pop("int_preds")
         print(
             f"\n\n{split} loss {loss:.6f}, accuracy {accuracy:.3f}, split-len {split_len}\nAux: {aux}\n"
         )
 
     with torch.no_grad():
-        sim_model.eval()
+        int_model.eval()
 
         ###########################
         #   TRAIN SPLIT
@@ -268,12 +265,14 @@ if __name__ == "__main__":
         split = "train"
         aux = evaluate(
             speak_train_dl,
-            sim_model,
+            int_model,
             list_model,
             list_vocab,
+            loss_f=loss_f,
+            acc_estimator=acc_estimator,
+            all_domains=logger.domains,
             split=split,
-            cel=cel,
-            kl=criterion,
+
         )
         logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality=split)
         print_aux(split, aux)
@@ -285,12 +284,13 @@ if __name__ == "__main__":
 
         aux = evaluate(
             speak_val_dl,
-            sim_model,
+            int_model,
             list_model,
             list_vocab,
+            loss_f=loss_f,
+            acc_estimator=acc_estimator,
+            all_domains=logger.domains,
             split=split,
-            cel=cel,
-            kl=criterion,
         )
         logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality=split)
         print_aux(split, aux)
@@ -302,12 +302,13 @@ if __name__ == "__main__":
 
         aux = evaluate(
             speak_test_dl,
-            sim_model,
+            int_model,
             list_model,
             list_vocab,
+            loss_f=loss_f,
+            acc_estimator=acc_estimator,
+            all_domains=logger.domains,
             split=split,
-            cel=cel,
-            kl=criterion,
         )
 
         logger.on_eval_end(

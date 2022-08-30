@@ -17,8 +17,8 @@ def parse_args(mode):
         parser = SpeakerArguments()
     elif mode == "list":
         parser = ListenerArguments()
-    elif mode == "sim":
-        parser = SimulatorArguments()
+    elif mode == "int":
+        parser = InterpreterArguments()
 
     return parser
 
@@ -59,10 +59,10 @@ class Params:
     # If true use wandb checkpoints
     resume_train: Optional[bool] = False
 
-    # Which simulator to use with domain specific listener.
+    # Which interpreter to use with domain specific listener.
     # Can be either [domain, general, untrained].
-    # If domain then symmetric setting, else use general simulator for all domains
-    type_of_sim: Optional[str] = "domain"
+    # If domain then symmetric setting, else use general interpreter for all domains
+    type_of_int: Optional[str] = "domain"
 
     # reduction for crossentropy loss
     reduction: Optional[str] = "sum"
@@ -250,11 +250,11 @@ class Params:
                 self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
-        valid_type_of_sim = ["domain", "general", "untrained"]
+        valid_type_of_int = ["domain", "general", "untrained"]
 
         assert (
-                self.type_of_sim in valid_type_of_sim
-        ), f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
+                self.type_of_int in valid_type_of_int
+        ), f"Invalid interpreter type '{self.type_of_int}'./n Should be in {valid_type_of_int}"
 
         valid_test_split = ["all", "seen", "unseen"]
         assert (
@@ -328,9 +328,9 @@ class ListenerArguments(Params):
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
-class SimulatorArguments(Params):
+class InterpreterArguments(Params):
     """
-    Arguments for simulator
+    Arguments for interpreter
     """
 
     #########################
@@ -348,7 +348,7 @@ class SimulatorArguments(Params):
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
 
-    # Simulator model type, can be one of the following:
+    # Interpreter model type, can be one of the following:
     # 1. no_hist: predicts list out without using context hist
     # 2. hist: predicts list out using context hist
     # 3. binary: predicts if the list will be correct or not
@@ -370,7 +370,7 @@ class SimulatorArguments(Params):
     s_iter: Optional[int] = 5
     adapt_lr : Optional[float] = 0.03
     log_train: Optional[bool] = False
-    # pretrain loss for simulator == listener out,
+    # pretrain loss for interpreter == listener out,
     # can be:
     # 1. cross entropy [ce]
     # 2. Kullback-Leibler Divergence [kl]
@@ -394,7 +394,7 @@ class SimulatorArguments(Params):
 
 
     def __init__(self):
-        super(SimulatorArguments, self).__init__()
+        super(InterpreterArguments, self).__init__()
         if self.adaptive_loss == "":
             self.adaptive_loss = self.pretrain_loss
         self.check_parameters()
@@ -402,7 +402,7 @@ class SimulatorArguments(Params):
         self.__post_init__()
 
     def __post_init__(self):
-        super(SimulatorArguments, self).__post_init__()
+        super(InterpreterArguments, self).__post_init__()
 
         self.vocab_file = join(self.data_path, self.vocab_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
@@ -417,7 +417,7 @@ class SimulatorArguments(Params):
             self.mtl_type="None"
 
     def check_parameters(self):
-        super(SimulatorArguments, self).check_parameters()
+        super(InterpreterArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
                 self.metric in valis_metr
@@ -463,7 +463,12 @@ class SimulatorArguments(Params):
                     self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
-
+class SimulatorArguments(InterpreterArguments):
+    """
+    Legacy class for simulator arguments
+    """
+    def __init__(self):
+        super(SimulatorArguments, self).__init__()
 class SpeakerArguments(Params):
     """
     Arguments for speaker

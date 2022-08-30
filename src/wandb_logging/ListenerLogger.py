@@ -171,6 +171,7 @@ class ListenerLogger(WandbLogger):
 
         self.log_to_wandb(metrics, commit=True)
 
+
     def on_eval_end(
         self,
         metrics: Dict[str, Any],

@@ -8,7 +8,7 @@ from .model_utils import (get_domain_accuracy, hypo2utterance,
                           save_model, set_seed, draw_grad_graph, speak2list_vocab, translate_utterance)
 from .Params import parse_args
 from .wandb_checkpoints import *
-from .Losses import SimLossPretrain, SimLossAdapt, LossWeighted, MTLOptim
+from .Losses import IntLossPretrain, IntLossAdapt, LossWeighted, MTLOptim
 
 __all__ = [
     "get_dataloaders",
@@ -30,17 +30,17 @@ __all__ = [
     # wandb checkpoints
     "LISTENER_CHK_DICT",
     "SPEAKER_CHK",
-    "SIM_NOHIST_CE_CHK",
-    "SIM_NOHIST_KL_CHK",
+    "INT_NOHIST_CE_CHK",
+    "INT_NOHIST_KL_CHK",
     "DATASET_CHK",
     "VAL_DATASET_CHK",
     "TEST_ALL_DATASET_CHK",
     "TRAIN_DATASET_CHK",
-    "get_sim_chk",
+    "get_int_chk",
 
     #Losses
-    "SimLossPretrain",
-    "SimLossAdapt",
+    "IntLossPretrain",
+    "IntLossAdapt",
     "LossWeighted",
     "MTLOptim",
 

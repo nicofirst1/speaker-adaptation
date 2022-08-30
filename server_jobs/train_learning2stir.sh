@@ -20,7 +20,7 @@ common_args=( --model_type no_hist  --s_iter 5
 
 # static arguments
 common_args=("${common_args[@]}" --metric accs --reduction sum --subset_size -1  --seed 42
--shuffle --test_split seen --data_domain all --type_of_sim domain )
+-shuffle --test_split seen --data_domain all --type_of_int domain )
 
 
 # train arguments
@@ -36,7 +36,6 @@ common_args=("${common_args[@]}" --learning_rate 0.001  --adapt_lr 0.3  --mtl_ty
 common_args=("${common_args[@]}"  --dropout 0.25  --embedding_dim 1024 --hidden_dim 512 )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/learning_to_stir.py"
-out_file="learning2stir${SLURM_ARRAY_TASK_ID}.log"
 
 #running the actual code
 echo "Starting the process..."

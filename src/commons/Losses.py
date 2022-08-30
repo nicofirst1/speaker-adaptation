@@ -14,24 +14,24 @@ class LossWeighted(nn.Module):
         super(LossWeighted, self).__init__()
         self.wp=1
         self.wa=1
-        self.min_sim_list_acc=0.75
+        self.min_int_list_acc=0.75
         self.min_list_target_acc=0.50
 
     def forward(self, pretrain, adaptive)->Tuple[float,float]:
         batch_size=len(adaptive['list_preds'])
 
-        sim_list_acc=pretrain['sim_list_accuracy']/batch_size
+        int_list_acc=pretrain['int_list_accuracy']/batch_size
         list_target_acc=adaptive['list_target_accuracy']/batch_size
 
         p_loss=pretrain['loss']
         adapt_loss=adaptive['loss']
         loss_mag_rateo=p_loss/(adapt_loss+ 1e-6)
 
-        if sim_list_acc<self.min_sim_list_acc and loss_mag_rateo<1:
+        if int_list_acc<self.min_int_list_acc and loss_mag_rateo<1:
             self.wa=loss_mag_rateo *0.5
             self.wp=1
 
-        elif sim_list_acc>self.min_sim_list_acc and loss_mag_rateo>1:
+        elif int_list_acc>self.min_int_list_acc and loss_mag_rateo>1:
             self.wp=1/loss_mag_rateo *0.5
             self.wa=1
 
@@ -55,7 +55,7 @@ class MTLOptim(nn.Module):
         self.wp=torch.as_tensor(1)
 
         #DWA
-        # T represents a temperature which controls the softness of task weighting, similar to .
+        # T represents a temperature which controls the softness of task weighting, intilar to .
         # A large T results in a more even distribution between different tasks.
         # If T is large enough, we have λi ≈ 1, and tasks are weighted equally
         self.temp=temp
@@ -164,8 +164,8 @@ class MTLOptim(nn.Module):
         btc_size=len(p_acc['list_preds'])
 
 
-        self.p_acc=p_acc['sim_target_accuracy']/btc_size
-        self.a_acc=a_acc['sim_target_accuracy']/btc_size
+        self.p_acc=p_acc['int_target_accuracy']/btc_size
+        self.a_acc=a_acc['int_target_accuracy']/btc_size
 
 
 
@@ -204,9 +204,9 @@ class MTLOptim(nn.Module):
         res={f"weights/{k}":v for k,v in res.items()}
         return res
 
-class SimLossPretrain(torch.nn.Module):
+class IntLossPretrain(torch.nn.Module):
 
-    def __init__(self, loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains):
+    def __init__(self, loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains):
 
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction=reduction)
@@ -217,7 +217,7 @@ class SimLossPretrain(torch.nn.Module):
         self.fbce_gamma = gamma
         self.list_domain = list_domain
         self.all_domains = all_domains
-        self.sim_model_type = sim_model_type
+        self.int_model_type = int_model_type
         # create an index dict for domains
         self.domain2idx = {d: idx for idx, d in enumerate(sorted(all_domains))}
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
@@ -271,7 +271,7 @@ class SimLossPretrain(torch.nn.Module):
 
     def forward(self, preds, targets, list_out, domains):
 
-        if self.sim_model_type=="multi":
+        if self.int_model_type=="multi":
             preds=preds[0]
 
         list_preds = torch.argmax(list_out, dim=1)
@@ -279,7 +279,7 @@ class SimLossPretrain(torch.nn.Module):
 
         # estimate loss based on the type
         if self.loss_type == "ce":
-            if self.sim_model_type == "domain":
+            if self.int_model_type == "domain":
                 doms = [self.domain2idx[d] for d in domains]
                 doms = torch.as_tensor(doms).to(device)
                 loss = self.ce(preds, doms)
@@ -298,17 +298,17 @@ class SimLossPretrain(torch.nn.Module):
         return loss
 
 
-class SimLossAdapt(SimLossPretrain):
+class IntLossAdapt(IntLossPretrain):
 
-    def init(self, loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains):
-        super(SimLossAdapt, self).__init__(loss_type, reduction, sim_model_type, alpha, gamma, list_domain, all_domains)
+    def init(self, loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains):
+        super(IntLossAdapt, self).__init__(loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains)
 
     def forward(self, preds, targets, list_out, domains):
 
         if self.loss_type=="none":
             return torch.tensor(0)
 
-        if self.sim_model_type == "multi":
+        if self.int_model_type == "multi":
             preds = preds[1]
 
         list_preds = torch.argmax(list_out, dim=1)
@@ -319,7 +319,7 @@ class SimLossAdapt(SimLossPretrain):
 
         # estimate loss based on the type
         if self.loss_type == "ce":
-            if self.sim_model_type == "domain":
+            if self.int_model_type == "domain":
                 # create a vector of listener domain the size of the input
                 doms = [self.domain2idx[self.list_domain] for _ in domains]
                 doms = torch.as_tensor(doms).to(device)

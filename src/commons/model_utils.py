@@ -167,8 +167,16 @@ def load_wandb_file(url: str, datadir="") -> str:
 
     """
     if datadir == "":
+        new_url=url
         api = wandb.Api()
-        artifact = api.artifact(url)
+        try:
+            artifact = api.artifact(url)
+        except wandb.errors.CommError:
+            # try legacy names
+            new_url =url.replace("interpreter","simulator").replace("Interpreter","Simulator")
+            artifact = api.artifact(new_url)
+
+
 
         datadir = artifact.download()
 
@@ -177,6 +185,27 @@ def load_wandb_file(url: str, datadir="") -> str:
     if len(files) > 1:
         raise FileExistsError(f"More than one checkpoint found in {datadir}!")
     files = join(datadir, files[0])
+
+    if new_url!=url:
+        project= artifact.project.replace("simulator", "interpreter").replace("Simulator","Interpreter")
+        name = artifact.name.replace("simulator", "interpreter").replace("Simulator","Interpreter").split(":")[0]
+        new_art = wandb.Artifact(
+            name,
+            type=artifact.type,
+            description=artifact.description,
+            metadata=artifact.metadata,
+        )
+        new_art.add_file(files)
+
+        if wandb.run is None:
+            wandb.init(project=project, entity="adaptive-speaker",settings=wandb.Settings(start_method="fork"))
+
+        wandb.log_artifact(
+            new_art
+        )
+
+
+
     return files
 
 

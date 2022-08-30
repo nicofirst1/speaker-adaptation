@@ -15,9 +15,9 @@ import wandb
 from src.commons import (LISTENER_CHK_DICT,
                          SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, hypo2utterance, get_sim_chk, SimLossPretrain,
+                         merge_dict, parse_args, save_model, hypo2utterance, get_int_chk, IntLossPretrain,
                          get_domain_accuracy,
-                         set_seed, SimLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted,
+                         set_seed, IntLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted,
                          MTLOptim, translate_utterance, hsja)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
@@ -62,7 +62,7 @@ def get_predictions(
         list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, Dict]:
     """
-    Extract data, get list/sim out, estimate losses and create log dict
+    Extract data, get list/int out, estimate losses and create log dict
 
     """
 
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     img_dim = 2048
 
-    common_p = parse_args("sim")
+    common_p = parse_args("int")
     domain = common_p.train_domain
     device = common_p.device
 

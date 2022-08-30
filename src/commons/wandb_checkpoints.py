@@ -20,17 +20,17 @@ LISTENER_CHK_DICT = dict(
 SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
 ########
-# SIM
+# INT
 ########
 
-# regex for simulator checks is: SIM_{model_type}_{pretrain_loss}:
+# regex for interpreter checks is: SIM_{model_type}_{pretrain_loss}:
 # model_type:
 #      1. no_hist: predicts list out without using context hist
 #      2. hist: predicts list out using context hist
 #      3. binary: predicts if the list will be correct or not
 #      4. domain: predicts datapoint domain
 # pretrain_loss:
-#   pretrain loss for simulator == listener out,
+#   pretrain loss for interpreter == listener out,
 #       1. cross entropy [ce]
 #       2. Kullback-Leibler Divergence [kl]
 #   the following work only with model_type = binary
@@ -38,134 +38,134 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 #       4. Focal bce [fbce]
 
 
-SIM_NOHIST_CE_CHK = dict(
+INT_NOHIST_CE_CHK = dict(
     # epoch 83
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1346",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v962",
-    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v971",
-    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v1036",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v679",
-    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v1058",
+    all="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_all:v1346",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_food:v0",
+    appliances="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_appliances:v971",
+    indoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_indoor:v1036",
+    outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_outdoor:v679",
+    vehicles="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_vehicles:v1058",
 )
 
-SIM_NOHIST_KL_CHK = dict(
+INT_NOHIST_KL_CHK = dict(
     # epoch 20
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_all:v1140",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:",
-    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_appliances:v1218",
-    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_indoor:v934",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_outdoor:v843",
-    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_vehicles:v932",
+    all="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_all:v1140",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_food:",
+    appliances="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_appliances:v1218",
+    indoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_indoor:v934",
+    outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_outdoor:v843",
+    vehicles="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_vehicles:v932",
 )
 
-SIM_BINARY_BCE_CHK = dict(
+INT_BINARY_BCE_CHK = dict(
     # epoch 83
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_binary_food:v223",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_binary_food:v223",
     appliances="",
     indoor="",
     outdoor="",
     vehicles="",
 )
 
-SIM_BINARY_FBCE_CHK = dict(
+INT_BINARY_FBCE_CHK = dict(
     # epoch 83
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_binary_food:v171",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_binary_food:v171",
     appliances="",
     indoor="",
     outdoor="",
     vehicles="",
 )
 
-SIM_DOMAIN_CE_CHK = dict(
+INT_DOMAIN_CE_CHK = dict(
     # epoch 83
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_domain_food:v139",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_domain_food:v139",
     appliances="",
     indoor="",
     outdoor="",
     vehicles="",
 )
 
-SIM_DOMAIN_KL_OOD_CHK = dict(
+INT_DOMAIN_KL_OOD_CHK = dict(
     # epoch 20
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel_no_hist_food:v1399",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_food:v1399",
     appliances="",
     indoor="",
     outdoor="",
     vehicles="",
 )
 
-SIM_CHECKPOINTS = dict(
-    SIM_NOHIST_CE_CHK=SIM_NOHIST_CE_CHK,
-    SIM_NOHIST_KL_CHK=SIM_NOHIST_KL_CHK,
-    SIM_BINARY_BCE_CHK=SIM_BINARY_BCE_CHK,
-    SIM_BINARY_FBCE_CHK=SIM_BINARY_FBCE_CHK,
-    SIM_DOMAIN_CE_CHK=SIM_DOMAIN_CE_CHK,
-    SIM_DOMAIN_KL_OOD_CHK=SIM_DOMAIN_KL_OOD_CHK,
+INT_CHECKPOINTS = dict(
+    INT_NOHIST_CE_CHK=INT_NOHIST_CE_CHK,
+    INT_NOHIST_KL_CHK=INT_NOHIST_KL_CHK,
+    INT_BINARY_BCE_CHK=INT_BINARY_BCE_CHK,
+    INT_BINARY_FBCE_CHK=INT_BINARY_FBCE_CHK,
+    INT_DOMAIN_CE_CHK=INT_DOMAIN_CE_CHK,
+    INT_DOMAIN_KL_OOD_CHK=INT_DOMAIN_KL_OOD_CHK,
 
 )
 
 
-def get_sim_chk(type_of_sim, model_type, pretrain_loss, domain):
+def get_int_chk( model_type, pretrain_loss, domain):
     """
-    Return the correct simulator checkpoint
+    Return the correct interpreter checkpoint
     """
 
-    sim_chk="SIM_"+model_type.replace("_","").upper()+"_"+pretrain_loss.upper()+"_CHK"
-    sim_chk=SIM_CHECKPOINTS[sim_chk][domain]
+    int_chk="INT_"+model_type.replace("_","").upper()+"_"+pretrain_loss.upper()+"_CHK"
+    int_chk=INT_CHECKPOINTS[int_chk][domain]
 
-    return sim_chk
+    return int_chk
 
 
 ########
 # DATA
 ########
 TRAIN_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/train_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/train_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/train_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/train_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/train_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/train_dataloader_vehicles:latest",
+    all="adaptive-speaker/interpreter-data/train_dataloader_all:latest",
+    food="adaptive-speaker/interpreter-data/train_dataloader_food:latest",
+    appliances="adaptive-speaker/interpreter-data/train_dataloader_appliances:latest",
+    indoor="adaptive-speaker/interpreter-data/train_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/interpreter-data/train_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/interpreter-data/train_dataloader_vehicles:latest",
 )
 
 VAL_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/val_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/val_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/val_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/val_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/val_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/val_dataloader_vehicles:latest",
+    all="adaptive-speaker/interpreter-data/val_dataloader_all:latest",
+    food="adaptive-speaker/interpreter-data/val_dataloader_food:latest",
+    appliances="adaptive-speaker/interpreter-data/val_dataloader_appliances:latest",
+    indoor="adaptive-speaker/interpreter-data/val_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/interpreter-data/val_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/interpreter-data/val_dataloader_vehicles:latest",
 )
 
 TEST_ALL_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/test_all_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/test_all_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/test_all_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/test_all_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/test_all_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/test_all_dataloader_vehicles:latest",
+    all="adaptive-speaker/interpreter-data/test_all_dataloader_all:latest",
+    food="adaptive-speaker/interpreter-data/test_all_dataloader_food:latest",
+    appliances="adaptive-speaker/interpreter-data/test_all_dataloader_appliances:latest",
+    indoor="adaptive-speaker/interpreter-data/test_all_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/interpreter-data/test_all_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/interpreter-data/test_all_dataloader_vehicles:latest",
 )
 
 TEST_SEEN_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/test_seen_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/test_seen_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/test_seen_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/test_seen_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/test_seen_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/test_seen_dataloader_vehicles:latest",
+    all="adaptive-speaker/interpreter-data/test_seen_dataloader_all:latest",
+    food="adaptive-speaker/interpreter-data/test_seen_dataloader_food:latest",
+    appliances="adaptive-speaker/interpreter-data/test_seen_dataloader_appliances:latest",
+    indoor="adaptive-speaker/interpreter-data/test_seen_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/interpreter-data/test_seen_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/interpreter-data/test_seen_dataloader_vehicles:latest",
 )
 
 TEST_UNSEEN_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/test_unseen_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/test_unseen_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/test_unseen_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/test_unseen_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/test_unseen_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/test_unseen_dataloader_vehicles:latest",
+    all="adaptive-speaker/interpreter-data/test_unseen_dataloader_all:latest",
+    food="adaptive-speaker/interpreter-data/test_unseen_dataloader_food:latest",
+    appliances="adaptive-speaker/interpreter-data/test_unseen_dataloader_appliances:latest",
+    indoor="adaptive-speaker/interpreter-data/test_unseen_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/interpreter-data/test_unseen_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/interpreter-data/test_unseen_dataloader_vehicles:latest",
 )
 
 DATASET_CHK = dict(

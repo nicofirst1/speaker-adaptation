@@ -1,25 +1,13 @@
-import datetime
-import operator
-from typing import Dict, Tuple
-
 import numpy as np
-import rich.progress
 import torch
-from rich.pretty import pprint
-from torch import nn, optim
-from torch.utils.data import DataLoader
 
-import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT,
-                         SIM_NOHIST_CE_CHK, SPEAKER_CHK, EarlyStopping,
-                         get_dataloaders, load_wandb_checkpoint,
-                         load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model)
+from src.commons import (LISTENER_CHK_DICT,
+                         SPEAKER_CHK, get_dataloaders, load_wandb_checkpoint,
+                         load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
-from src.trainers.simulator_pretrain import (evaluate, get_predictions,
-                                             normalize_aux)
 from src.wandb_logging import ListenerLogger
+
 
 def compute_domain(common_p):
     """
@@ -209,7 +197,7 @@ if __name__ == '__main__':
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
-        project="simulator-data",
+        project="interpreter-data",
     )
 
     for s in splits:
