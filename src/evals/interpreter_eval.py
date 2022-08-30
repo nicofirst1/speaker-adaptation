@@ -3,15 +3,12 @@ from typing import Dict
 
 import numpy as np
 import torch
-from torch import nn
-
-from src.commons import (LISTENER_CHK_DICT,
-                         SPEAKER_CHK, get_dataloaders, load_wandb_checkpoint,
-                         load_wandb_dataset, parse_args,
-                         get_int_chk, AccuracyEstimator, IntLossPretrain)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
+                         IntLossPretrain, get_dataloaders, get_int_chk,
+                         load_wandb_checkpoint, load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
-from src.trainers.interpreter_pretrain import (evaluate)
+from src.trainers.interpreter_pretrain import evaluate
 from src.wandb_logging import ListenerLogger
 
 if __name__ == "__main__":
@@ -112,7 +109,7 @@ if __name__ == "__main__":
     # INTERPRETER
     ##########################
 
-    check=get_int_chk(common_p.model_type, common_p.pretrain_loss, domain)
+    check = get_int_chk(common_p.model_type, common_p.pretrain_loss, domain)
     int_check, _ = load_wandb_checkpoint(check, device)
 
     # load args
@@ -151,7 +148,7 @@ if __name__ == "__main__":
         vocab=speak_vocab,
         opts=vars(int_p),
         train_logging_step=1,
-        project = f"speaker-eval-{common_p.type_of_int}",
+        project=f"speaker-eval-{common_p.type_of_int}",
         val_logging_step=1,
         tags=common_p.tags,
     )
@@ -160,12 +157,18 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-
-    loss_f = IntLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
-                             alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
-                             list_domain=domain, all_domains=logger.domains)
-    acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
-
+    loss_f = IntLossPretrain(
+        common_p.pretrain_loss,
+        common_p.reduction,
+        common_p.model_type,
+        alpha=common_p.focal_alpha,
+        gamma=common_p.focal_gamma,
+        list_domain=domain,
+        all_domains=logger.domains,
+    )
+    acc_estimator = AccuracyEstimator(
+        domain, common_p.model_type, all_domains=logger.domains
+    )
 
     ###################################
     ##  Get speaker dataloader
@@ -231,7 +234,6 @@ if __name__ == "__main__":
         logger,
         subset_size=common_p.subset_size,
         test_split=common_p.test_split,
-
     )
 
     ###################################
@@ -272,7 +274,6 @@ if __name__ == "__main__":
             acc_estimator=acc_estimator,
             all_domains=logger.domains,
             split=split,
-
         )
         logger.on_eval_end(aux, list_domain=speak_val_dl.dataset.domain, modality=split)
         print_aux(split, aux)

@@ -6,16 +6,14 @@ from typing import Dict, Optional, Tuple
 import numpy as np
 import rich
 import torch
-from PIL import Image, ImageDraw, ImageFont
-from torch.utils.data import DataLoader
-
 import wandb
-
-from src.commons.wandb_checkpoints import DATASET_CHK
+from PIL import Image, ImageDraw, ImageFont
 from src.commons.model_utils import hypo2utterance, load_wandb_file
+from src.commons.wandb_checkpoints import DATASET_CHK
 from src.data.dataloaders import (AbstractDataset, ListenerDataset,
                                   SpeakerDataset, SpeakerUttDataset, Vocab)
 from src.wandb_logging import WandbLogger
+from torch.utils.data import DataLoader
 
 
 def show_img(data, id2path, split_name, hypo="", idx=-1):
@@ -80,15 +78,19 @@ def get_dataloaders(
 
     datasets = []
     # copy args to avoid modifying original
-    args_copy=copy.deepcopy(args)
+    args_copy = copy.deepcopy(args)
     # generate kwargs for different splits
     for split in ["train", "val", "test"]:
 
         # differenciate between seen/unseen/merged tests
         if domain is not None and split == "test":
             if args_copy.test_split != "all":
-                args_copy.orig_ref_file = f"{args_copy.test_split}_{args_copy.orig_ref_file}"
-                args_copy.chains_file = f"{args_copy.test_split}_{args_copy.chains_file}"
+                args_copy.orig_ref_file = (
+                    f"{args_copy.test_split}_{args_copy.orig_ref_file}"
+                )
+                args_copy.chains_file = (
+                    f"{args_copy.test_split}_{args_copy.chains_file}"
+                )
 
         kwargs = {
             "utterances_file": f"{split}_{args_copy.utterances_file}",
@@ -145,7 +147,7 @@ def load_wandb_dataset(
     listener_vocab: Vocab,
     speaker_model: torch.nn.Module,
     dataloader: DataLoader,
-    logger : WandbLogger,
+    logger: WandbLogger,
     subset_size: Optional[int] = -1,
     test_split: Optional[str] = "all",
 ) -> DataLoader:
@@ -168,8 +170,7 @@ def load_wandb_dataset(
     """
 
     if split == "test":
-        split=f"{split}_{test_split}"
-
+        split = f"{split}_{test_split}"
 
     try:
         # try to download the dataset from wandb
@@ -218,7 +219,7 @@ def speaker_augmented_dataloader(
     vocab: Vocab,
     speak_model: torch.nn.Module,
     split_name: str,
-    load_params:Dict,
+    load_params: Dict,
 ) -> DataLoader:
     """
     Augment the canon dataloader with speaker generated utterances and embeddings
@@ -252,7 +253,7 @@ def speaker_augmented_dataloader(
 
         if not isinstance(utterance, list):
             utterance = [utterance]
-        #append to new data
+        # append to new data
         new_data[ii]["speak_utterance"] = utterance
         new_data[ii]["speak_h1embed"] = h1
 

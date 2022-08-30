@@ -6,48 +6,61 @@ import pandas as pd
 import rich.progress
 import torch
 import wandb
-from torch.nn.functional import normalize
-from torch.utils.data import DataLoader
-
-from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, get_int_chk, IntLossPretrain, set_seed,
-                         IntLossAdapt, AccuracyEstimator)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
+                         IntLossAdapt, get_dataloaders, get_int_chk,
+                         load_wandb_checkpoint, mask_attn, parse_args,
+                         set_seed)
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel_hist, InterpreterModel_no_hist, get_model
+from src.models import InterpreterModel_no_hist, ListenerModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
+from torch.utils.data import DataLoader
 
 
 def generate_ood_table(df: pd.DataFrame):
     rows = []
-    columns = ["listener domain", "interpreter domain", "target_domain", "golden acc", "original acc", "adapted acc"]
+    columns = [
+        "listener domain",
+        "interpreter domain",
+        "target_domain",
+        "golden acc",
+        "original acc",
+        "adapted acc",
+    ]
     ood_accs = {d: 0 for d in logger.domains}
     for d in ood_accs.keys():
         # filter out target with this domain
-        ood_df = df[df['target domain'] == d]
+        ood_df = df[df["target domain"] == d]
 
         # get acc for this domain
-        golden_acc = ood_df['golden_acc'].mean()
-        original_acc = ood_df['original_acc'].mean()
+        golden_acc = ood_df["golden_acc"].mean()
+        original_acc = ood_df["original_acc"].mean()
 
         # adapted accs are a matrix so remove -1, sum and get mean
-        adapt_acc_idx = df.columns.get_loc('adapted_acc_s0')
+        adapt_acc_idx = df.columns.get_loc("adapted_acc_s0")
         adapt_acc = ood_df.iloc[:, adapt_acc_idx:]
-        adapt_acc=adapt_acc[adapt_acc != -1]
-        adapt_acc=adapt_acc.dropna(axis=1,how="all")
-        adapt_mean=0
-        idx=0
+        adapt_acc = adapt_acc[adapt_acc != -1]
+        adapt_acc = adapt_acc.dropna(axis=1, how="all")
+        adapt_mean = 0
+        idx = 0
         for index, row in adapt_acc.iterrows():
-            row=row.dropna()
-            adapt_mean+=row[-1]
-            idx+=1
+            row = row.dropna()
+            adapt_mean += row[-1]
+            idx += 1
 
-        if idx!=0:
-            adapt_mean/=idx
+        if idx != 0:
+            adapt_mean /= idx
 
         # append to rows
         rows.append(
-            [list_model.domain, int_model.domain, d, golden_acc, original_acc, adapt_mean]
+            [
+                list_model.domain,
+                int_model.domain,
+                d,
+                golden_acc,
+                original_acc,
+                adapt_mean,
+            ]
         )
 
     table = wandb.Table(columns=columns, data=rows)
@@ -97,16 +110,16 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 
 
 def evaluate(
-        data_loader: DataLoader,
-        speak_model: SpeakerModel_hist,
-        int_model: InterpreterModel_no_hist,
-        list_model: ListenerModel_hist,
-        list_vocab: Vocab,
-        criterion:IntLossAdapt,
-        acc_estimator: AccuracyEstimator,
-        split: str,
-        lr: float = 0.1,
-        s: int = 1,
+    data_loader: DataLoader,
+    speak_model: SpeakerModel_hist,
+    int_model: InterpreterModel_no_hist,
+    list_model: ListenerModel_hist,
+    list_vocab: Vocab,
+    criterion: IntLossAdapt,
+    acc_estimator: AccuracyEstimator,
+    split: str,
+    lr: float = 0.1,
+    s: int = 1,
 ) -> pd.DataFrame:
     """
     Perform evaluation of given split
@@ -133,7 +146,7 @@ def evaluate(
     golden_accs = []
     adapted_accs = []
     int_accs = []
-    int_list_accs=[]
+    int_list_accs = []
 
     original_hypos = []
     golden_hypos = []
@@ -148,9 +161,9 @@ def evaluate(
 
     target_domain = []
     for ii, data in rich.progress.track(
-            enumerate(data_loader),
-            total=len(data_loader),
-            description=f"Evaluating on split {split}",
+        enumerate(data_loader),
+        total=len(data_loader),
+        description=f"Evaluating on split {split}",
     ):
 
         # filter out indomain data points
@@ -223,7 +236,7 @@ def evaluate(
         ################################################
         #   Get results with adapted hypo
         ################################################
-        #decoder_hid = normalize(decoder_hid)
+        # decoder_hid = normalize(decoder_hid)
         h0 = decoder_hid.clone().detach().requires_grad_(True)
         optimizer = torch.optim.Adam([h0], lr=lr)
         optimizer.zero_grad()
@@ -249,10 +262,11 @@ def evaluate(
 
             # compute loss and perform backprop
             loss = criterion(int_out, targets, list_out, data["domain"])
-            aux = acc_estimator(int_out, targets, list_out, data["domain"], is_adaptive=True)
+            aux = acc_estimator(
+                int_out, targets, list_out, data["domain"], is_adaptive=True
+            )
             loss.backward()
             optimizer.step()
-
 
             s_loss[i] = loss.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
@@ -285,19 +299,21 @@ def evaluate(
             s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
-            loss = criterion(int_out, targets, list_out, data['domain'])
+            loss = criterion(int_out, targets, list_out, data["domain"])
             loss.backward()
             optimizer.step()
-            aux = acc_estimator(int_out, targets, list_out, data["domain"], is_adaptive=True)
+            aux = acc_estimator(
+                int_out, targets, list_out, data["domain"], is_adaptive=True
+            )
 
-            int_accuracy[i]=aux['int_target_accuracy']
-            int_list_acc[i]=aux['int_list_accuracy']
+            int_accuracy[i] = aux["int_target_accuracy"]
+            int_list_acc[i] = aux["int_list_accuracy"]
             s_loss[i] = loss.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # break if listener gets it right
-            if aux['int_target_accuracy']:
+            if aux["int_target_accuracy"]:
                 break
             i += 1
 
@@ -370,12 +386,17 @@ def evaluate(
         row += [original_accs[-1]]
         row += int_accuracy
         row += s_accs
-        row+=int_list_acc
+        row += int_list_acc
 
         csv_data.append(row)
 
     ## csv columns
-    columns = ["target domain", "listener domain", "interpreter domain", "target img idx"]
+    columns = [
+        "target domain",
+        "listener domain",
+        "interpreter domain",
+        "target img idx",
+    ]
     columns += [f"img path #{x}" for x in range(6)]
     columns += ["golden utt", "original utt"]
     columns += [f"adapted utt s{i}" for i in range(s)]
@@ -451,8 +472,6 @@ def evaluate(
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
 
     return df
-
-
 
 
 if __name__ == "__main__":
@@ -543,7 +562,7 @@ if __name__ == "__main__":
     ##########################
 
     if common_p.force_resume_url == "":
-        check = get_int_chk( common_p.model_type, common_p.pretrain_loss, domain)
+        check = get_int_chk(common_p.model_type, common_p.pretrain_loss, domain)
     else:
         check = common_p.force_resume_url
     int_check, _ = load_wandb_checkpoint(check, device)
@@ -595,7 +614,6 @@ if __name__ == "__main__":
         val_logging_step=1,
         project=f"adaptive-speaker-{common_p.type_of_int}",
         tags=common_p.tags,
-
     )
 
     metric = int_p.metric
@@ -618,10 +636,18 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    loss_f = IntLossAdapt(int_p.pretrain_loss, int_p.reduction, int_p.model_type,
-                          alpha=int_p.focal_alpha, gamma=int_p.focal_gamma,
-                          list_domain=domain, all_domains=logger.domains)
-    acc_estimator = AccuracyEstimator(domain, int_p.model_type, all_domains=logger.domains)
+    loss_f = IntLossAdapt(
+        int_p.pretrain_loss,
+        int_p.reduction,
+        int_p.model_type,
+        alpha=int_p.focal_alpha,
+        gamma=int_p.focal_gamma,
+        list_domain=domain,
+        all_domains=logger.domains,
+    )
+    acc_estimator = AccuracyEstimator(
+        domain, int_p.model_type, all_domains=logger.domains
+    )
 
     ###################################
     ##  EVAL LOOP
@@ -629,7 +655,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     int_model.eval()

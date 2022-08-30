@@ -1,27 +1,18 @@
-import copy
 import datetime
-import operator
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Tuple
 
 import numpy as np
 import rich.progress
-import spacy as spacy
 import torch
-from numpy import mean
-from torch import nn, optim
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
 import wandb
-from src.commons import (LISTENER_CHK_DICT,
-                         SPEAKER_CHK, EarlyStopping, get_dataloaders,
-                         load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, hypo2utterance, get_int_chk, IntLossPretrain,
-                         get_domain_accuracy,
-                         set_seed, IntLossAdapt, AccuracyEstimator, draw_grad_graph, speak2list_vocab, LossWeighted,
-                         MTLOptim, translate_utterance, hsja)
-from src.data.dataloaders import AbstractDataset, Vocab
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
+                         get_domain_accuracy, hsja, load_wandb_checkpoint,
+                         mask_attn, merge_dict, parse_args, speak2list_vocab,
+                         translate_utterance)
+from src.data.dataloaders import Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
+from torch.utils.data import DataLoader
 
 
 def get_mask(utts):
@@ -42,24 +33,33 @@ def get_mask(utts):
 
 
 def normalize_aux(aux):
-    diffs_hypo = [(a, b, c, d) for a, b, c, d in zip(aux['origin_h'], aux['mod_h'], aux['origin_acc'], aux['mod_acc'])
-                  if a != b]
+    diffs_hypo = [
+        (a, b, c, d)
+        for a, b, c, d in zip(
+            aux["origin_h"], aux["mod_h"], aux["origin_acc"], aux["mod_acc"]
+        )
+        if a != b
+    ]
 
-    columns = ['origin_h', 'mod_h', 'origin_acc', 'mod_acc']
+    columns = ["origin_h", "mod_h", "origin_acc", "mod_acc"]
     table = wandb.Table(columns=columns, data=diffs_hypo)
-    aux['modified_hypos'] = table
+    aux["modified_hypos"] = table
 
     domains = aux.pop("domain")
 
-    aux["domain/mod_accs"] = get_domain_accuracy(aux.pop('mod_acc'), domains, logger.domains)
-    aux["domain/origin_accs"] = get_domain_accuracy(aux.pop('origin_acc'), domains, logger.domains)
+    aux["domain/mod_accs"] = get_domain_accuracy(
+        aux.pop("mod_acc"), domains, logger.domains
+    )
+    aux["domain/origin_accs"] = get_domain_accuracy(
+        aux.pop("origin_acc"), domains, logger.domains
+    )
 
 
 def get_predictions(
-        data: Dict,
-        speak_model: torch.nn.Module,
-        list_model: torch.nn.Module,
-        list_vocab: Vocab,
+    data: Dict,
+    speak_model: torch.nn.Module,
+    list_model: torch.nn.Module,
+    list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, Dict]:
     """
     Extract data, get list/int out, estimate losses and create log dict
@@ -108,9 +108,7 @@ def get_predictions(
     if batch_size == 1:
         masks = masks.squeeze(1)
 
-    list_out = list_model(
-        utts, context_separate, context_concat, prev_hist, masks
-    )
+    list_out = list_model(utts, context_separate, context_concat, prev_hist, masks)
 
     preds = torch.argmax(list_out, dim=1)
     correct = torch.eq(preds, targets).sum()
@@ -141,20 +139,22 @@ def get_predictions(
             return inner
 
         model_fn = hsja_model(context_separate, context_concat, prev_hist)
-        h0 = hsja(model_fn,
-                  h0,
-                  clip_max=1,
-                  clip_min=-1,
-                  constraint='l2',
-                  num_iterations=5,
-                  gamma=1.0,
-                  target_label=targets,
-                  target_image=None,
-                  stepsize_search='geometric_progression',
-                  max_num_evals=70,
-                  init_num_evals=100,
-                  verbose=True,
-                  device=device)
+        h0 = hsja(
+            model_fn,
+            h0,
+            clip_max=1,
+            clip_min=-1,
+            constraint="l2",
+            num_iterations=5,
+            gamma=1.0,
+            target_label=targets,
+            target_image=None,
+            stepsize_search="geometric_progression",
+            max_num_evals=70,
+            init_num_evals=100,
+            verbose=True,
+            device=device,
+        )
 
         utts = speak_model.nucleus_sampling(h0, history_att, speak_masks)
         translator(utts)
@@ -173,19 +173,18 @@ def get_predictions(
         origin_acc=correct.detach().item(),
         mod_acc=mod_correct.detach().item(),
         domain=data["domain"][0],
-
     )
 
     return aux
 
 
 def process_epoch(
-        data_loader: DataLoader,
-        speaker_model: torch.nn.Module,
-        list_model: torch.nn.Module,
-        list_vocab: Vocab,
-        split: str,
-        common_p,
+    data_loader: DataLoader,
+    speaker_model: torch.nn.Module,
+    list_model: torch.nn.Module,
+    list_vocab: Vocab,
+    split: str,
+    common_p,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -196,9 +195,9 @@ def process_epoch(
     """
     auxs = []
     for i, data in rich.progress.track(
-            enumerate(data_loader),
-            total=len(data_loader),
-            description=f"{split}",
+        enumerate(data_loader),
+        total=len(data_loader),
+        description=f"{split}",
     ):
         # get datapoints
         aux = get_predictions(data, speaker_model, list_model, list_vocab)
@@ -281,7 +280,7 @@ if __name__ == "__main__":
         device=device,
     ).to(device)
 
-    #list_model.load_state_dict(list_checkpoint["model_state_dict"])
+    # list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
 
@@ -344,18 +343,22 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     ###################################
     ##  TRAIN LOOP
     ###################################
 
-    aux = process_epoch(training_loader, speaker_model, list_model, list_vocab,
-                        "train", common_p)
+    aux = process_epoch(
+        training_loader, speaker_model, list_model, list_vocab, "train", common_p
+    )
 
     logger.on_eval_end(
-        aux, list_domain=training_loader.dataset.domain, modality="train", commit=True,
+        aux,
+        list_domain=training_loader.dataset.domain,
+        modality="train",
+        commit=True,
     )
 
     ###################################
@@ -364,18 +367,28 @@ if __name__ == "__main__":
 
     print(f"\nEvaluation")
 
-    aux = process_epoch(val_loader, speaker_model, list_model, list_vocab, "eval", common_p)
+    aux = process_epoch(
+        val_loader, speaker_model, list_model, list_vocab, "eval", common_p
+    )
 
     logger.on_eval_end(
-        aux, list_domain=val_loader.dataset.domain, modality="eval", commit=True,
+        aux,
+        list_domain=val_loader.dataset.domain,
+        modality="eval",
+        commit=True,
     )
 
     print(f"\nTEST")
 
-    aux = process_epoch(test_loader, speaker_model, list_model, list_vocab, "test", common_p)
+    aux = process_epoch(
+        test_loader, speaker_model, list_model, list_vocab, "test", common_p
+    )
 
     logger.on_eval_end(
-        aux, list_domain=test_loader.dataset.domain, modality="test", commit=True,
+        aux,
+        list_domain=test_loader.dataset.domain,
+        modality="test",
+        commit=True,
     )
 
     logger.on_train_end({}, epoch_id=0)

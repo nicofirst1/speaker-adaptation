@@ -1,9 +1,9 @@
 import torch
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class AccuracyEstimator(torch.nn.Module):
-
     def __init__(self, list_domain, int_model_type, all_domains):
 
         super().__init__()
@@ -11,21 +11,21 @@ class AccuracyEstimator(torch.nn.Module):
         self.list_domain = list_domain
         self.int_model_type = int_model_type
 
-
         # create an index dict for domains
         self.domain2idx = {d: idx for idx, d in enumerate(sorted(all_domains))}
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
+
     def forward(self, preds, targets, list_out, domains, is_adaptive=False):
 
         if self.int_model_type == "multi":
             if is_adaptive:
-                preds=preds[1]
+                preds = preds[1]
             else:
-                preds=preds[0]
+                preds = preds[0]
 
-        preds=preds.to("cpu")
-        targets=targets.to("cpu")
-        list_out=list_out.to("cpu")
+        preds = preds.to("cpu")
+        targets = targets.to("cpu")
+        list_out = list_out.to("cpu")
 
         if is_adaptive:
             doms = [self.domain2idx[self.list_domain] for _ in domains]
@@ -57,7 +57,9 @@ class AccuracyEstimator(torch.nn.Module):
 
             if is_adaptive:
                 # use vector of ones if adaptive
-                int_target_accuracy = torch.eq(int_preds, torch.ones(list_target_accuracy.shape).bool())
+                int_target_accuracy = torch.eq(
+                    int_preds, torch.ones(list_target_accuracy.shape).bool()
+                )
             else:
                 int_target_accuracy = int_list_accuracy
 
@@ -76,12 +78,10 @@ class AccuracyEstimator(torch.nn.Module):
                 # there is no int_list accuracy when predicting domain, set to -1
                 int_list_accuracy = torch.zeros(int_target_accuracy.shape) - 1
 
-
             else:
                 # int is predicting the listener output
                 int_list_accuracy = torch.eq(list_preds, int_preds)
                 int_target_accuracy = int_list_accuracy
-
 
         int_list_neg_accuracy = torch.eq(
             list_neg_preds,
@@ -119,20 +119,17 @@ class AccuracyEstimator(torch.nn.Module):
 
         # build dict
         aux = dict(
-
             # accuracy
             int_list_accuracy=int_list_accuracy,
             list_target_accuracy=list_target_accuracy,
             int_target_accuracy=int_target_accuracy,
             int_list_neg_accuracy=int_list_neg_accuracy,
             int_list_pos_accuracy=int_list_pos_accuracy,
-
             # preds
             list_preds=list_preds,
             int_preds=int_preds,
             neg_pred_len=len(list_neg_preds),
             pos_pred_len=len(list_pos_preds),
-
             # domain specific
             list_target_accuracy_dom=list_target_accuracy_dom,
             int_list_accuracy_dom=int_list_accuracy_dom,
@@ -140,8 +137,6 @@ class AccuracyEstimator(torch.nn.Module):
             int_list_neg_accuracy_dom=int_list_neg_accuracy_dom,
             int_list_pos_accuracy_dom=int_list_pos_accuracy_dom,
             domains=domains,
-
         )
 
         return aux
-

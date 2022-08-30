@@ -1,39 +1,38 @@
-from typing import Tuple, Literal, Dict
+from typing import Dict, Literal, Tuple
 
 import numpy as np
 import torch
-from torch import nn, exp
+from torch import exp, nn
 
-from src.commons import get_domain_accuracy
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class LossWeighted(nn.Module):
     def __init__(self):
         super(LossWeighted, self).__init__()
-        self.wp=1
-        self.wa=1
-        self.min_int_list_acc=0.75
-        self.min_list_target_acc=0.50
+        self.wp = 1
+        self.wa = 1
+        self.min_int_list_acc = 0.75
+        self.min_list_target_acc = 0.50
 
-    def forward(self, pretrain, adaptive)->Tuple[float,float]:
-        batch_size=len(adaptive['list_preds'])
+    def forward(self, pretrain, adaptive) -> Tuple[float, float]:
+        batch_size = len(adaptive["list_preds"])
 
-        int_list_acc=pretrain['int_list_accuracy']/batch_size
-        list_target_acc=adaptive['list_target_accuracy']/batch_size
+        int_list_acc = pretrain["int_list_accuracy"] / batch_size
+        list_target_acc = adaptive["list_target_accuracy"] / batch_size
 
-        p_loss=pretrain['loss']
-        adapt_loss=adaptive['loss']
-        loss_mag_rateo=p_loss/(adapt_loss+ 1e-6)
+        p_loss = pretrain["loss"]
+        adapt_loss = adaptive["loss"]
+        loss_mag_rateo = p_loss / (adapt_loss + 1e-6)
 
-        if int_list_acc<self.min_int_list_acc and loss_mag_rateo<1:
-            self.wa=loss_mag_rateo *0.5
-            self.wp=1
+        if int_list_acc < self.min_int_list_acc and loss_mag_rateo < 1:
+            self.wa = loss_mag_rateo * 0.5
+            self.wp = 1
 
-        elif int_list_acc>self.min_int_list_acc and loss_mag_rateo>1:
-            self.wp=1/loss_mag_rateo *0.5
-            self.wa=1
+        elif int_list_acc > self.min_int_list_acc and loss_mag_rateo > 1:
+            self.wp = 1 / loss_mag_rateo * 0.5
+            self.wa = 1
+
 
 class MTLOptim(nn.Module):
     """
@@ -43,57 +42,61 @@ class MTLOptim(nn.Module):
     DTP : Dynamic Task Prioritization
     GradNorm: Gradient Norm
     """
-    def __init__(self, type:Literal["DWA","DTP","GradNorm","None"], gamma_a:float, gamma_p:float, alpha:float, temp:float):
+
+    def __init__(
+        self,
+        type: Literal["DWA", "DTP", "GradNorm", "None"],
+        gamma_a: float,
+        gamma_p: float,
+        alpha: float,
+        temp: float,
+    ):
         super(MTLOptim, self).__init__()
-        self.type=type
+        self.type = type
 
+        self.eps = 1e-6
+        self.is_train = True
 
-        self.eps=1e-6
-        self.is_train=True
+        self.wa = torch.as_tensor(1)
+        self.wp = torch.as_tensor(1)
 
-        self.wa=torch.as_tensor(1)
-        self.wp=torch.as_tensor(1)
-
-        #DWA
+        # DWA
         # T represents a temperature which controls the softness of task weighting, intilar to .
         # A large T results in a more even distribution between different tasks.
         # If T is large enough, we have λi ≈ 1, and tasks are weighted equally
-        self.temp=temp
-        self.loss_p=[]
-        self.loss_a=[]
+        self.temp = temp
+        self.loss_p = []
+        self.loss_a = []
 
         # GradNorm
-        self.grads_p=[]
-        self.grads_a=[]
+        self.grads_p = []
+        self.grads_a = []
         # α sets the strength of the restoring force which pulls tasks back to a common training rate .
         # In cases where tasks are very different in their complexity,
         # leading to dramatically different learning dynamics between tasks,
         # a higher value of α should be used to enforce stronger training rate balancing.
         # When tasks are more symmetric (e.g. the synthetic examples in Section 4), a lower value of α is appropriate.
         # Note that α = 0 will always try to pin the norms of backpropagated gradients from each task to be equal at W
-        self.alpha=alpha
+        self.alpha = alpha
         self.weights = torch.nn.Parameter(torch.ones(2).float())
 
         # DTP
         # Further, we define a task-level focusing parameter γi ≥ 0 that allows to adjust the
         # weight at which easy or hard tasks are down-weighted, higher values result tasks being down-weighted.
-        self.gamma_a=gamma_a
-        self.gamma_p=gamma_p
-        self.p_acc=0
-        self.a_acc=0
+        self.gamma_a = gamma_a
+        self.gamma_p = gamma_p
+        self.p_acc = 0
+        self.a_acc = 0
 
+    def update_grads(self, model, p_loss, a_loss):
 
-
-
-    def update_grads(self, model,p_loss, a_loss):
-
-        if self.type!="GradNorm" or not self.is_train:
+        if self.type != "GradNorm" or not self.is_train:
             return
 
         # get layer of shared weights
         W = model.lin_mm
-        task_loss=torch.stack((p_loss,a_loss))
-        initial_task_loss=torch.stack((self.loss_p[0],self.loss_a[0]))
+        task_loss = torch.stack((p_loss, a_loss))
+        initial_task_loss = torch.stack((self.loss_p[0], self.loss_a[0]))
 
         # get the gradient norms for each of the tasks
         # G^{(i)}_w(t)
@@ -121,7 +124,9 @@ class MTLOptim(nn.Module):
 
         # compute the GradNorm loss
         # this term has to remain constant
-        constant_term = torch.tensor(mean_norm * (inverse_train_rate ** self.alpha), requires_grad=False)
+        constant_term = torch.tensor(
+            mean_norm * (inverse_train_rate**self.alpha), requires_grad=False
+        )
         if torch.cuda.is_available():
             constant_term = constant_term.cuda()
         # print('Constant term: {}'.format(constant_term))
@@ -131,50 +136,51 @@ class MTLOptim(nn.Module):
 
         # compute the gradient for the weights
         self.weights.grad = torch.autograd.grad(grad_norm_loss, self.weights)[0]
-        self.wp=self.weights[0].detach().cpu()
-        self.wa=self.weights[1].detach().cpu()
+        self.wp = self.weights[0].detach().cpu()
+        self.wa = self.weights[1].detach().cpu()
 
-    def grad_norm(self,p_loss, a_loss):
+    def grad_norm(self, p_loss, a_loss):
 
-        p_loss*=self.weights[0]
-        a_loss*=self.weights[1]
+        p_loss *= self.weights[0]
+        a_loss *= self.weights[1]
 
         return p_loss, a_loss
 
-    def dwa(self,p_loss, a_loss)->Tuple[torch.Tensor, torch.Tensor]:
+    def dwa(self, p_loss, a_loss) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        if len(self.loss_p)<=1:
+        if len(self.loss_p) <= 1:
             return p_loss, a_loss
 
-        eps=1 if self.loss_a[-2] ==0 else self.loss_a[-2]
-        r_a=self.loss_a[-1]/(self.loss_a[-2]+eps)
-        eps=1 if self.loss_p[-2] ==0 else self.loss_p[-2]
-        r_p=self.loss_p[-1]/(self.loss_p[-2]+eps)
+        eps = 1 if self.loss_a[-2] == 0 else self.loss_a[-2]
+        r_a = self.loss_a[-1] / (self.loss_a[-2] + eps)
+        eps = 1 if self.loss_p[-2] == 0 else self.loss_p[-2]
+        r_p = self.loss_p[-1] / (self.loss_p[-2] + eps)
 
-        self.wa=(2*exp(r_a/self.temp))/(exp(r_a/self.temp)+exp(r_p/self.temp))
-        self.wp=(2*exp(r_p/self.temp))/(exp(r_a/self.temp)+exp(r_p/self.temp))
+        self.wa = (2 * exp(r_a / self.temp)) / (
+            exp(r_a / self.temp) + exp(r_p / self.temp)
+        )
+        self.wp = (2 * exp(r_p / self.temp)) / (
+            exp(r_a / self.temp) + exp(r_p / self.temp)
+        )
 
-        return self.wp*p_loss,self.wa*a_loss
+        return self.wp * p_loss, self.wa * a_loss
 
     def update_dtp(self, p_acc, a_acc):
 
         if not self.is_train:
             return
 
-        btc_size=len(p_acc['list_preds'])
+        btc_size = len(p_acc["list_preds"])
 
-
-        self.p_acc=p_acc['int_target_accuracy']/btc_size
-        self.a_acc=a_acc['int_target_accuracy']/btc_size
-
-
+        self.p_acc = p_acc["int_target_accuracy"] / btc_size
+        self.a_acc = a_acc["int_target_accuracy"] / btc_size
 
     def dtp(self, p_loss, a_loss):
 
-        self.wp=-(1-self.p_acc)**self.gamma_p* np.log(self.p_acc + self.eps)
-        self.wa=-(1-self.a_acc)**self.gamma_a* np.log(self.a_acc + self.eps)
+        self.wp = -((1 - self.p_acc) ** self.gamma_p) * np.log(self.p_acc + self.eps)
+        self.wa = -((1 - self.a_acc) ** self.gamma_a) * np.log(self.a_acc + self.eps)
 
-        return self.wp*p_loss,self.wa*a_loss
+        return self.wp * p_loss, self.wa * a_loss
 
     def forward(self, p_loss, a_loss) -> Tuple[torch.Tensor, torch.Tensor]:
 
@@ -184,29 +190,37 @@ class MTLOptim(nn.Module):
         self.loss_a.append(a_loss.detach().cpu())
         self.loss_p.append(p_loss.detach().cpu())
 
-        if self.type=="DWA":
+        if self.type == "DWA":
             return self.dwa(p_loss, a_loss)
-        elif self.type=="GradNorm":
+        elif self.type == "GradNorm":
             return self.grad_norm(p_loss, a_loss)
-        elif self.type=="DTP":
+        elif self.type == "DTP":
             return self.dtp(p_loss, a_loss)
-        elif self.type=="None":
+        elif self.type == "None":
             return p_loss, a_loss
         else:
             raise ValueError("Unknown optimization type")
 
-
-    def get_infos(self)->Dict:
-        res=dict(
+    def get_infos(self) -> Dict:
+        res = dict(
             pretrain=self.wp.item(),
             adaptive=self.wa.item(),
         )
-        res={f"weights/{k}":v for k,v in res.items()}
+        res = {f"weights/{k}": v for k, v in res.items()}
         return res
 
-class IntLossPretrain(torch.nn.Module):
 
-    def __init__(self, loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains):
+class IntLossPretrain(torch.nn.Module):
+    def __init__(
+        self,
+        loss_type,
+        reduction,
+        int_model_type,
+        alpha,
+        gamma,
+        list_domain,
+        all_domains,
+    ):
 
         super().__init__()
         self.ce_loss = nn.CrossEntropyLoss(reduction=reduction)
@@ -224,7 +238,6 @@ class IntLossPretrain(torch.nn.Module):
 
         self.loss_type = loss_type
         self.reduction = reduction
-
 
     def ce(self, preds, targets):
         return self.ce_loss(preds, targets)
@@ -250,13 +263,13 @@ class IntLossPretrain(torch.nn.Module):
     def focal_bce(self, preds, targets):
         """Binary focal loss.
 
-            Per https://discuss.pytorch.org/t/is-this-a-correct-implementation-for-focal-loss-in-pytorch/43327/5 with
-            improvements for alpha.
-            :param bce_loss: Binary Cross Entropy loss, a torch tensor.
-            :param targets: a torch tensor containing the ground truth, 0s and 1s.
-            :param gamma: focal loss power parameter, a float scalar.
-            :param alpha: weight of the class indicated by 1, a float scalar.
-            """
+        Per https://discuss.pytorch.org/t/is-this-a-correct-implementation-for-focal-loss-in-pytorch/43327/5 with
+        improvements for alpha.
+        :param bce_loss: Binary Cross Entropy loss, a torch tensor.
+        :param targets: a torch tensor containing the ground truth, 0s and 1s.
+        :param gamma: focal loss power parameter, a float scalar.
+        :param alpha: weight of the class indicated by 1, a float scalar.
+        """
         bce_loss = self.bce(preds, targets, use_reduction=False)
         p_t = torch.exp(-bce_loss)
         alpha_tensor = (1 - self.fbce_alpha) + targets * (2 * self.fbce_alpha - 1)
@@ -271,8 +284,8 @@ class IntLossPretrain(torch.nn.Module):
 
     def forward(self, preds, targets, list_out, domains):
 
-        if self.int_model_type=="multi":
-            preds=preds[0]
+        if self.int_model_type == "multi":
+            preds = preds[0]
 
         list_preds = torch.argmax(list_out, dim=1)
         list_target_accuracy = torch.eq(list_preds, targets).float()
@@ -294,18 +307,27 @@ class IntLossPretrain(torch.nn.Module):
         else:
             raise ValueError(f"Loss type {self.loss_type = } is invalid!")
 
-
         return loss
 
 
 class IntLossAdapt(IntLossPretrain):
-
-    def init(self, loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains):
-        super(IntLossAdapt, self).__init__(loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains)
+    def init(
+        self,
+        loss_type,
+        reduction,
+        int_model_type,
+        alpha,
+        gamma,
+        list_domain,
+        all_domains,
+    ):
+        super(IntLossAdapt, self).__init__(
+            loss_type, reduction, int_model_type, alpha, gamma, list_domain, all_domains
+        )
 
     def forward(self, preds, targets, list_out, domains):
 
-        if self.loss_type=="none":
+        if self.loss_type == "none":
             return torch.tensor(0)
 
         if self.int_model_type == "multi":
@@ -315,7 +337,9 @@ class IntLossAdapt(IntLossPretrain):
         list_target_accuracy = torch.eq(list_preds, targets).float()
 
         # when model is binary use as target a vector of ones
-        correct_accuracy = torch.ones(list_target_accuracy.size()).to(list_target_accuracy.device)
+        correct_accuracy = torch.ones(list_target_accuracy.size()).to(
+            list_target_accuracy.device
+        )
 
         # estimate loss based on the type
         if self.loss_type == "ce":
@@ -333,6 +357,5 @@ class IntLossAdapt(IntLossPretrain):
             loss = self.focal_bce(preds, correct_accuracy)
         else:
             raise ValueError(f"Loss type {self.loss_type = } is invalid!")
-
 
         return loss

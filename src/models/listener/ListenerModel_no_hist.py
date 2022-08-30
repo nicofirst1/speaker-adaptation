@@ -26,11 +26,12 @@ class ListenerModel_no_hist(nn.Module):
         self.device = device
         self.domain = domain
 
-
-
         # embeddings learned from scratch
         self.embeddings = nn.Embedding(
-            self.vocab_size, self.embedding_dim, padding_idx=0, scale_grad_by_freq=True,
+            self.vocab_size,
+            self.embedding_dim,
+            padding_idx=0,
+            scale_grad_by_freq=True,
         )
 
         # project images to hidden dimensions
@@ -70,6 +71,7 @@ class ListenerModel_no_hist(nn.Module):
                     m.eval()
                 else:
                     m.train()
+
     def init_weights(self):
         """
         Initializes some parameters with values from the uniform distribution, for easier convergence.
@@ -86,7 +88,6 @@ class ListenerModel_no_hist(nn.Module):
             self.att_linear_1,
             self.att_linear_2,
         ]:
-
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
 
@@ -134,7 +135,6 @@ class ListenerModel_no_hist(nn.Module):
             1, input_reps.shape[1], 1
         )
 
-
         # multimodal utterance representations
         mm_reps = self.relu(
             self.lin_mm(torch.cat((input_reps, repeated_context), dim=2))
@@ -145,8 +145,7 @@ class ListenerModel_no_hist(nn.Module):
         outputs_att = self.relu(outputs_att)
         outputs_att = F.normalize(outputs_att, p=2, dim=1)
         outputs_att = self.att_linear_2(outputs_att)
-        #outputs_att = self.relu(outputs_att)
-
+        # outputs_att = self.relu(outputs_att)
 
         # mask pads so that no attention is paid to them (with -inf)
         masks = masks.bool()
@@ -164,7 +163,6 @@ class ListenerModel_no_hist(nn.Module):
 
         separate_images = self.relu(separate_images)
         separate_images = F.normalize(separate_images, p=2, dim=2)
-
 
         # dot product between the candid ate images and
         # the final multimodal representation of the input utterance

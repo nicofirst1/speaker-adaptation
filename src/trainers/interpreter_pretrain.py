@@ -1,39 +1,47 @@
 import datetime
-from typing import Dict, Tuple, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 import rich.progress
 import torch
-from torch import optim
-from torch.utils.data import DataLoader
-
-from src.commons import (LISTENER_CHK_DICT,
-                         SPEAKER_CHK, EarlyStopping, get_dataloaders,
-                         load_wandb_checkpoint, load_wandb_dataset, mask_attn,
-                         merge_dict, parse_args, save_model, IntLossPretrain, get_domain_accuracy, AccuracyEstimator)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
+                         EarlyStopping, IntLossPretrain, get_dataloaders,
+                         get_domain_accuracy, load_wandb_checkpoint,
+                         load_wandb_dataset, mask_attn, merge_dict, parse_args,
+                         save_model)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
+from torch import optim
+from torch.utils.data import DataLoader
 
 
-def normalize_aux(aux, data_length,all_domains, max_targets=3):
-    aux['loss'] = np.mean(aux['loss'])
+def normalize_aux(aux, data_length, all_domains, max_targets=3):
+    aux["loss"] = np.mean(aux["loss"])
 
     aux["int_list_accuracy"] = np.sum(aux["int_list_accuracy"]) / data_length
     aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
     aux["int_target_accuracy"] = np.sum(aux["int_target_accuracy"]) / data_length
-    aux["int_list_neg_accuracy"] = np.sum(aux["int_list_neg_accuracy"]) / np.sum(aux["neg_pred_len"])
-    aux["int_list_pos_accuracy"] = np.sum(aux["int_list_pos_accuracy"]) / np.sum(aux["pos_pred_len"])
+    aux["int_list_neg_accuracy"] = np.sum(aux["int_list_neg_accuracy"]) / np.sum(
+        aux["neg_pred_len"]
+    )
+    aux["int_list_pos_accuracy"] = np.sum(aux["int_list_pos_accuracy"]) / np.sum(
+        aux["pos_pred_len"]
+    )
 
     def flatten(xss):
         return [x for xs in xss for x in xs]
 
     domains = flatten(aux.pop("domains"))
-    aux["domain/list_target_acc"] = get_domain_accuracy(flatten(aux.pop('list_target_accuracy_dom')), domains,
-                                                        all_domains)
-    aux["domain/int_list_acc"] = get_domain_accuracy(flatten(aux.pop('int_list_accuracy_dom')), domains, all_domains)
-    aux["domain/int_target_acc"] = get_domain_accuracy(flatten(aux.pop('int_target_accuracy_dom')), domains,
-                                                       all_domains)
+    aux["domain/list_target_acc"] = get_domain_accuracy(
+        flatten(aux.pop("list_target_accuracy_dom")), domains, all_domains
+    )
+    aux["domain/int_list_acc"] = get_domain_accuracy(
+        flatten(aux.pop("int_list_accuracy_dom")), domains, all_domains
+    )
+    aux["domain/int_target_acc"] = get_domain_accuracy(
+        flatten(aux.pop("int_target_accuracy_dom")), domains, all_domains
+    )
 
     int_list_neg_accuracy_dom = aux.pop("int_list_neg_accuracy_dom")
     d = [x[1] for x in int_list_neg_accuracy_dom]
@@ -50,8 +58,8 @@ def normalize_aux(aux, data_length,all_domains, max_targets=3):
     aux["domain/int_list_pos_acc"] = get_domain_accuracy(correct, d, all_domains)
 
     # flatten nested lists
-    aux["int_preds"] = flatten(aux['int_preds'])
-    aux["list_preds"] = flatten(aux['list_preds'])
+    aux["int_preds"] = flatten(aux["int_preds"])
+    aux["list_preds"] = flatten(aux["list_preds"])
 
     if len(aux["target"]) > max_targets:
         aux["target"] = np.random.choice(
@@ -60,12 +68,12 @@ def normalize_aux(aux, data_length,all_domains, max_targets=3):
 
 
 def get_predictions(
-        data: Dict,
-        list_model: torch.nn.Module,
-        int_model: torch.nn.Module,
-        loss_f: IntLossPretrain,
-        acc_estimator: AccuracyEstimator,
-        list_vocab: Vocab,
+    data: Dict,
+    list_model: torch.nn.Module,
+    int_model: torch.nn.Module,
+    loss_f: IntLossPretrain,
+    acc_estimator: AccuracyEstimator,
+    list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/int out, estimate losses and create log dict
@@ -83,7 +91,7 @@ def get_predictions(
     max_length_tensor = utterance.shape[1]
     batch_size = utterance.shape[0]
     device = list_model.device
-    domains = data['domain']
+    domains = data["domain"]
 
     masks = mask_attn(lengths, max_length_tensor, device)
 
@@ -100,18 +108,18 @@ def get_predictions(
 
     aux["loss"] = loss.detach().cpu().item()
 
-    return loss, aux['int_list_accuracy'], aux
+    return loss, aux["int_list_accuracy"], aux
 
 
 def evaluate(
-        data_loader: DataLoader,
-        int_model: torch.nn.Module,
-        list_model: torch.nn.Module,
-        list_vocab: Vocab,
-        loss_f: torch.nn.Module,
-        acc_estimator: AccuracyEstimator,
-        all_domains: List,
-        split: str,
+    data_loader: DataLoader,
+    int_model: torch.nn.Module,
+    list_model: torch.nn.Module,
+    list_vocab: Vocab,
+    loss_f: torch.nn.Module,
+    acc_estimator: AccuracyEstimator,
+    all_domains: List,
+    split: str,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -124,9 +132,9 @@ def evaluate(
     auxs = []
 
     for ii, data in rich.progress.track(
-            enumerate(data_loader),
-            total=len(data_loader),
-            description=f"evaluating '{split}' split...",
+        enumerate(data_loader),
+        total=len(data_loader),
+        description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
             data, list_model, int_model, loss_f, acc_estimator, list_vocab
@@ -277,10 +285,18 @@ if __name__ == "__main__":
     ###################################
 
     optimizer = optim.Adam(int_model.parameters(), lr=common_p.learning_rate)
-    loss_f = IntLossPretrain(common_p.pretrain_loss, common_p.reduction, common_p.model_type,
-                             alpha=common_p.focal_alpha, gamma=common_p.focal_gamma,
-                             list_domain=domain, all_domains=logger.domains)
-    acc_estimator = AccuracyEstimator(domain, common_p.model_type, all_domains=logger.domains)
+    loss_f = IntLossPretrain(
+        common_p.pretrain_loss,
+        common_p.reduction,
+        common_p.model_type,
+        alpha=common_p.focal_alpha,
+        gamma=common_p.focal_gamma,
+        list_domain=domain,
+        all_domains=logger.domains,
+    )
+    acc_estimator = AccuracyEstimator(
+        domain, common_p.model_type, all_domains=logger.domains
+    )
 
     ###################################
     ## RESUME AND EARLYSTOPPING
@@ -376,7 +392,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(int_p.epochs):
@@ -396,9 +412,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.progress.track(
-                enumerate(speak_train_dl),
-                total=len(speak_train_dl),
-                description=f"Training epoch {epoch}",
+            enumerate(speak_train_dl),
+            total=len(speak_train_dl),
+            description=f"Training epoch {epoch}",
         ):
             # get datapoints
             loss, accuracy, aux = get_predictions(
@@ -418,9 +434,7 @@ if __name__ == "__main__":
             aux, list_domain=speak_train_dl.dataset.domain, modality="train"
         )
 
-        print(
-            f"Train loss {aux['loss']:.6f}, accuracy {aux['int_list_accuracy']:.3f} "
-        )
+        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['int_list_accuracy']:.3f} ")
 
         ###################################
         ##  EVAL LOOP

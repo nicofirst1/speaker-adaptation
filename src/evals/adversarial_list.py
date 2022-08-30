@@ -1,20 +1,19 @@
 import copy
 import os
 from typing import Dict, List, Optional
-import torch.functional as F
+
 import numpy as np
 import rich.progress
 import torch
-from torch import nn, cosine_similarity
-from torch.utils.data import DataLoader
-
 import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
-                         get_domain_accuracy, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args, speak2list_vocab, translate_utterance)
+                         get_domain_accuracy, load_wandb_checkpoint, mask_attn,
+                         parse_args, speak2list_vocab, translate_utterance)
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
+from src.models import get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
+from torch import cosine_similarity, nn
+from torch.utils.data import DataLoader
 
 
 # FGSM attack code
@@ -22,14 +21,14 @@ def fgsm_attack(utt, epsilon, data_grad):
     # Collect the element-wise sign of the data gradient
     sign_data_grad = data_grad.sign()
     # Create the perturbed image by adjusting each pixel of the input image
-    perturbed_utt = utt - epsilon*sign_data_grad
+    perturbed_utt = utt - epsilon * sign_data_grad
     # Adding clipping to maintain [0,1] range
     perturbed_utt = torch.clamp(perturbed_utt, 0, 1)
     # Return the perturbed image
     return perturbed_utt
 
 
-criterion=nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss()
 
 
 def evaluate_trained_model(
@@ -46,11 +45,11 @@ def evaluate_trained_model(
     domains = []
     in_domain = domain == dataloader.dataset.domain
 
-    original_hypo=[]
-    modified_hypo=[]
-    iterations=[]
-    imgs=[]
-    max_iters=10
+    original_hypo = []
+    modified_hypo = []
+    iterations = []
+    imgs = []
+    max_iters = 10
 
     # define modality for wandb panels
     modality = split
@@ -70,7 +69,6 @@ def evaluate_trained_model(
         description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
-
         if speak_model is not None:
             # generate hypo with speaker
             target_img_feats = data["target_img_feats"]
@@ -83,16 +81,15 @@ def evaluate_trained_model(
                 prev_utterance, prev_utt_lengths, visual_context, target_img_feats
             )
             translator(utterance)
-            hypo  = [speak_vocab.decode(sent) for sent in utterance][0]
+            hypo = [speak_vocab.decode(sent) for sent in utterance][0]
 
         else:
             # else take them from golden caption
             utterance = data["utterance"]
             hypo = data["orig_utterance"]
 
-
         # get datapoints
-        origin_utt=hypo[0]
+        origin_utt = hypo[0]
         context_separate = data["separate_images"]
         context_concat = data["concat_context"]
         lengths = [utterance.shape[1]]
@@ -105,16 +102,15 @@ def evaluate_trained_model(
         # get listener output
         out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
 
-
         preds = torch.argmax(out, dim=1)
         correct = torch.eq(preds, targets).float().item()
-        loss=999
-        itx=1
-        iteration=0
+        loss = 999
+        itx = 1
+        iteration = 0
         while not correct:
 
-            prev_loss=loss
-            loss=criterion(out, targets)
+            prev_loss = loss
+            loss = criterion(out, targets)
 
             # Zero all existing gradients
             list_model.zero_grad()
@@ -124,42 +120,43 @@ def evaluate_trained_model(
 
             # Collect datagrad
             data_grad = list_model.embeddings.weight.grad[utterance]
-            in_data=list_model.embeddings(utterance)
+            in_data = list_model.embeddings(utterance)
 
             # Call FGSM Attack
-            epsiolon=0.2
-            ratio=prev_loss/loss
-            if ratio<=1.2:
-                epsiolon+=itx/10
-                itx+=1
+            epsiolon = 0.2
+            ratio = prev_loss / loss
+            if ratio <= 1.2:
+                epsiolon += itx / 10
+                itx += 1
             else:
-                itx=1
-            perturbed_emb = fgsm_attack(in_data,epsiolon , data_grad)
-            perturbed_utts=[]
+                itx = 1
+            perturbed_emb = fgsm_attack(in_data, epsiolon, data_grad)
+            perturbed_utts = []
 
             # get perturbed utterance
             for idx in range(perturbed_emb.shape[1]):
-                embed=perturbed_emb[:,idx].squeeze()
-                sim=cosine_similarity(embed, list_model.embeddings.weight,dim=1)
-                idx3=torch.argmax(sim).item()
+                embed = perturbed_emb[:, idx].squeeze()
+                sim = cosine_similarity(embed, list_model.embeddings.weight, dim=1)
+                idx3 = torch.argmax(sim).item()
                 perturbed_utts.append(idx3)
 
-
-            utterance=torch.as_tensor(perturbed_utts).unsqueeze(0)
+            utterance = torch.as_tensor(perturbed_utts).unsqueeze(0)
             utterance = utterance.to(device)
             hypo = [speak_vocab.decode(sent) for sent in utterance][0]
 
             # get listener output
-            out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
+            out = list_model(
+                utterance, context_separate, context_concat, prev_hist, masks
+            )
 
             preds = torch.argmax(out, dim=1)
             correct = torch.eq(preds, targets).float().item()
-            iteration+=1
+            iteration += 1
 
-            if iteration>max_iters:
+            if iteration > max_iters:
                 break
 
-        if correct and iteration>0:
+        if correct and iteration > 0:
             modified_hypo.append(hypo)
             iterations.append(iteration)
             imgs.append(data["image_set"][0][data["target"][0]])
@@ -168,21 +165,22 @@ def evaluate_trained_model(
         accuracies.append(correct)
         domains.append(data["domain"][0])
 
-
     accuracy = np.mean(accuracies)
 
     metrics = {}
     metrics["accuracy"] = accuracy
 
     # log image\hypo and utterance
-    imgs = [logger.img_id2path[str(img) ] for img in imgs]
+    imgs = [logger.img_id2path[str(img)] for img in imgs]
 
     imgs = [wandb.Image(img) for img in imgs]
 
-    columns=["image","original hypo","modified hypo","iterations"]
+    columns = ["image", "original hypo", "modified hypo", "iterations"]
 
-    table=wandb.Table(columns=columns,data=list(zip(imgs,original_hypo,modified_hypo,iterations)))
-    metrics['table']=table
+    table = wandb.Table(
+        columns=columns, data=list(zip(imgs, original_hypo, modified_hypo, iterations))
+    )
+    metrics["table"] = table
 
     if "out" in modality:
         domain_accuracy = get_domain_accuracy(accuracies, domains, logger.domains)
@@ -193,8 +191,6 @@ def evaluate_trained_model(
         list_domain=dataloader.dataset.domain,
         modality=modality,
     )
-
-
 
     return metrics
 
@@ -235,7 +231,6 @@ def generate_table_row(
 
 
 if __name__ == "__main__":
-
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     common_args = parse_args("list")
@@ -321,7 +316,6 @@ if __name__ == "__main__":
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
 
-
     logger = ListenerLogger(
         vocab=list_vocab,
         opts=vars(list_args),
@@ -330,14 +324,12 @@ if __name__ == "__main__":
         val_logging_step=1,
         project="adversarial_list",
         tags=common_args.tags,
-
     )
 
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
-    translator=translate_utterance(speak2list_v,device)
+    translator = translate_utterance(speak2list_v, device)
 
     list_model.eval()
-
 
     ########################
     #  EVAL OOD
@@ -370,7 +362,6 @@ if __name__ == "__main__":
     )
     print(gen_metrics)
 
-
     ########################
     #  TEST ODD
     ########################
@@ -399,6 +390,4 @@ if __name__ == "__main__":
     )
     print(gen_metrics)
 
-
     logger.wandb_close()
-

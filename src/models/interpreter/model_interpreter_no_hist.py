@@ -2,10 +2,8 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-
-from src.models.listener.ListenerModel_hist import ListenerModel_hist
 from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
+from torch import nn
 
 
 class InterpreterModel_no_hist(ListenerModel_no_hist):
@@ -30,9 +28,9 @@ class InterpreterModel_no_hist(ListenerModel_no_hist):
             domain,
             device,
         )
-        self.relu=nn.LeakyReLU()
+        self.relu = nn.LeakyReLU()
 
-        #self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
+        # self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
         self.init_weights()  # initialize layers
 
     def forward(
@@ -71,12 +69,10 @@ class InterpreterModel_no_hist(ListenerModel_no_hist):
         projected_context = self.relu(self.lin_context(visual_context))
         projected_context = F.normalize(projected_context, p=2, dim=1)
 
-
         # multimodal utterance representations
         mm_reps = self.relu(
             self.lin_mm(torch.cat((input_reps, projected_context), dim=-1))
         )
-
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
@@ -87,9 +83,7 @@ class InterpreterModel_no_hist(ListenerModel_no_hist):
 
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance
-        dot = torch.bmm(
-            separate_images, mm_reps.view(batch_size, self.hidden_dim, 1)
-        )
-        #[batch, 6, 1]
+        dot = torch.bmm(separate_images, mm_reps.view(batch_size, self.hidden_dim, 1))
+        # [batch, 6, 1]
 
         return dot

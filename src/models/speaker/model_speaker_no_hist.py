@@ -3,7 +3,6 @@ from typing import Dict, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from src.commons import mask_attn
 
 
@@ -216,7 +215,7 @@ class SpeakerModel_no_hist(nn.Module):
             torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
         )
 
-        #decoder_hid=F.normalize(decoder_hid)
+        # decoder_hid=F.normalize(decoder_hid)
 
         history_att = self.lin2att_hist(outputs)
 
@@ -300,7 +299,6 @@ class SpeakerModel_no_hist(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
         # todo: need better name
 
-
         batch_size = prev_utterance.shape[0]
 
         visual_context_hid = self.relu(self.lin_viscontext(visual_context))
@@ -365,7 +363,7 @@ class SpeakerModel_no_hist(nn.Module):
         #
         # decoder_hid, _ = self.lstm_decoder(decoder_embeds, hx=(decoder_hid, decoder_hid))
 
-        if decoder_hid.ndim==1:
+        if decoder_hid.ndim == 1:
             decoder_hid = decoder_hid.unsqueeze(0)
 
         history_att = self.lin2att_hist(outputs)
@@ -399,8 +397,8 @@ class SpeakerModel_no_hist(nn.Module):
 
         sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
         eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
-        sos_token=sos_token.repeat((batch_size,1))
-        eos_token=eos_token.repeat((batch_size,1))
+        sos_token = sos_token.repeat((batch_size, 1))
+        eos_token = eos_token.repeat((batch_size, 1))
 
         # multiple copies of the decoder
         h1, c1 = decoder_hid, decoder_hid
@@ -428,7 +426,7 @@ class SpeakerModel_no_hist(nn.Module):
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
 
             h1_att = self.lin2att_hid(h1)
-            h1_att=h1_att.unsqueeze(1)
+            h1_att = h1_att.unsqueeze(1)
             attention_out = self.relu(history_att + h1_att)
             attention_out = F.normalize(attention_out, p=2, dim=1)
             attention_out = self.attention(attention_out)
@@ -440,9 +438,7 @@ class SpeakerModel_no_hist(nn.Module):
             att_context_vector = (history_att * att_weights).sum(dim=1)
 
             word_pred = F.log_softmax(
-                self.lin2voc(
-                    torch.cat((h1, att_context_vector), dim=1)
-                ),
+                self.lin2voc(torch.cat((h1, att_context_vector), dim=1)),
                 dim=1,
             )
 
@@ -465,19 +461,25 @@ class SpeakerModel_no_hist(nn.Module):
                 sorted_indices_to_remove = cumulative_probs > top_p
 
                 # Shift the indices to the right to keep also the first token above the threshold
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
+                    ..., :-1
+                ].clone()
                 sorted_indices_to_remove[..., 0] = 0
 
                 # scatter sorted tensors to original indexing
                 if sorted_indices.dim() == 1:
-                    indices_to_remove = sorted_indices_to_remove.scatter(0, sorted_indices, sorted_indices_to_remove)
+                    indices_to_remove = sorted_indices_to_remove.scatter(
+                        0, sorted_indices, sorted_indices_to_remove
+                    )
                 else:
-                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-                word_pred=word_pred.masked_fill(indices_to_remove, filter_value)
+                    indices_to_remove = sorted_indices_to_remove.scatter(
+                        1, sorted_indices, sorted_indices_to_remove
+                    )
+                word_pred = word_pred.masked_fill(indices_to_remove, filter_value)
 
             probabilities = F.softmax(word_pred, dim=-1)
             next_token = torch.multinomial(probabilities, 1)
-            #next_token = next_token.squeeze()
+            # next_token = next_token.squeeze()
             decoder_input = next_token
 
             word_index = next_token % (len(self.vocab) - 1)  # predicted word
@@ -488,35 +490,32 @@ class SpeakerModel_no_hist(nn.Module):
 
             gen_len += 1
 
-
         # truncate after eos
-        completed_sentences=torch.concat(completed_sentences, dim =-1)
-        completed_sentences=[sent for sent in completed_sentences]
+        completed_sentences = torch.concat(completed_sentences, dim=-1)
+        completed_sentences = [sent for sent in completed_sentences]
 
-        completed_sentences=torch.stack(completed_sentences)
+        completed_sentences = torch.stack(completed_sentences)
 
-        if completed_sentences.ndim==1:
-            completed_sentences=completed_sentences.unsqueeze(0)
-
+        if completed_sentences.ndim == 1:
+            completed_sentences = completed_sentences.unsqueeze(0)
 
         for i in range(len(completed_sentences)):
-            x=completed_sentences[i]
+            x = completed_sentences[i]
 
             # get index of eos
-            idx=(x == self.vocab["<eos>"]).nonzero(as_tuple=True)[0]
+            idx = (x == self.vocab["<eos>"]).nonzero(as_tuple=True)[0]
             # if found
-            if len(idx)>0:
-                idx=idx[0]
+            if len(idx) > 0:
+                idx = idx[0]
                 # pad from index to max length with pad token
-                completed_sentences[i][idx:]=torch.tensor([self.vocab["<pad>"]])*(self.max_len-len(x))
-
+                completed_sentences[i][idx:] = torch.tensor([self.vocab["<pad>"]]) * (
+                    self.max_len - len(x)
+                )
 
         last_idx = torch.nonzero(completed_sentences)[:, -1]
         if len(last_idx) > 0:
-            last_idx=torch.max(last_idx)+1
-            completed_sentences=completed_sentences[:,:last_idx]
-
-
+            last_idx = torch.max(last_idx) + 1
+            completed_sentences = completed_sentences[:, :last_idx]
 
         return completed_sentences
 

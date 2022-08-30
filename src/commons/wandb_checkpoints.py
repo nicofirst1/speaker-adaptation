@@ -105,17 +105,22 @@ INT_CHECKPOINTS = dict(
     INT_BINARY_FBCE_CHK=INT_BINARY_FBCE_CHK,
     INT_DOMAIN_CE_CHK=INT_DOMAIN_CE_CHK,
     INT_DOMAIN_KL_OOD_CHK=INT_DOMAIN_KL_OOD_CHK,
-
 )
 
 
-def get_int_chk( model_type, pretrain_loss, domain):
+def get_int_chk(model_type, pretrain_loss, domain):
     """
     Return the correct interpreter checkpoint
     """
 
-    int_chk="INT_"+model_type.replace("_","").upper()+"_"+pretrain_loss.upper()+"_CHK"
-    int_chk=INT_CHECKPOINTS[int_chk][domain]
+    int_chk = (
+        "INT_"
+        + model_type.replace("_", "").upper()
+        + "_"
+        + pretrain_loss.upper()
+        + "_CHK"
+    )
+    int_chk = INT_CHECKPOINTS[int_chk][domain]
 
     return int_chk
 

@@ -1,6 +1,5 @@
-import yaml
-
 import wandb
+import yaml
 from src.commons import parse_args
 
 if __name__ == "__main__":

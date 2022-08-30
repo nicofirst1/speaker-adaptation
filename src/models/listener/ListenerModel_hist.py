@@ -75,7 +75,6 @@ class ListenerModel_hist(nn.Module):
             self.att_linear_1,
             self.att_linear_2,
         ]:
-
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
 
@@ -152,7 +151,6 @@ class ListenerModel_hist(nn.Module):
             for s in range(len(batch_prev_hist)):
 
                 if len(batch_prev_hist[s]) > 0:
-
                     # print(batch_prev_hist[s])
                     prev = torch.Tensor(batch_prev_hist[s]).long().to(self.device)
                     hist_rep = self.embeddings(prev).to(self.device)

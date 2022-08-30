@@ -1,11 +1,9 @@
-import json
 import os
 from typing import Any, Dict, List, Optional
 
 import torch
-from torch import nn
-
 import wandb
+from torch import nn
 
 
 def custom_string2list(tags: str) -> List[str]:
@@ -23,24 +21,25 @@ def custom_string2list(tags: str) -> List[str]:
 
     """
 
-    if isinstance(tags,list):
-        list_tags=tags
+    if isinstance(tags, list):
+        list_tags = tags
     else:
         list_tags = tags.strip("[").strip("]").split(",")
 
-    list_tags=[x for x in list_tags if x]
+    list_tags = [x for x in list_tags if x]
 
     return list_tags
 
+
 class WandbLogger:
     def __init__(
-        self,
-        opts: Dict = {},
-        group: Optional[str] = None,
-        run_id: Optional[str] = None,
-        train_logging_step: int = 1,
-        val_logging_step: int = 1,
-        **kwargs,
+            self,
+            opts: Dict = {},
+            group: Optional[str] = None,
+            run_id: Optional[str] = None,
+            train_logging_step: int = 1,
+            val_logging_step: int = 1,
+            **kwargs,
     ):
         # This callback logs to wandb the interaction as they are stored in the leader process.
         # When interactions are not aggregated in a multigpu run, each process will store
@@ -51,7 +50,7 @@ class WandbLogger:
 
         # add debug label
         tags = kwargs.pop("tags", '[]')
-        tags=custom_string2list(tags)
+        tags = custom_string2list(tags)
 
         if opts['debug'] or opts['subset_size'] != -1:
             tags += ["debug"]
@@ -85,16 +84,16 @@ class WandbLogger:
         self.steps = {}
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        is_train: bool,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            is_train: bool,
     ):
         raise NotImplemented()
 
-    def watch_model(self, models: List[nn.Module],log_freq:int=1000):
+    def watch_model(self, models: List[nn.Module], log_freq: int = 1000):
         for idx, mod in enumerate(models):
             wandb.watch(mod, log_freq=log_freq, log_graph=True, idx=idx, log="all")
 
@@ -131,20 +130,20 @@ class WandbLogger:
         )
 
     def log_artifact(
-        self,
-        path2artifact,
-        artifact_name,
-        artifact_type,
-        epoch=None,
-        metadata={},
-        description="",
+            self,
+            path2artifact,
+            artifact_name,
+            artifact_type,
+            epoch=None,
+            metadata={},
+            description="",
     ):
         if epoch is None:
             epoch = self.epochs
 
         # cast everything in metadata to str
-        if not isinstance(metadata,dict):
-            metadata=vars(metadata)
+        if not isinstance(metadata, dict):
+            metadata = vars(metadata)
         metadata = {k: str(v) for k, v in metadata.items()}
         metadata["curr_epoch"] = str(epoch)
 

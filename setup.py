@@ -5,11 +5,11 @@ with open("README.md", "r") as f:
 
 with open("uvapb.yml", "r") as f:
     reqs = f.read()
-reqs= reqs.split("- pip:")[1]
-reqs= reqs.split("prefix")[0]
-reqs= reqs.split("\n")
-reqs= [x.replace("-","",1) for x in reqs if x.strip()]
-reqs= [x.strip() for x in reqs if x.strip()]
+reqs = reqs.split("- pip:")[1]
+reqs = reqs.split("prefix")[0]
+reqs = reqs.split("\n")
+reqs = [x.replace("-", "", 1) for x in reqs if x.strip()]
+reqs = [x.strip() for x in reqs if x.strip()]
 
 setuptools.setup(
     name="PB speaker adaptation",

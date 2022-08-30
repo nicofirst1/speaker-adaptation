@@ -1,9 +1,7 @@
 import numpy as np
 import torch
-
-from src.commons import (LISTENER_CHK_DICT,
-                         SPEAKER_CHK, get_dataloaders, load_wandb_checkpoint,
-                         load_wandb_dataset, parse_args)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
+                         load_wandb_checkpoint, load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -25,7 +23,7 @@ def compute_domain(common_p):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
 
-    domain=common_p.train_domain
+    domain = common_p.train_domain
 
     ##########################
     # LISTENER
@@ -113,14 +111,9 @@ def compute_domain(common_p):
 
     speaker_model = speaker_model.eval()
 
-
     ###################################
     ##  LOGGER
     ###################################
-
-
-
-
 
     ###################################
     ##  Get speaker dataloader
@@ -134,7 +127,6 @@ def compute_domain(common_p):
     training_loader, test_loader, val_loader = get_dataloaders(
         common_p, speak_vocab, domain
     )
-
 
     # train
     load_params = {
@@ -181,15 +173,13 @@ def compute_domain(common_p):
         test_loader,
         logger,
         subset_size=common_p.subset_size,
-        test_split=common_p.test_split
+        test_split=common_p.test_split,
     )
 
 
+if __name__ == "__main__":
 
-if __name__ == '__main__':
-
-
-    splits = ['all', 'seen', 'unseen']
+    splits = ["all", "seen", "unseen"]
     common_p = parse_args("list")
 
     logger = ListenerLogger(

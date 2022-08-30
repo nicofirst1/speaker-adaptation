@@ -2,10 +2,8 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
-from torch import nn
-
-from src.models.listener.ListenerModel_hist import ListenerModel_hist
 from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
+from torch import nn
 
 
 class InterpreterModel_multi(ListenerModel_no_hist):
@@ -36,9 +34,7 @@ class InterpreterModel_multi(ListenerModel_no_hist):
         self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
         self.lrelu = nn.LeakyReLU()
 
-
         self.init_weights()  # initialize layers
-
 
     def forward(
         self,
@@ -66,29 +62,28 @@ class InterpreterModel_multi(ListenerModel_no_hist):
 
         # utterance representations are processed
         representations = self.dropout(representations)
-        representations=self.lin_emb2hid(representations)
+        representations = self.lin_emb2hid(representations)
         input_reps = self.lrelu(representations)
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
-        visual_context=self.lin_context(visual_context)
+        visual_context = self.lin_context(visual_context)
         projected_context = self.lrelu(visual_context)
 
         # multimodal utterance representations
-        mm_reps= self.lin_mm(torch.cat((input_reps, projected_context), dim=-1))
-        mm_reps = self.lrelu(mm_reps )
+        mm_reps = self.lin_mm(torch.cat((input_reps, projected_context), dim=-1))
+        mm_reps = self.lrelu(mm_reps)
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_list = self.att_linear_1(mm_reps)
         outputs_list = self.lrelu(outputs_list)
         outputs_list = self.att_linear_2(outputs_list)
-        outputs_list= F.normalize(outputs_list, p=2, dim=1)
+        outputs_list = F.normalize(outputs_list, p=2, dim=1)
 
         outputs_targ = self.att_linear_11(mm_reps)
         outputs_targ = self.lrelu(outputs_targ)
         outputs_targ = self.att_linear_21(outputs_targ)
-        outputs_targ= F.normalize(outputs_targ, p=2, dim=1)
-
+        outputs_targ = F.normalize(outputs_targ, p=2, dim=1)
 
         # final attention weights
         att_weights_list = self.softmax(outputs_list)
@@ -113,6 +108,6 @@ class InterpreterModel_multi(ListenerModel_no_hist):
         dot_targ = torch.bmm(
             separate_images, attended_hids_targ.view(batch_size, self.hidden_dim, 1)
         )
-        #[batch, 6, 1]
+        # [batch, 6, 1]
 
-        return dot_list,dot_targ
+        return dot_list, dot_targ

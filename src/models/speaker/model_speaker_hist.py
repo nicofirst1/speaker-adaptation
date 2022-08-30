@@ -3,8 +3,6 @@ from typing import Dict, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
-
 from src.commons import mask_attn
 
 

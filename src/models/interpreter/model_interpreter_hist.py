@@ -2,7 +2,6 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
-
 from src.models.listener.ListenerModel_hist import ListenerModel_hist
 
 

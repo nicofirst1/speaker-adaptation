@@ -5,18 +5,19 @@ from typing import Dict, List, Optional
 import numpy as np
 import rich.progress
 import torch
-from torch.utils.data import DataLoader
-
 import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
-                         get_domain_accuracy, hypo2utterance,
-                         load_wandb_checkpoint, mask_attn, parse_args)
+                         get_domain_accuracy, load_wandb_checkpoint, mask_attn,
+                         parse_args)
 from src.data.dataloaders import Vocab
-from src.models import ListenerModel_hist, SpeakerModel_hist, get_model
+from src.models import get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
+from torch.utils.data import DataLoader
 
 
-def log_table(golden_metrics:Dict, gen_metrics:Dict, in_domain:Optional[bool]=True)->wandb.Table:
+def log_table(
+    golden_metrics: Dict, gen_metrics: Dict, in_domain: Optional[bool] = True
+) -> wandb.Table:
     """
     Create and fill a wandb table for the generated,golden and difference metrics.
     Parameters
@@ -65,7 +66,7 @@ def log_table(golden_metrics:Dict, gen_metrics:Dict, in_domain:Optional[bool]=Tr
     return table
 
 
-def dict_diff(golden_metrics:Dict, gen_metrics:Dict)->Dict:
+def dict_diff(golden_metrics: Dict, gen_metrics: Dict) -> Dict:
     """
     Return a dict that contains the per-key differences between the two inputs
     Parameters
@@ -138,9 +139,9 @@ def evaluate_trained_model(
                 prev_utterance, prev_utt_lengths, visual_context, target_img_feats
             )
 
-            hypo  = [speak_vocab.decode(sent) for sent in utterance][0]
+            hypo = [speak_vocab.decode(sent) for sent in utterance][0]
 
-            #utterance = hypo2utterance(hypo, vocab)
+            # utterance = hypo2utterance(hypo, vocab)
         else:
             # else take them from golden caption
             utterance = data["utterance"]
@@ -243,7 +244,6 @@ def generate_table_row(
 
 
 if __name__ == "__main__":
-
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     common_args = parse_args("list")
@@ -329,7 +329,6 @@ if __name__ == "__main__":
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
 
-
     logger = ListenerLogger(
         vocab=list_vocab,
         opts=vars(list_args),
@@ -338,7 +337,6 @@ if __name__ == "__main__":
         val_logging_step=1,
         project="speaker-list-dom",
         tags=common_args.tags,
-
     )
 
     # todo: log captions

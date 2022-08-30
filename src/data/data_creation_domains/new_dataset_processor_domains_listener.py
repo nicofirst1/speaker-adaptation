@@ -13,7 +13,6 @@ vocab_csv_path = "../../../data/vocab.csv"
 
 
 def process_data(data, domain_path, split):
-
     domainsplit_full_vocab = []
 
     chain_dataset = []
@@ -68,7 +67,6 @@ def process_data(data, domain_path, split):
                 visual_context_ids = []
 
                 for v in visual_context:
-
                     v_id = str(int(v.split("/")[1].split(".")[0].split("_")[2]))
 
                     visual_context_ids.append(v_id)
@@ -154,7 +152,6 @@ for domain in domains:
     dom_test_tokens = process_data(test, domain_path, "test")
 
     if domain in ["indoor", "outdoor", "food", "vehicles", "appliances"]:
-
         tokens2add = dom_train_tokens + dom_val_tokens + dom_test_tokens
 
         full_vocab += tokens2add
@@ -171,7 +168,6 @@ for word, freq in vocab_ordered:
         truncated_word_list.append((word, freq))
 
 with open(vocab_csv_path, "w") as f:
-
     writer = csv.writer(f, delimiter=",", quotechar="|")
     writer.writerows(truncated_word_list)
 
@@ -182,9 +178,7 @@ print("converting test to IDs")
 
 
 def convert2indices(dataset, vocab, split, id_path):
-
     for tup in dataset:
-
         utt = dataset[tup]
 
         text = utt["utterance"]
@@ -200,7 +194,6 @@ def convert2indices(dataset, vocab, split, id_path):
 
 
 for domain in domains:
-
     print(domain)
 
     domain_path = "../../../data/chains-domain-specific/{}/".format(domain)
