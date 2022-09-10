@@ -452,6 +452,7 @@ def evaluate(
     int_accs = np.mean([x[-1] for x in int_accs])
 
     int_list_accs = [[y for y in x if y != -1] for x in int_list_accs]
+    int_list_accs=[x for x in int_list_accs if len(x)]
     int_list_accs = np.mean([x[-1] for x in int_list_accs])
 
     loss = [[y for y in x if y != -1] for x in losses]
