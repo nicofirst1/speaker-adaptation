@@ -426,7 +426,7 @@ class SpeakerModel_no_hist(nn.Module):
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
 
             h1_att = self.lin2att_hid(h1)
-            h1_att = h1_att.unsqueeze(1)
+            h1_att=h1_att.unsqueeze(1)
             attention_out = self.relu(history_att + h1_att)
             attention_out = F.normalize(attention_out, p=2, dim=1)
             attention_out = self.attention(attention_out)

@@ -276,7 +276,7 @@ def evaluate(
             utterance = speak_model.nucleus_sampling(h0, history_att, speak_masks)
             hypo = [list_vocab.decode(sent) for sent in utterance]
 
-            s_hypo[i] = hypo
+            s_hypo[i] = hypo[0]
             # generate utt for list
             # translate utt to ids and feed to listener
             lengths = [utterance.shape[1]]
