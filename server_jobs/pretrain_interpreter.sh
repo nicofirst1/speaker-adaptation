@@ -14,10 +14,14 @@ module load 2021
 module load Anaconda3/2021.05
 source activate uvapb
 
-#create output directory
-common_args=( --dropout 0.25 --batch_size 64   --model_type no_hist --metric accs --reduction sum --subset_size -1
---seed 42 --learning_rate 0.0001 -shuffle --embedding_dim 1024 --epochs 100 --patience 10)
+# static arguments
+common_args=(--metric accs --reduction sum --subset_size -1  --seed 42
+-shuffle --test_split seen --data_domain all --type_of_int domain )
+# train arguments
+common_args=("${common_args[@]}" --epochs 100 --patience 10 --pretrain_loss ce  --learning_rate 0.0001 -shuffle )
 
+# model arguments
+common_args=("${common_args[@]}"  --dropout 0.25  --embedding_dim 1024 --hidden_dim 512 )
 # restore the interpreter
 #common_args=("${common_args[@]}" --resume_train true )
 
