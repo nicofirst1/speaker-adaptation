@@ -167,9 +167,9 @@ def evaluate(
     ):
 
         # filter out indomain data points
-        if not in_domain:
-            if data["domain"][0] == list_model.domain:
-                continue
+        # if not in_domain:
+        #     if data["domain"][0] == list_model.domain:
+        #         continue
 
         ## extract data
         context_separate = data["separate_images"]

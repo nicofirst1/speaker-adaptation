@@ -4,7 +4,7 @@ from src.commons import parse_args
 
 if __name__ == "__main__":
 
-    common_p = parse_args("sim")
+    common_p = parse_args("int")
 
     if "speaker_sweep.json" in common_p.sweep_file:
         common_p = parse_args("speak")

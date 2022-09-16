@@ -5,29 +5,29 @@ early_terminate:
 method: bayes
 metric:
   goal: maximize
-  name: out_domain_val/modified_accs
+  name: out_domain_test/int_accs
   target: 1.0
 project: speaker-influence-sweep
 
 parameters:
-    learning_rate:
+    adapt_lr:
         distribution: uniform
-        max: 0.01
-        min: 0.0001
+        max: 0.1
+        min: 0.001
 
     s_iter:
         distribution: int_uniform
         max: 8
         min: 1
 
-    top_p:
-        distribution: uniform
-        max: 1.0
-        min: 0.3
+    model_type:
+        value : no_hist
 
+    adaptive_loss:
+        value: ce
 
-
-
+    test_split:
+        value : seen
 
 
 
