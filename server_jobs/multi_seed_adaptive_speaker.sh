@@ -44,9 +44,4 @@ trainers_file="${HOME}/pb_speaker_adaptation/src/evals/adaptive_speaker.py"
 #running the actual code
 echo "Starting the process..."
 
-
-for SEED in 1 2 3 4 5
-do
-    python -u ${trainers_file} --seed $SEED "${common_args[@]}"
-
-done
+python -u ${trainers_file} --seed $SLURM_ARRAY_TASK_ID  "${common_args[@]}"
