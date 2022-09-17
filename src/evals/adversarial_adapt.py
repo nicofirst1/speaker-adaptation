@@ -328,9 +328,6 @@ if __name__ == "__main__":
 
     speaker_model = speaker_model.eval()
 
-    if torch.cuda.device_count()>1:
-        speaker_model=nn.DataParallel(speaker_model)
-        list_model=nn.DataParallel(list_model)
 
     ###################################
     ##  Get speaker dataloader
