@@ -77,7 +77,7 @@ def get_predictions(
     prev_utt_lengths = data["prev_length"]
     target_img_feats = data["target_img_feats"]
     batch_size = context_concat.size(0)
-    device = list_model.device
+    device = target_img_feats.device
 
     max_length_tensor = prev_utterance.shape[1]
     speak_masks = mask_attn(prev_utt_lengths, max_length_tensor, device)
