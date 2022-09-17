@@ -298,10 +298,7 @@ if __name__ == "__main__":
         domain, common_p.model_type, all_domains=logger.domains
     )
 
-    if torch.cuda.device_count()>1:
-        speaker_model=nn.DataParallel(speaker_model)
-        list_model=nn.DataParallel(list_model)
-        int_model=nn.DataParallel(int_model)
+
 
     ###################################
     ## RESUME AND EARLYSTOPPING

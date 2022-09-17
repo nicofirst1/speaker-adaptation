@@ -12,13 +12,13 @@ project: speaker-influence-sweep
 parameters:
     adapt_lr:
         distribution: uniform
-        max: 0.1
-        min: 0.001
+        max: 1
+        min: 0.01
 
     s_iter:
         distribution: int_uniform
-        max: 8
-        min: 1
+        max: 25
+        min: 14
 
     model_type:
         value : no_hist
