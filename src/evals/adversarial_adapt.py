@@ -4,11 +4,13 @@ from typing import Dict, Tuple
 import numpy as np
 import rich.progress
 import torch
+from torch import nn
+
 import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          get_domain_accuracy, hsja, load_wandb_checkpoint,
                          mask_attn, merge_dict, parse_args, speak2list_vocab,
-                         translate_utterance)
+                         translate_utterance, set_seed)
 from src.data.dataloaders import Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -91,7 +93,7 @@ def get_predictions(
         target_img_feats,
     )
 
-    translator(utts)
+    #translator(utts)
     origin_h = [list_vocab.decode(sent) for sent in utts]
     mod_utts = origin_h
 
@@ -113,7 +115,9 @@ def get_predictions(
     preds = torch.argmax(list_out, dim=1)
     correct = torch.eq(preds, targets).sum()
     mod_correct = correct
+
     if not correct:
+
 
         def hsja_model(context_separate, context_concat, prev_hist):
             def inner(h0):
@@ -194,15 +198,16 @@ def process_epoch(
     :return:
     """
     auxs = []
-    for i, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"{split}",
-    ):
-        # get datapoints
-        aux = get_predictions(data, speaker_model, list_model, list_vocab)
+    with torch.no_grad():
+        for i, data in rich.progress.track(
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"{split}",
+        ):
+            # get datapoints
+            aux = get_predictions(data, speaker_model, list_model, list_vocab)
 
-        auxs.append(aux)
+            auxs.append(aux)
 
     aux = merge_dict(auxs)
     normalize_aux(aux)
@@ -258,11 +263,11 @@ if __name__ == "__main__":
 
     # for reproducibility
     seed = list_args.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    set_seed(seed)
+
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    torch.autograd.set_detect_anomaly(True)
+
     # update paths
     # list_args.__parse_args()
     list_args.__post_init__()
@@ -280,12 +285,10 @@ if __name__ == "__main__":
         device=device,
     ).to(device)
 
-    # list_model.load_state_dict(list_checkpoint["model_state_dict"])
+    list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
 
-    for param in list_model.parameters():
-        param.requires_grad = False
 
     ##########################
     # SPEAKER
@@ -325,6 +328,10 @@ if __name__ == "__main__":
 
     speaker_model = speaker_model.eval()
 
+    if torch.cuda.device_count()>1:
+        speaker_model=nn.DataParallel(speaker_model)
+        list_model=nn.DataParallel(list_model)
+
     ###################################
     ##  Get speaker dataloader
     ###################################
@@ -350,16 +357,16 @@ if __name__ == "__main__":
     ##  TRAIN LOOP
     ###################################
 
-    aux = process_epoch(
-        training_loader, speaker_model, list_model, list_vocab, "train", common_p
-    )
-
-    logger.on_eval_end(
-        aux,
-        list_domain=training_loader.dataset.domain,
-        modality="train",
-        commit=True,
-    )
+    # aux = process_epoch(
+    #     training_loader, speaker_model, list_model, list_vocab, "train", common_p
+    # )
+    #
+    # logger.on_eval_end(
+    #     aux,
+    #     list_domain=training_loader.dataset.domain,
+    #     modality="train",
+    #     commit=True,
+    # )
 
     ###################################
     ##  EVAL LOOP

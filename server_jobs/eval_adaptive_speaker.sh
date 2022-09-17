@@ -2,9 +2,9 @@
 #SBATCH --nodes=1
 #SBATCH --job-name=adapt_speak
 #SBATCH --cpus-per-task=1
-#SBATCH --time=00:20:00
+#SBATCH --time=01:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=2
 
 
 

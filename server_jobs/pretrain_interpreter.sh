@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=05:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=2
 
 
 
@@ -18,10 +18,10 @@ source activate uvapb
 common_args=(--metric accs --reduction sum --subset_size -1  --seed 42
 -shuffle --test_split seen --data_domain all --type_of_int domain )
 # train arguments
-common_args=("${common_args[@]}" --epochs 100 --patience 10 --pretrain_loss ce  --learning_rate 0.0001 -shuffle )
+common_args=("${common_args[@]}" --epochs 50 --patience 10 --pretrain_loss ce  --learning_rate 0.0001 -shuffle )
 
 # model arguments
-common_args=("${common_args[@]}"  --dropout 0.25  --embedding_dim 1024 --hidden_dim 512 )
+common_args=("${common_args[@]}"  --dropout 0.10  --embedding_dim 1024 --hidden_dim 512 )
 # restore the interpreter
 #common_args=("${common_args[@]}" --resume_train true )
 

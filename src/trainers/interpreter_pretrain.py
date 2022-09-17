@@ -12,7 +12,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
-from torch import optim
+from torch import optim, nn
 from torch.utils.data import DataLoader
 
 
@@ -297,6 +297,11 @@ if __name__ == "__main__":
     acc_estimator = AccuracyEstimator(
         domain, common_p.model_type, all_domains=logger.domains
     )
+
+    if torch.cuda.device_count()>1:
+        speaker_model=nn.DataParallel(speaker_model)
+        list_model=nn.DataParallel(list_model)
+        int_model=nn.DataParallel(int_model)
 
     ###################################
     ## RESUME AND EARLYSTOPPING

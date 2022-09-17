@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import rich.progress
 import torch
+from torch import nn
+
 import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          IntLossAdapt, get_dataloaders, get_int_chk,
@@ -211,6 +213,9 @@ def evaluate(
             context_concat,
             target_img_feats,
         )
+
+        #todo: add translator
+        #translator(utts)
 
         origin_hypo = [list_vocab.decode(sent) for sent in utterance]
 
@@ -649,6 +654,11 @@ if __name__ == "__main__":
     acc_estimator = AccuracyEstimator(
         domain, int_p.model_type, all_domains=logger.domains
     )
+
+    if torch.cuda.device_count()>1:
+        speaker_model=nn.DataParallel(speaker_model)
+        list_model=nn.DataParallel(list_model)
+        int_model=nn.DataParallel(int_model)
 
     ###################################
     ##  EVAL LOOP

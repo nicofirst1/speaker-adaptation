@@ -51,7 +51,7 @@ INT_NOHIST_CE_CHK = dict(
 INT_NOHIST_KL_CHK = dict(
     # epoch 20
     all="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_all:v1140",
-    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_food:",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_food",
     appliances="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_appliances:v1218",
     indoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_indoor:v934",
     outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_outdoor:v843",
