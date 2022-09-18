@@ -56,6 +56,19 @@ def normalize_aux(aux):
         aux.pop("origin_acc"), domains, logger.domains
     )
 
+    columns = [
+        "listener domain",
+        "target_domain",
+        "original acc",
+        "adapted acc",
+    ]
+    data = []
+    for k in aux["domain/mod_accs"].keys():
+        data.append([list_model.domain, k, aux["domain/origin_accs"][k], aux["domain/mod_accs"][k]])
+
+    table = wandb.Table(columns=columns, data=data)
+    aux["ood_table"] = table
+
 
 def get_predictions(
     data: Dict,
