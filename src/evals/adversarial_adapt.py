@@ -169,7 +169,7 @@ def get_predictions(
             stepsize_search="geometric_progression",
             max_num_evals=70,
             init_num_evals=100,
-            verbose=True,
+            verbose=False,
             device=device,
         )
 
