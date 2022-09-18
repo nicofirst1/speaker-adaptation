@@ -440,7 +440,7 @@ def evaluate(
         )
     )
 
-    hypo_table = generate_hypo_table(table_data, target_domain, s)
+    #hypo_table = generate_hypo_table(table_data, target_domain, s)
     ood_table = generate_ood_table(df)
 
     ##############################
@@ -468,7 +468,7 @@ def evaluate(
         modified_accs=modified_accs,
         int_accs=int_accs,
         golden_accs=golden_accs,
-        hypo_table=hypo_table,
+        #hypo_table=hypo_table,
         ood_table=ood_table,
         loss=loss,
         mean_s=mean_s,
