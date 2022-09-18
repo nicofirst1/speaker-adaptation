@@ -26,7 +26,7 @@ module load 2021
 module load Anaconda3/2021.05
 source activate uvapb
 
-common_args=( --subset_size -1 --seed 42 --test_split unseen)
+common_args=( --subset_size -1 --seed 42 --test_split seen)
 
 
 #running the actual code

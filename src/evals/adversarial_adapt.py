@@ -381,19 +381,23 @@ if __name__ == "__main__":
     ###################################
     ##  EVAL LOOP
     ###################################
+    #
+    # print(f"\nEvaluation")
+    #
+    # aux = process_epoch(
+    #     val_loader, speaker_model, list_model, list_vocab, "eval", common_p
+    # )
+    #
+    # logger.on_eval_end(
+    #     aux,
+    #     list_domain=val_loader.dataset.domain,
+    #     modality="eval",
+    #     commit=True,
+    # )
 
-    print(f"\nEvaluation")
-
-    aux = process_epoch(
-        val_loader, speaker_model, list_model, list_vocab, "eval", common_p
-    )
-
-    logger.on_eval_end(
-        aux,
-        list_domain=val_loader.dataset.domain,
-        modality="eval",
-        commit=True,
-    )
+    ###################################
+    ##  TEST LOOP
+    ###################################
 
     print(f"\nTEST")
 
