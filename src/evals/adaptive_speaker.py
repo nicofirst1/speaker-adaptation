@@ -643,7 +643,7 @@ if __name__ == "__main__":
     ###################################
 
     loss_f = IntLossAdapt(
-        int_p.pretrain_loss,
+        int_p.adaptive_loss,
         int_p.reduction,
         int_p.model_type,
         alpha=int_p.focal_alpha,

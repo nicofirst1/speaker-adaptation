@@ -396,7 +396,7 @@ class InterpreterArguments(Params):
     def __init__(self):
         super(InterpreterArguments, self).__init__()
         if self.adaptive_loss == "":
-            self.adaptive_loss = self.pretrain_loss
+            self.adaptive_loss = "ce"
         self.check_parameters()
 
         self.__post_init__()
