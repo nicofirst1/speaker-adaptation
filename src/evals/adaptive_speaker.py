@@ -7,6 +7,9 @@ import rich.progress
 import torch
 from torch import nn
 
+import sys
+sys.path.append("/home/ecekt/adp/pb_speaker_adaptation")
+
 import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          IntLossAdapt, get_dataloaders, get_int_chk,
@@ -17,6 +20,8 @@ from src.models import InterpreterModel_no_hist, ListenerModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
 from torch.utils.data import DataLoader
+
+from src.commons.vocab_utils import mask_oov_embeds
 
 
 def generate_ood_table(df: pd.DataFrame):
@@ -529,6 +534,11 @@ if __name__ == "__main__":
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
+
+    # mask OOV words in the vocab
+
+    with torch.no_grad():
+        list_model.embeddings = mask_oov_embeds(list_model.embeddings, list_vocab, domain, replace_token='unk')
 
     ##########################
     # SPEAKER
