@@ -12,7 +12,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          MTLOptim, get_dataloaders, get_domain_accuracy,
                          load_wandb_checkpoint, mask_attn, merge_dict,
                          parse_args, save_model, speak2list_vocab,
-                         translate_utterance)
+                         translate_utterance, set_seed, get_int_chk)
 from src.data.dataloaders import Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -158,7 +158,6 @@ def get_predictions(
     speak_model: torch.nn.Module,
     list_model: torch.nn.Module,
     optimizer: optim.Optimizer,
-    pretrain_loss_f: IntLossPretrain,
     adapt_loss_f: IntLossAdapt,
     acc_estimator: AccuracyEstimator,
     adapt_lr: float,
@@ -214,11 +213,10 @@ def get_predictions(
 
     # perform loop
     i = 0
-    p_infos = []
-    a_infos = []
+    infos = []
     while i < s_iter:
 
-        # set_seed(seed)
+        set_seed(seed)
 
         # get modified hypo
         utts = speak_model.nucleus_sampling(h0, history_att, speak_masks)
@@ -252,21 +250,12 @@ def get_predictions(
         int_out = int_model(h0, context_separate, context_concat, prev_hist, masks)
 
         # compute loss for pretraining
-        p_loss = pretrain_loss_f(int_out, targets, list_out, data["domain"])
-        a_loss = adapt_loss_f(int_out, targets, list_out, data["domain"])
+        loss = adapt_loss_f(int_out, targets, list_out, data["domain"])
 
-        p_loss, a_loss = mlt_optim(p_loss, a_loss)
 
-        if isinstance(int_out, tuple):
-            eq_loss = adapt_loss_f.kl(int_out[0], int_out[1])
-        else:
-            eq_loss = torch.zeros(1).to(device)
-        # list_loss=pretrain_loss_f.ce(list_out, targets)
-        list_loss = torch.zeros(1).to(device)
-        loss = p_loss + a_loss + list_loss + eq_loss
+        # compute loss for adaptation
         loss.backward(retain_graph=True)
 
-        mlt_optim.update_grads(int_model, p_loss, a_loss)
 
         # params = {f"int/{k}":v for k, v in dict(list(int_model.named_parameters())).items()}
         # params.update({f"list/{k}":v for k, v in dict(list(list_model.named_parameters())).items()})
@@ -276,30 +265,22 @@ def get_predictions(
         optimizer.step()
         optimizer.zero_grad()
 
-        loss = p_loss + a_loss  # +list_loss
         losses.append(loss.detach().cpu().item())
 
         # get  accuracy
-        p_info = acc_estimator(
-            int_out, targets, list_out, data["domain"], is_adaptive=False
-        )
-        a_info = acc_estimator(
+
+        info = acc_estimator(
             int_out, targets, list_out, data["domain"], is_adaptive=True
         )
 
-        mlt_optim.update_dtp(p_info, a_info)
         # add loss
-        p_info["loss"] = p_loss.detach().cpu().item()
-        a_info["loss"] = a_loss.detach().cpu().item()
-        a_info["list_loss"] = list_loss.detach().cpu().item()
-        a_info["eq_loss"] = eq_loss.detach().cpu().item()
+        info["loss"] = loss.detach().cpu().item()
         # append to list
-        p_infos.append(p_info)
-        a_infos.append(a_info)
+        infos.append(info)
 
         # break if int gets it right
-        break_trh = batch_size * 0.5
-        if a_info["list_target_accuracy"] > break_trh:
+
+        if info["list_target_accuracy"] :
             break
         i += 1
 
@@ -307,11 +288,8 @@ def get_predictions(
         hypos=hypos,
         loss=losses,
     )
-    p_infos = merge_dict(p_infos)
-    a_infos = merge_dict(a_infos)
-    aux["p_info"] = p_infos
-    aux["a_info"] = a_infos
-    aux.update(mlt_optim.get_infos())
+    infos = merge_dict(infos)
+    aux["info"] = infos
 
     return mean(losses), aux
 
@@ -323,7 +301,6 @@ def process_epoch(
     list_model: torch.nn.Module,
     optimizer: Optional[optim.Optimizer],
     list_vocab: Vocab,
-    pretrain_loss_f: torch.nn.Module,
     adapt_loss_f: torch.nn.Module,
     acc_estimator: torch.nn.Module,
     split: str,
@@ -349,7 +326,6 @@ def process_epoch(
             speaker_model,
             list_model,
             optimizer,
-            pretrain_loss_f,
             adapt_loss_f,
             acc_estimator,
             common_p.adapt_lr,
@@ -361,21 +337,14 @@ def process_epoch(
 
     aux = merge_dict(auxs)
 
-    p_info = aux.pop("p_info")
-    a_info = aux.pop("a_info")
+    infos = aux.pop("info")
+    infos = merge_dict(infos)
+    # aux[f"hypo_table_epoch{epoch}"] = make_hypo_table(aux.pop('hypos'), infos['list_target_accuracy'])
+    normalize_aux(infos, len(data_loader.dataset.data), s_iter=common_p.s_iter)
 
-    p_info = merge_dict(p_info)
-    normalize_aux(p_info, len(data_loader.dataset.data), s_iter=common_p.s_iter)
-
-    a_info = merge_dict(a_info)
-    # aux[f"hypo_table_epoch{epoch}"] = make_hypo_table(aux.pop('hypos'), a_info['list_target_accuracy'])
-    normalize_aux(a_info, len(data_loader.dataset.data), s_iter=common_p.s_iter)
-
-    aux.update({f"adaptive/{k}": v for k, v in a_info.items()})
-    aux.update({f"pretrain/{k}": v for k, v in p_info.items()})
+    aux.update({f"adaptive/{k}": v for k, v in infos.items()})
     aux["loss"] = mean([x[-1] for x in aux.pop("loss")])
-    aux["weights/adaptive"] = mean(aux["weights/adaptive"])
-    aux["weights/pretrain"] = mean(aux["weights/pretrain"])
+
 
     return aux
 
@@ -500,6 +469,12 @@ if __name__ == "__main__":
     # Interpreter
     ##########################
 
+    if common_p.force_resume_url == "":
+        check = get_int_chk(common_p.model_type, common_p.pretrain_loss, domain)
+    else:
+        check = common_p.force_resume_url
+    int_check, _ = load_wandb_checkpoint(check, device)
+
     model = get_model("int", common_p.model_type)
     int_model = model(
         len(list_vocab),
@@ -512,31 +487,20 @@ if __name__ == "__main__":
         common_p.device,
     ).to(device)
 
+    if common_p.type_of_int != "untrained":
+        int_model.load_state_dict(int_check["model_state_dict"])
+
+    int_model = int_model.to(device)
+
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    mlt_optim = MTLOptim(
-        common_p.mtl_type,
-        common_p.mtl_gamma_a,
-        common_p.mtl_gamma_p,
-        common_p.mtl_alpha,
-        common_p.mtl_temp,
-    )
 
     optimizer = optim.Adam(
-        list(int_model.parameters()) + [mlt_optim.weights], lr=common_p.learning_rate
+        list(int_model.parameters()) , lr=common_p.learning_rate
     )
 
-    pretrain_loss_f = IntLossPretrain(
-        common_p.pretrain_loss,
-        common_p.reduction,
-        common_p.model_type,
-        alpha=common_p.focal_alpha,
-        gamma=common_p.focal_gamma,
-        list_domain=domain,
-        all_domains=logger.domains,
-    )
     adapt_loss_f = IntLossAdapt(
         common_p.adaptive_loss,
         common_p.reduction,
@@ -555,12 +519,6 @@ if __name__ == "__main__":
     ## RESUME
     ###################################
 
-    if common_p.force_resume_url != "":
-        check = common_p.force_resume_url
-        int_check, _ = load_wandb_checkpoint(check, device)
-        int_model.load_state_dict(int_check["model_state_dict"])
-        # optimizer.load_state_dict(int_check["optimizer_state_dict"])
-        int_model = int_model.to(device)
 
     metric = common_p.metric
 
@@ -602,7 +560,6 @@ if __name__ == "__main__":
         data = {}
 
         int_model.train()
-        mlt_optim.is_train = True
         int_model.use_batchnorm(False)
 
         ###################################
@@ -619,7 +576,6 @@ if __name__ == "__main__":
                 list_model,
                 optimizer,
                 list_vocab,
-                pretrain_loss_f,
                 adapt_loss_f,
                 acc_estimator,
                 "train",
@@ -642,7 +598,6 @@ if __name__ == "__main__":
         ###################################
 
         int_model.eval()
-        mlt_optim.is_train = False
 
         for param in int_model.parameters():
             param.requires_grad = False
@@ -656,7 +611,6 @@ if __name__ == "__main__":
             list_model,
             optimizer,
             list_vocab,
-            pretrain_loss_f,
             adapt_loss_f,
             acc_estimator,
             "eval",
