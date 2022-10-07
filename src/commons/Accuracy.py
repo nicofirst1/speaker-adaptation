@@ -13,6 +13,7 @@ class AccuracyEstimator(torch.nn.Module):
 
         # create an index dict for domains
         self.domain2idx = {d: idx for idx, d in enumerate(sorted(all_domains))}
+        self.domain2idx["all"] = len(all_domains)
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
 
     def forward(self, preds, targets, list_out, domains, is_adaptive=False):
