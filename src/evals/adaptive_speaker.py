@@ -575,30 +575,31 @@ if __name__ == "__main__":
 
     # load args
     int_p = int_check["args"]
-    int_p.train_domain = domain
-    int_p.device = device
+    common_p.train_domain = domain
+    common_p.device = device
 
     # for debug
-    int_p.subset_size = common_p.subset_size
-    int_p.debug = common_p.debug
-    int_p.s_iter = common_p.s_iter
-    int_p.learning_rate = common_p.learning_rate
-    int_p.type_of_int = common_p.type_of_int
-    int_p.seed = seed
-    int_p.test_split = common_p.test_split
+    # common_p.subset_size = common_p.subset_size
+    # common_p.debug = common_p.debug
+    # common_p.s_iter = common_p.s_iter
+    # common_p.adapt_lr=common_p.adapt_lr
+    # common_p.learning_rate = common_p.learning_rate
+    # common_p.type_of_int = common_p.type_of_int
+    # common_p.seed = seed
+    # common_p.test_split = common_p.test_split
+    #
+    # common_p.reset_paths()
 
-    int_p.reset_paths()
-
-    model = get_model("int", int_p.model_type)
+    model = get_model("int", common_p.model_type)
     int_model = model(
         len(list_vocab),
         speak_p.hidden_dim,
-        int_p.hidden_dim,
+        common_p.hidden_dim,
         img_dim,
-        int_p.attention_dim,
-        int_p.dropout_prob,
-        int_p.train_domain,
-        int_p.device,
+        common_p.attention_dim,
+        common_p.dropout_prob,
+        common_p.train_domain,
+        common_p.device,
     ).to(device)
 
     if common_p.type_of_int != "untrained":
@@ -615,7 +616,7 @@ if __name__ == "__main__":
 
     logger = ListenerLogger(
         vocab=speak_vocab,
-        opts=vars(int_p),
+        opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
         project=f"adaptive-speaker-{common_p.type_of_int}",
