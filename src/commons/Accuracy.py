@@ -82,7 +82,7 @@ class AccuracyEstimator(torch.nn.Module):
             else:
                 # int is predicting the listener output
                 int_list_accuracy = torch.eq(list_preds, int_preds)
-                int_target_accuracy = int_list_accuracy
+                int_target_accuracy = torch.eq(int_preds, targets)
 
         int_list_neg_accuracy = torch.eq(
             list_neg_preds,
