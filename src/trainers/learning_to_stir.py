@@ -52,7 +52,7 @@ def make_hypo_table(hypos, list_target_accuracy) -> wandb.Table:
 
 def normalize_aux(aux, data_length, s_iter):
     mean_s = mean([len(x) for x in aux["int_list_accuracy"]])
-    accs = sum([x[-1] for x in aux["int_list_accuracy"]]) / data_length
+    accs = sum([x[-1] for x in aux["list_target_accuracy"]]) / data_length
     aux["loss"] = mean([x[-1] for x in aux.pop("loss")])
 
     if "list_loss" in aux.keys():
@@ -539,7 +539,7 @@ if __name__ == "__main__":
     data_domain = common_p.data_domain
 
     training_loader, test_loader, val_loader = get_dataloaders(
-        common_p, speak_vocab, data_domain
+        common_p, speak_vocab, "all"
     )
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
     translator = translate_utterance(speak2list_v, device)
