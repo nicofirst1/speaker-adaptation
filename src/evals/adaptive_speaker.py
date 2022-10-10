@@ -568,7 +568,7 @@ if __name__ == "__main__":
     ##########################
 
     if common_p.force_resume_url == "":
-        check = get_int_chk(common_p.model_type, common_p.pretrain_loss, domain)
+        check = get_int_chk(common_p.model_type, common_p.pretrain_loss, common_p.int_domain)
     else:
         check = common_p.force_resume_url
     int_check, _ = load_wandb_checkpoint(check, device)

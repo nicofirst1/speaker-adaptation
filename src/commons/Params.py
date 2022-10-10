@@ -360,6 +360,7 @@ class InterpreterArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
+    int_domain: Optional[str] = "food"
 
     # when != "", ignore the canonical wandb checkpoint and load this
     force_resume_url = ""
