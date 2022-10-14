@@ -7,7 +7,7 @@ from src.data.dataloaders import Vocab
 
 
 def mask_oov_embeds(current_embeds: torch.nn.Embedding, full_vocab: Vocab, domain: str,
-                    replace_token: Literal["none", "zero", "unk"]) -> torch.nn.Embedding:
+                    replace_token: Literal["none", "zero", "unk"], data_path:str) -> torch.nn.Embedding:
 
 
     if replace_token == "none":
@@ -16,7 +16,8 @@ def mask_oov_embeds(current_embeds: torch.nn.Embedding, full_vocab: Vocab, domai
     domain_vocab = []
 
     # get domain specific vocab
-    with open('../../dataset/chains-domain-specific/' + domain + '/train_ids_utterances.pickle', 'rb') as f:
+    file=f"{data_path}/chains-domain-specific/{domain}//train_ids_utterances.pickle"
+    with open(file, 'rb') as f:
         domain_utts = pickle.load(f)
 
     # extract utts

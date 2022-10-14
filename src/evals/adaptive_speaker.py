@@ -11,13 +11,12 @@ import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          IntLossAdapt, get_dataloaders, get_int_chk,
                          load_wandb_checkpoint, mask_attn, parse_args,
-                         set_seed,mask_oov_embeds)
+                         set_seed, mask_oov_embeds)
 from src.data.dataloaders import Vocab
 from src.models import InterpreterModel_no_hist, ListenerModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
 from torch.utils.data import DataLoader
-
 
 
 def generate_ood_table(df: pd.DataFrame):
@@ -113,16 +112,16 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 
 
 def evaluate(
-    data_loader: DataLoader,
-    speak_model: SpeakerModel_hist,
-    int_model: InterpreterModel_no_hist,
-    list_model: ListenerModel_hist,
-    list_vocab: Vocab,
-    criterion: IntLossAdapt,
-    acc_estimator: AccuracyEstimator,
-    split: str,
-    lr: float = 0.1,
-    s: int = 1,
+        data_loader: DataLoader,
+        speak_model: SpeakerModel_hist,
+        int_model: InterpreterModel_no_hist,
+        list_model: ListenerModel_hist,
+        list_vocab: Vocab,
+        criterion: IntLossAdapt,
+        acc_estimator: AccuracyEstimator,
+        split: str,
+        lr: float = 0.1,
+        s: int = 1,
 ) -> pd.DataFrame:
     """
     Perform evaluation of given split
@@ -164,9 +163,9 @@ def evaluate(
 
     target_domain = []
     for ii, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"Evaluating on split {split}",
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"Evaluating on split {split}",
     ):
 
         # filter out indomain data points
@@ -215,8 +214,8 @@ def evaluate(
             target_img_feats,
         )
 
-        #todo: add translator
-        #translator(utts)
+        # todo: add translator
+        # translator(utts)
 
         origin_hypo = [list_vocab.decode(sent) for sent in utterance]
 
@@ -441,7 +440,7 @@ def evaluate(
         )
     )
 
-    #hypo_table = generate_hypo_table(table_data, target_domain, s)
+    # hypo_table = generate_hypo_table(table_data, target_domain, s)
     ood_table = generate_ood_table(df)
 
     ##############################
@@ -458,7 +457,7 @@ def evaluate(
     int_accs = np.mean([x[-1] for x in int_accs])
 
     int_list_accs = [[y for y in x if y != -1] for x in int_list_accs]
-    int_list_accs=[x for x in int_list_accs if len(x)]
+    int_list_accs = [x for x in int_list_accs if len(x)]
     int_list_accs = np.mean([x[-1] for x in int_list_accs])
 
     loss = [[y for y in x if y != -1] for x in losses]
@@ -469,7 +468,7 @@ def evaluate(
         modified_accs=modified_accs,
         int_accs=int_accs,
         golden_accs=golden_accs,
-        #hypo_table=hypo_table,
+        # hypo_table=hypo_table,
         ood_table=ood_table,
         loss=loss,
         mean_s=mean_s,
@@ -534,7 +533,8 @@ if __name__ == "__main__":
     # mask OOV words in the vocab
 
     with torch.no_grad():
-        list_model.embeddings = mask_oov_embeds(list_model.embeddings, list_vocab, domain, replace_token=common_p.mask_oov_embed)
+        list_model.embeddings = mask_oov_embeds(list_model.embeddings, list_vocab, domain,
+                                                replace_token=common_p.mask_oov_embed, data_path=common_p.data_path)
 
     ##########################
     # SPEAKER
@@ -662,14 +662,13 @@ if __name__ == "__main__":
         domain, int_p.model_type, all_domains=logger.domains
     )
 
-
     ###################################
     ##  EVAL LOOP
     ###################################
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     int_model.eval()
