@@ -17,8 +17,8 @@ def parse_args(mode):
         parser = SpeakerArguments()
     elif mode == "list":
         parser = ListenerArguments()
-    elif mode == "sim":
-        parser = SimulatorArguments()
+    elif mode == "int":
+        parser = InterpreterArguments()
 
     return parser
 
@@ -59,10 +59,10 @@ class Params:
     # If true use wandb checkpoints
     resume_train: Optional[bool] = False
 
-    # Which simulator to use with domain specific listener.
+    # Which interpreter to use with domain specific listener.
     # Can be either [domain, general, untrained].
-    # If domain then symmetric setting, else use general simulator for all domains
-    type_of_sim: Optional[str] = "domain"
+    # If domain then symmetric setting, else use general interpreter for all domains
+    type_of_int: Optional[str] = "domain"
 
     # reduction for crossentropy loss
     reduction: Optional[str] = "sum"
@@ -80,7 +80,7 @@ class Params:
     # if true empty train split and load test
     is_test: Optional[bool] = False
     # the train domain data, if empty then it is set to train_domain (same as listener)
-    data_domain : Optional[str]= ""
+    data_domain: Optional[str] = ""
 
     ############################################
     # PATH
@@ -153,7 +153,6 @@ class Params:
         self.__parse_args()
         self.data_path = get_dataset_path()
 
-
     def __post_init__(self):
         """
         Get current datapath, fix file paths
@@ -174,8 +173,8 @@ class Params:
         self.image_size = img_dim
         self.vectors_file = join(self.data_path, self.vectors_file)
 
-        if self.data_domain=="":
-            self.data_domain=self.train_domain
+        if self.data_domain == "":
+            self.data_domain = self.train_domain
 
     def __parse_args(self):
         """
@@ -207,7 +206,10 @@ class Params:
             self.__setattr__(k, v)
 
         if len(unk) > 0:
-            console.print(f"Some arguments are unk.\n{unk}", style="rgb(255,165,0)")
+            console.print(
+                f"Some arguments are unk.\n{unk} for class {type(self).__name__}",
+                style="rgb(255,165,0)",
+            )
 
     def __get_attributes(self):
         """
@@ -247,18 +249,18 @@ class Params:
             "all",
         ]
         assert (
-                self.train_domain in valid_dom
+            self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
-        valid_type_of_sim = ["domain", "general", "untrained"]
+        valid_type_of_int = ["domain", "general", "untrained"]
 
         assert (
-                self.type_of_sim in valid_type_of_sim
-        ), f"Invalid simulator type '{self.type_of_sim}'./n Should be in {valid_type_of_sim}"
+            self.type_of_int in valid_type_of_int
+        ), f"Invalid interpreter type '{self.type_of_int}'./n Should be in {valid_type_of_int}"
 
         valid_test_split = ["all", "seen", "unseen"]
         assert (
-                self.test_split in valid_test_split
+            self.test_split in valid_test_split
         ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
 
     def reset_paths(self):
@@ -313,24 +315,24 @@ class ListenerArguments(Params):
 
         valis_metr = ["accs", "loss"]
         assert (
-                self.metric in valis_metr
+            self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                    self.embed_dim == 768
+                self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
-class SimulatorArguments(Params):
+class InterpreterArguments(Params):
     """
-    Arguments for simulator
+    Arguments for interpreter
     """
 
     #########################
@@ -347,8 +349,10 @@ class SimulatorArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
+    mask_oov_embed: Optional[str] = "none"
 
-    # Simulator model type, can be one of the following:
+
+    # Interpreter model type, can be one of the following:
     # 1. no_hist: predicts list out without using context hist
     # 2. hist: predicts list out using context hist
     # 3. binary: predicts if the list will be correct or not
@@ -358,9 +362,10 @@ class SimulatorArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
+    int_domain: Optional[str] = "food"
 
     # when != "", ignore the canonical wandb checkpoint and load this
-    force_resume_url=""
+    force_resume_url = ""
 
     #########################
     #   Other
@@ -368,9 +373,9 @@ class SimulatorArguments(Params):
 
     metric: Optional[str] = "accs"
     s_iter: Optional[int] = 5
-    adapt_lr : Optional[float] = 0.03
+    adapt_lr: Optional[float] = 0.03
     log_train: Optional[bool] = False
-    # pretrain loss for simulator == listener out,
+    # pretrain loss for interpreter == listener out,
     # can be:
     # 1. cross entropy [ce]
     # 2. Kullback-Leibler Divergence [kl]
@@ -380,70 +385,101 @@ class SimulatorArguments(Params):
     pretrain_loss: Optional[str] = "ce"
     adaptive_loss: Optional[str] = ""
 
+    # multi task learning optimizer type
+    mtl_type: Optional[str] = "DWA"
+    mtl_gamma_a: Optional[float] = 3.0
+    mtl_gamma_p: Optional[float] = 0.1
+    mtl_alpha: Optional[float] = 1.2
+    mtl_temp: Optional[float] = 2.0
+
     # alpha if target = 1 and 1 - alpha if target = 0
     focal_alpha: Optional[float] = 0.4
     focal_gamma: Optional[float] = 2.0
 
     def __init__(self):
-        super(SimulatorArguments, self).__init__()
+        super(InterpreterArguments, self).__init__()
         if self.adaptive_loss == "":
-            self.adaptive_loss = self.pretrain_loss
+            self.adaptive_loss = "ce"
         self.check_parameters()
 
         self.__post_init__()
 
     def __post_init__(self):
-        super(SimulatorArguments, self).__post_init__()
+        super(InterpreterArguments, self).__post_init__()
 
         self.vocab_file = join(self.data_path, self.vocab_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
-        if self.model_type == "binary" and self.pretrain_loss not in ['fbce', "bce"]:
+        if self.model_type == "binary" and self.pretrain_loss not in ["fbce", "bce"]:
             self.pretrain_loss = "bce"
-        if self.adaptive_loss=="":
-            self.adaptive_loss=self.pretrain_loss
+        if self.adaptive_loss == "":
+            self.adaptive_loss = self.pretrain_loss
+
+        if self.adaptive_loss == "none":
+            self.mtl_type = "None"
 
     def check_parameters(self):
-        super(SimulatorArguments, self).check_parameters()
+        super(InterpreterArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-                self.metric in valis_metr
+            self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
-        valis_type = ["hist", "no_hist", "binary","domain","multi"]
+        valis_type = ["hist", "no_hist", "binary", "domain", "multi"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
-        valid_pretrain_loss = ['ce', 'kl', "bce", 'fbce']
+        valid_pretrain_loss = ["ce", "kl", "bce", "fbce"]
 
         assert (
-                self.pretrain_loss in valid_pretrain_loss
+            self.pretrain_loss in valid_pretrain_loss
         ), f"Invalid pretrain loss '{self.pretrain_loss}' not in '{valid_pretrain_loss}'"
 
-        valid_adaptive_loss = ['ce', "bce", 'fbce']
+        valid_adaptive_loss = ["ce", "bce", "fbce", "none"]
 
         assert (
-                self.adaptive_loss in valid_adaptive_loss
+            self.adaptive_loss in valid_adaptive_loss
         ), f"Invalid adaptive loss '{self.adaptive_loss}' not in '{valid_adaptive_loss}'"
+
+        valid_mlt_type = ["DWA", "DTP", "GradNorm", "None"]
+
+        assert (
+            self.mtl_type in valid_mlt_type
+        ), f"Invalid adaptive loss '{self.mtl_type}' not in '{valid_mlt_type}'"
+
+        valid_mask_oov_embed= ["none", "unk", "zero"]
+        assert (
+            self.mask_oov_embed in valid_mask_oov_embed
+        ), f"Invalid mask_oov_embed '{self.mask_oov_embed}' not in '{valid_mask_oov_embed}'"
+
 
         # cross-check model type and losses
         if "hist" in self.model_type:
-            assert self.pretrain_loss in ['ce','kl']
-            assert self.adaptive_loss in ['ce']
+            assert self.pretrain_loss in ["ce", "kl"]
+            assert self.adaptive_loss in ["ce", "none"]
         elif "binary" in self.model_type:
-            assert self.pretrain_loss in ['bce', 'fbce']
-            assert self.adaptive_loss in ['bce', 'fbce']
+            assert self.pretrain_loss in ["bce", "fbce"]
+            assert self.adaptive_loss in ["bce", "fbce", "none"]
         elif "domain" in self.model_type:
-            assert self.pretrain_loss in ['ce']
-            assert self.adaptive_loss in ['ce']
+            assert self.pretrain_loss in ["ce"]
+            assert self.adaptive_loss in ["ce", "none"]
 
         if self.embed_type == "sratch":
             assert (
-                    self.embed_dim == 768
+                self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
+
+
+class SimulatorArguments(InterpreterArguments):
+    """
+    Legacy class for simulator arguments
+    """
+
+    def __init__(self):
+        super(SimulatorArguments, self).__init__()
 
 
 class SpeakerArguments(Params):
@@ -493,8 +529,8 @@ class SpeakerArguments(Params):
 
     def check_parameters(self):
         super(SpeakerArguments, self).check_parameters()
-        valis_type = ["hist", "no_hist", "binary", 'domain','multi']
+        valis_type = ["hist", "no_hist", "binary", "domain", "multi"]
 
         assert (
-                self.model_type in valis_type
+            self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"

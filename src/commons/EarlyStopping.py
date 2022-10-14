@@ -7,7 +7,8 @@ class EarlyStopping:
     """
     Class used to early stop training
     """
-    def __init__(self, max_patient: int, problem_formulation: Literal['max','min']):
+
+    def __init__(self, max_patient: int, problem_formulation: Literal["max", "min"]):
         """
 
         Parameters
@@ -16,19 +17,16 @@ class EarlyStopping:
         problem_formulation : either maximization of metric or minimization
         """
 
-        if problem_formulation=='max':
-            self.comparison=operator.le
+        if problem_formulation == "max":
+            self.comparison = operator.le
             self.best_metric = sys.float_info.min
 
         else:
             self.comparison = operator.ge
             self.best_metric = sys.float_info.max
 
-
         self.max_patient = max_patient
         self.patient_couter = 0
-
-
 
     def should_stop(self, metric_val) -> bool:
 

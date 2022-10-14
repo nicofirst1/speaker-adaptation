@@ -3,13 +3,12 @@ from typing import Any, Dict, List
 
 import PIL.Image
 import torch
-from PIL import ImageOps
-from torch import nn
-
 import wandb
+from PIL import ImageOps
 from src.data.dataloaders import imgid2path
 from src.data.dataloaders.AbstractDataset import load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
+from torch import nn
 
 
 class SpeakerLogger(WandbLogger):
@@ -64,7 +63,7 @@ class SpeakerLogger(WandbLogger):
         :return:
         """
 
-        if len(data_point)==0:
+        if len(data_point) == 0:
             print("empty datapoint")
             return
 
@@ -180,12 +179,12 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(metrics, commit=True)
 
     def on_eval_end(
-        self,
-        metrics: Dict[str, Any],
-        model_params: Dict[str, Any],
-        model_out: Dict[str, Any],
-        data_point: Dict[str, Any],
-            split:str,
+            self,
+            metrics: Dict[str, Any],
+            model_params: Dict[str, Any],
+            model_out: Dict[str, Any],
+            data_point: Dict[str, Any],
+            split: str,
     ):
 
         # get and log domain accuracy table
@@ -195,12 +194,12 @@ class SpeakerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=False)
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        modality: str,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            modality: str,
     ):
 
         logging_step = (

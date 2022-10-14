@@ -86,7 +86,7 @@ class DataLogger(WandbLogger):
             data.append((img, img_domain, img_emb))
 
         print(
-            f"Skipped {skipped} image out of {len(dataset)} ({skipped/len(dataset)*100:.3f}%)"
+            f"Skipped {skipped} image out of {len(dataset)} ({skipped / len(dataset) * 100:.3f}%)"
         )
         # create table
         columns = ["image", "domain", "viz_embed"]

@@ -1,25 +1,11 @@
-import datetime
-import operator
-from typing import Dict, Tuple
-
 import numpy as np
-import rich.progress
 import torch
-from rich.pretty import pprint
-from torch import nn, optim
-from torch.utils.data import DataLoader
-
-import wandb
-from src.commons import (DATASET_CHK, LISTENER_CHK_DICT,
-                         SIM_NOHIST_CE_CHK, SPEAKER_CHK, EarlyStopping,
-                         get_dataloaders, load_wandb_checkpoint,
-                         load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
+                         load_wandb_checkpoint, load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
-from src.trainers.simulator_pretrain import (evaluate, get_predictions,
-                                             normalize_aux)
 from src.wandb_logging import ListenerLogger
+
 
 def compute_domain(common_p):
     """
@@ -37,7 +23,7 @@ def compute_domain(common_p):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
 
-    domain=common_p.train_domain
+    domain = common_p.train_domain
 
     ##########################
     # LISTENER
@@ -125,14 +111,9 @@ def compute_domain(common_p):
 
     speaker_model = speaker_model.eval()
 
-
     ###################################
     ##  LOGGER
     ###################################
-
-
-
-
 
     ###################################
     ##  Get speaker dataloader
@@ -146,7 +127,6 @@ def compute_domain(common_p):
     training_loader, test_loader, val_loader = get_dataloaders(
         common_p, speak_vocab, domain
     )
-
 
     # train
     load_params = {
@@ -193,15 +173,13 @@ def compute_domain(common_p):
         test_loader,
         logger,
         subset_size=common_p.subset_size,
-        test_split=common_p.test_split
+        test_split=common_p.test_split,
     )
 
 
+if __name__ == "__main__":
 
-if __name__ == '__main__':
-
-
-    splits = ['all', 'seen', 'unseen']
+    splits = ["all", "seen", "unseen"]
     common_p = parse_args("list")
 
     logger = ListenerLogger(
@@ -209,7 +187,7 @@ if __name__ == '__main__':
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
-        project="simulator-data",
+        project="interpreter-data",
     )
 
     for s in splits:

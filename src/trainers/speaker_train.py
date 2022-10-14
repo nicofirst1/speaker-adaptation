@@ -1,5 +1,4 @@
 import copy
-import operator
 import os
 import sys
 from os.path import abspath, dirname
@@ -9,15 +8,13 @@ import rich.progress
 import torch.utils.data
 from bert_score import score
 from nlgeval import NLGEval
-from torch import nn, optim
-
-from src.commons import (SIM_ALL_CE_CHK, SPEAKER_CHK, EarlyStopping,
-                         get_dataloaders, load_wandb_checkpoint, mask_attn,
-                         parse_args, save_model)
+from src.commons import (SPEAKER_CHK, EarlyStopping, get_dataloaders,
+                         load_wandb_checkpoint, mask_attn, parse_args,
+                         save_model)
 from src.data.dataloaders import Vocab
-from src.models import SpeakerModel_hist, get_model
-from src.models.speaker.model_speaker_no_hist import SpeakerModel_no_hist
+from src.models import get_model
 from src.wandb_logging import SpeakerLogger
+from torch import nn, optim
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -243,7 +240,7 @@ if __name__ == "__main__":
 
     if metric == "cider":
 
-        es = EarlyStopping(speak_p.patience,"max")
+        es = EarlyStopping(speak_p.patience, "max")
     elif metric == "bert":
         es = EarlyStopping(speak_p.patience, "max")
     else:

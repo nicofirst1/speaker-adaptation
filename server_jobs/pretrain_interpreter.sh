@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=lrn2stir
+#SBATCH --job-name=int_pre
 #SBATCH --cpus-per-task=1
-#SBATCH --time=15:00:00
+#SBATCH --time=05:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=2
 
 
 
@@ -14,28 +14,18 @@ module load 2021
 module load Anaconda3/2021.05
 source activate uvapb
 
-# adaptive args
-common_args=( --model_type no_hist  --s_iter 5
---pretrain_loss kl --adaptive_loss ce   )
-
 # static arguments
-common_args=("${common_args[@]}" --metric accs --reduction sum --subset_size -1  --seed 42
+common_args=(--metric accs --reduction sum --subset_size -1  --seed 42
 -shuffle --test_split seen --data_domain all --type_of_int domain )
-
-
 # train arguments
-common_args=("${common_args[@]}" --epochs 200 --patience 50 )
-
-# optimizer arguments
-# mlt_type [ GradNorm ,DWA , DTP, None]
-common_args=("${common_args[@]}" --learning_rate 0.001  --adapt_lr 0.3  --mtl_type GradNorm
---mtl_gamma_a 1.2 --mtl_gamma_p 0.1 --mtl_alpha 3.1 --mtl_temp 2.0 --focal_alpha 0.4 --focal_gamma 2.0)
-
+common_args=("${common_args[@]}" --epochs 50 --patience 10 --pretrain_loss ce --adaptive_loss ce --learning_rate 0.0001 -shuffle )
 
 # model arguments
-common_args=("${common_args[@]}"  --dropout 0.25  --embedding_dim 1024 --hidden_dim 512 )
+common_args=("${common_args[@]}"  --dropout 0.10  --embedding_dim 1024 --hidden_dim 512 )
+# restore the interpreter
+#common_args=("${common_args[@]}" --resume_train true )
 
-trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/learning_to_stir.py"
+trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/interpreter_pretrain.py"
 
 #running the actual code
 echo "Starting the process..."

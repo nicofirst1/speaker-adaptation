@@ -13,7 +13,6 @@ vocab_csv_path = "../../../data/speaker/vocab.csv"
 
 
 def process_data(data, split):
-
     # for the creation of the vocab from everything
     split_full_vocab = []
 
@@ -69,7 +68,6 @@ def process_data(data, split):
                 visual_context_ids = []
 
                 for v in visual_context:
-
                     v_id = str(int(v.split("/")[1].split(".")[0].split("_")[2]))
 
                     visual_context_ids.append(v_id)
@@ -131,7 +129,6 @@ test = dict()
 val = dict()
 
 for domain in domains:
-
     print(domain)
 
     domain_path = "../../../data/chains-domain-specific/{}/".format(domain)
@@ -174,10 +171,8 @@ for word, freq in vocab_ordered:
     full_word_list.append((word, freq))
 
 with open(vocab_csv_path, "w") as f:
-
     writer = csv.writer(f, delimiter=",", quotechar="|")
     writer.writerows(full_word_list)
-
 
 # Convert from text to IDs
 
@@ -194,9 +189,7 @@ vocab = Vocab("../../../data/speaker/vocab.csv")
 
 
 def convert2indices(dataset, vocab, split):
-
     for tup in dataset:
-
         utt = dataset[tup]
 
         text = utt["utterance"]

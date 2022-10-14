@@ -6,7 +6,6 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from PIL import Image, ImageDraw, ImageFont
 from torch.utils.data import Dataset
 
 
@@ -261,6 +260,7 @@ class AbstractDataset(Dataset):
         -------
 
         """
+
         def collate_fn(data):
 
             max_utt_length = max(d["length"] for d in data)

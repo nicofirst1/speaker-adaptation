@@ -3,9 +3,8 @@ from typing import Any, Dict, Optional
 
 import PIL.Image
 import torch
-from PIL import ImageOps
-
 import wandb
+from PIL import ImageOps
 from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
@@ -64,7 +63,7 @@ class ListenerLogger(WandbLogger):
         :return:
         """
 
-        if len(data_point)==0:
+        if len(data_point) == 0:
             print("Empty data point")
             return
 
@@ -172,11 +171,11 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(metrics, commit=True)
 
     def on_eval_end(
-        self,
-        metrics: Dict[str, Any],
-        list_domain: int,
-        modality: str,
-        commit: Optional[bool] = False,
+            self,
+            metrics: Dict[str, Any],
+            list_domain: int,
+            modality: str,
+            commit: Optional[bool] = False,
     ):
 
         # get and log domain accuracy table
@@ -201,13 +200,13 @@ class ListenerLogger(WandbLogger):
         self.log_to_wandb(logs, commit=commit)
 
     def on_batch_end(
-        self,
-        loss: torch.Tensor,
-        data_point: Dict[str, Any],
-        aux: Dict[str, Any],
-        batch_id: int,
-        modality: str,
-        commit: Optional[bool] = False,
+            self,
+            loss: torch.Tensor,
+            data_point: Dict[str, Any],
+            aux: Dict[str, Any],
+            batch_id: int,
+            modality: str,
+            commit: Optional[bool] = False,
     ):
 
         logging_step = (
@@ -232,9 +231,9 @@ class ListenerLogger(WandbLogger):
                     logs[k] = v.item()
 
             # transform list into histograms
-            if isinstance(v, list) and len(v)>0:
-                num_bins = max(v) if max(v)>0 else 1
-                logs[k] = wandb.Histogram(v,num_bins=num_bins)
+            if isinstance(v, list) and len(v) > 0:
+                num_bins = max(v) if max(v) > 0 else 1
+                logs[k] = wandb.Histogram(v, num_bins=num_bins)
 
         # apply correct flag
         logs = {f"{modality}/{k}": v for k, v in logs.items()}

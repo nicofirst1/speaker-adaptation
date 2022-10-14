@@ -6,7 +6,6 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 import torchviz
-
 import wandb
 from src.commons.Params import Params
 from src.data.dataloaders import Vocab
@@ -48,8 +47,7 @@ def mask_attn(
     return masks
 
 
-def hypo2utterance(hypo:str, vocab):
-
+def hypo2utterance(hypo: str, vocab):
     """
     Transform a hypothesis string into a tensor of utterances ids given the vocabulary
     Parameters
@@ -68,14 +66,15 @@ def hypo2utterance(hypo:str, vocab):
 
     return utterance
 
-def speak2list_vocab(speak_v:Vocab,list_v:Vocab)->Dict:
 
-    res={}
-    for k,v in speak_v.word2index.items():
+def speak2list_vocab(speak_v: Vocab, list_v: Vocab) -> Dict:
+    res = {}
+    for k, v in speak_v.word2index.items():
         if k in list_v.word2index.keys():
             res[v] = list_v[k]
 
     return res
+
 
 def get_domain_accuracy(
     accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
@@ -145,7 +144,7 @@ def save_model(
         "args": args,  # more detailed info, metric, model_type etc
         "epoch": str(epoch),
         "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
+        # "optimizer_state_dict": optimizer.state_dict(),
     }
     save_dict.update(kwargs)
     torch.save(save_dict, file_name, pickle_protocol=5)
@@ -167,8 +166,16 @@ def load_wandb_file(url: str, datadir="") -> str:
 
     """
     if datadir == "":
+        new_url = url
         api = wandb.Api()
-        artifact = api.artifact(url)
+        try:
+            artifact = api.artifact(url)
+        except wandb.errors.CommError:
+            # try legacy names
+            new_url = url.replace("interpreter", "simulator").replace(
+                "Interpreter", "Simulator"
+            )
+            artifact = api.artifact(new_url)
 
         datadir = artifact.download()
 
@@ -177,6 +184,33 @@ def load_wandb_file(url: str, datadir="") -> str:
     if len(files) > 1:
         raise FileExistsError(f"More than one checkpoint found in {datadir}!")
     files = join(datadir, files[0])
+
+    if new_url != url:
+        project = artifact.project.replace("simulator", "interpreter").replace(
+            "Simulator", "Interpreter"
+        )
+        name = (
+            artifact.name.replace("simulator", "interpreter")
+            .replace("Simulator", "Interpreter")
+            .split(":")[0]
+        )
+        new_art = wandb.Artifact(
+            name,
+            type=artifact.type,
+            description=artifact.description,
+            metadata=artifact.metadata,
+        )
+        new_art.add_file(files)
+
+        if wandb.run is None:
+            wandb.init(
+                project=project,
+                entity="adaptive-speaker",
+                settings=wandb.Settings(start_method="fork"),
+            )
+
+        wandb.log_artifact(new_art)
+
     return files
 
 
@@ -200,7 +234,7 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
     return checkpoint, file
 
 
-def merge_dict(dicts:List[Dict])->Dict:
+def merge_dict(dicts: List[Dict]) -> Dict:
     """
     Merge a list of dict with same keys into a dict of lists
     Parameters
@@ -220,10 +254,17 @@ def merge_dict(dicts:List[Dict])->Dict:
 
 
 def draw_grad_graph(params, input, output, file_name="grad_graph.png"):
-    grad_x, = torch.autograd.grad(output, input, create_graph=True)
-    params.update(
-        {"grad_x": grad_x, "in": input, "out": output}
-    )
-    file   =torchviz.make_dot((grad_x, input, output), params=params)
+    (grad_x,) = torch.autograd.grad(output, input, create_graph=True)
+    params.update({"grad_x": grad_x, "in": input, "out": output})
+    file = torchviz.make_dot((grad_x, input, output), params=params)
     file.render(file_name)
     return file
+
+
+def translate_utterance(speak2list_v, device):
+    def translate(utterance):
+        for idx in range(len(utterance)):
+            new_utt = [speak2list_v[x.item()] for x in utterance[idx]]
+            utterance[idx] = torch.as_tensor(new_utt).to(device)
+
+    return translate

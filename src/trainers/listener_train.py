@@ -6,15 +6,14 @@ import torch
 import torch.utils.data
 import wandb
 from rich.progress import track
-from torch import nn, optim
-from torch.utils.data import DataLoader
-
 from src.commons import (LISTENER_CHK_DICT, EarlyStopping, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint, mask_attn,
                          parse_args, save_model)
 from src.data.dataloaders import Vocab
 from src.models import get_model
 from src.wandb_logging import DataLogger, ListenerLogger
+from torch import nn, optim
+from torch.utils.data import DataLoader
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -24,7 +23,7 @@ global logger
 
 
 def evaluate(
-        data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split: str
+    data_loader: DataLoader, model: torch.nn.Module, in_domain: bool, split: str
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -132,7 +131,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -269,7 +268,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
@@ -297,9 +296,9 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description=f"Training epoch {epoch}",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description=f"Training epoch {epoch}",
         ):
             # collect info from datapoint
             utterances = data["utterance"]
