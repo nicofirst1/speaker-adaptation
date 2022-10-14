@@ -349,6 +349,8 @@ class InterpreterArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
+    mask_oov_embed: Optional[str] = "none"
+
 
     # Interpreter model type, can be one of the following:
     # 1. no_hist: predicts list out without using context hist
@@ -447,6 +449,12 @@ class InterpreterArguments(Params):
         assert (
             self.mtl_type in valid_mlt_type
         ), f"Invalid adaptive loss '{self.mtl_type}' not in '{valid_mlt_type}'"
+
+        valid_mask_oov_embed= ["none", "unk", "zero"]
+        assert (
+            self.mask_oov_embed in valid_mask_oov_embed
+        ), f"Invalid mask_oov_embed '{self.mask_oov_embed}' not in '{valid_mask_oov_embed}'"
+
 
         # cross-check model type and losses
         if "hist" in self.model_type:

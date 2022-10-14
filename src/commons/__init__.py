@@ -8,6 +8,7 @@ from .model_utils import (draw_grad_graph, get_domain_accuracy, hypo2utterance,
                           load_wandb_checkpoint, mask_attn, merge_dict,
                           save_model, set_seed, speak2list_vocab,
                           translate_utterance)
+from .vocab_utils import mask_oov_embeds
 from .Params import parse_args
 from .wandb_checkpoints import *
 
@@ -46,4 +47,6 @@ __all__ = [
     "AccuracyEstimator",
     # adversarial
     "hsja",
+    # vocab
+    "mask_oov_embeds",
 ]
