@@ -267,9 +267,6 @@ def evaluate(
 
             # compute loss and perform backprop
             loss = criterion(int_out, targets, list_out, data["domain"])
-            aux = acc_estimator(
-                int_out, targets, list_out, data["domain"], is_adaptive=True
-            )
             loss.backward()
             optimizer.step()
 
@@ -294,31 +291,20 @@ def evaluate(
             s_adapted_list_outs[i] = list_out.squeeze(dim=0).tolist()
 
             # get  accuracy
-            list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
-            list_target_accuracy = (
-                torch.eq(list_preds, targets.squeeze()).double().item()
-            )
-            s_accs[i] = list_target_accuracy
-
-            int_out = int_model(h0, context_separate, context_concat, prev_hist, masks)
-            s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
-
-            # compute loss and perform backprop
-            loss = criterion(int_out, targets, list_out, data["domain"])
-            loss.backward()
-            optimizer.step()
             aux = acc_estimator(
                 int_out, targets, list_out, data["domain"], is_adaptive=True
             )
 
             int_accuracy[i] = aux["int_target_accuracy"]
             int_list_acc[i] = aux["int_list_accuracy"]
+            s_accs[i] =  aux["list_target_accuracy"]
+
             s_loss[i] = loss.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # break if listener gets it right
-            if aux["int_target_accuracy"]:
+            if aux["list_target_accuracy"]:
                 break
             i += 1
 
@@ -629,7 +615,7 @@ if __name__ == "__main__":
         tags=common_p.tags,
     )
 
-    metric = int_p.metric
+    metric = common_p.metric
     sweep_config = wandb.config
 
     logger.watch_model([int_model], log_freq=10)
@@ -637,12 +623,13 @@ if __name__ == "__main__":
     ###################################
     ##  Get speaker dataloader
     ###################################
-    bs = int_p.batch_size
+    bs = common_p.batch_size
     # need batchsize =1 for generating hypothesis
     int_p.batch_size = 1
-    train_dl_dom, test_dl_dom, val_dl_dom = get_dataloaders(int_p, speak_vocab, domain)
+    common_p.batch_size = 1
+    train_dl_dom, test_dl_dom, val_dl_dom = get_dataloaders(common_p, speak_vocab, domain)
     train_dl_all, test_dl_all, val_dl_all = get_dataloaders(
-        int_p, speak_vocab, domain="all"
+        common_p, speak_vocab, domain="all"
     )
 
     ###################################
