@@ -35,7 +35,7 @@ def mask_oov_embeds(current_embeds: torch.nn.Embedding, full_vocab: Vocab, domai
     unk_i = full_vocab.word2index['<unk>']
 
     # get replacement based on replace_token
-    replacement=current_embeds.weight[unk_i] if replace_token == "unk" else torch.zeros_like(current_embeds.weight.shape[0])
+    replacement=current_embeds.weight[unk_i] if replace_token == "unk" else torch.zeros(current_embeds.weight.shape[1])
 
     # mask or zero out oovs
     for w in domain_oov_set:
