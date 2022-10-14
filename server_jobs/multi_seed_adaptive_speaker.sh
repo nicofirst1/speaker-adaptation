@@ -25,7 +25,7 @@ domain
 --test_split
 seen
 --pretrain_loss
-ce
+kl
 --adaptive_loss
 ce
 --model_type

@@ -361,7 +361,7 @@ class InterpreterArguments(Params):
     model_type: Optional[str] = "no_hist"
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
-    dropout_prob: Optional[float] = 0.0
+    dropout_prob: Optional[float] = 0.1
     int_domain: Optional[str] = "food"
 
     # when != "", ignore the canonical wandb checkpoint and load this
