@@ -19,7 +19,7 @@ from src.wandb_logging import ListenerLogger
 from torch.utils.data import DataLoader
 
 
-def generate_ood_table(df: pd.DataFrame):
+def generate_ood_table(df: pd.DataFrame,s_iter: int) -> wandb.Table:
     rows = []
     columns = [
         "listener domain",
@@ -39,8 +39,10 @@ def generate_ood_table(df: pd.DataFrame):
         original_acc = ood_df["original_acc"].mean()
 
         # adapted accs are a matrix so remove -1, sum and get mean
-        adapt_acc_idx = df.columns.get_loc("adapted_acc_s0")
-        adapt_acc = ood_df.iloc[:, adapt_acc_idx:]
+        adapt_acc_idx_0 = df.columns.get_loc("adapted_acc_s0")
+        adapt_acc_idx_1 = adapt_acc_idx_0+s_iter
+
+        adapt_acc = ood_df.iloc[:, adapt_acc_idx_0:adapt_acc_idx_1]
         adapt_acc = adapt_acc[adapt_acc != -1]
         adapt_acc = adapt_acc.dropna(axis=1, how="all")
         adapt_mean = 0
@@ -443,7 +445,7 @@ def evaluate(
     )
 
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table = generate_ood_table(df)
+    ood_table = generate_ood_table(df, s)
 
     ##############################
     # METRICS
@@ -451,9 +453,9 @@ def evaluate(
 
     original_accs = np.mean(original_accs)
     golden_accs = np.mean(golden_accs)
-    modified_accs = [[y for y in x if y != -1] for x in adapted_accs]
-    mean_s = np.mean([len(x) for x in modified_accs])
-    modified_accs = np.mean([x[-1] for x in modified_accs])
+    adapted_accs = [[y for y in x if y != -1] for x in adapted_accs]
+    mean_s = np.mean([len(x) for x in adapted_accs])
+    adapted_accs = np.mean([x[-1] for x in adapted_accs])
 
     int_accs = [[y for y in x if y != -1] for x in int_accs]
     int_accs = np.mean([x[-1] for x in int_accs])
@@ -467,7 +469,7 @@ def evaluate(
 
     metrics = dict(
         original_accs=original_accs,
-        modified_accs=modified_accs,
+        adapted_accs=adapted_accs,
         int_accs=int_accs,
         golden_accs=golden_accs,
         # hypo_table=hypo_table,
