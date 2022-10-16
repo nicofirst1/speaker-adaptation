@@ -608,7 +608,7 @@ if __name__ == "__main__":
         img_dim,
         common_p.attention_dim,
         common_p.dropout_prob,
-        common_p.train_domain,
+        common_p.int_domain,
         common_p.device,
     ).to(device)
 
