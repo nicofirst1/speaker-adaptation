@@ -249,18 +249,18 @@ class Params:
             "all",
         ]
         assert (
-            self.train_domain in valid_dom
+                self.train_domain in valid_dom
         ), f"Invalid train domain '{self.train_domain}'./n Should be in {valid_dom}"
 
         valid_type_of_int = ["domain", "general", "untrained"]
 
         assert (
-            self.type_of_int in valid_type_of_int
+                self.type_of_int in valid_type_of_int
         ), f"Invalid interpreter type '{self.type_of_int}'./n Should be in {valid_type_of_int}"
 
         valid_test_split = ["all", "seen", "unseen"]
         assert (
-            self.test_split in valid_test_split
+                self.test_split in valid_test_split
         ), f"Invalid model test split '{self.test_split}' not in '{valid_test_split}'"
 
     def reset_paths(self):
@@ -315,18 +315,18 @@ class ListenerArguments(Params):
 
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -351,7 +351,6 @@ class InterpreterArguments(Params):
     embed_dim: Optional[int] = 768
     mask_oov_embed: Optional[str] = "none"
 
-
     # Interpreter model type, can be one of the following:
     # 1. no_hist: predicts list out without using context hist
     # 2. hist: predicts list out using context hist
@@ -362,7 +361,7 @@ class InterpreterArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.1
-    int_domain: Optional[str] = "food"
+    int_domain: Optional[str] = ""
 
     # when != "", ignore the canonical wandb checkpoint and load this
     force_resume_url = ""
@@ -400,6 +399,10 @@ class InterpreterArguments(Params):
         super(InterpreterArguments, self).__init__()
         if self.adaptive_loss == "":
             self.adaptive_loss = "ce"
+
+        if self.int_domain == "":
+            self.int_domain = self.train_domain
+
         self.check_parameters()
 
         self.__post_init__()
@@ -423,38 +426,37 @@ class InterpreterArguments(Params):
         super(InterpreterArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
-            self.metric in valis_metr
+                self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
         valis_type = ["hist", "no_hist", "binary", "domain", "multi"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
 
         valid_pretrain_loss = ["ce", "kl", "bce", "fbce"]
 
         assert (
-            self.pretrain_loss in valid_pretrain_loss
+                self.pretrain_loss in valid_pretrain_loss
         ), f"Invalid pretrain loss '{self.pretrain_loss}' not in '{valid_pretrain_loss}'"
 
         valid_adaptive_loss = ["ce", "bce", "fbce", "none"]
 
         assert (
-            self.adaptive_loss in valid_adaptive_loss
+                self.adaptive_loss in valid_adaptive_loss
         ), f"Invalid adaptive loss '{self.adaptive_loss}' not in '{valid_adaptive_loss}'"
 
         valid_mlt_type = ["DWA", "DTP", "GradNorm", "None"]
 
         assert (
-            self.mtl_type in valid_mlt_type
+                self.mtl_type in valid_mlt_type
         ), f"Invalid adaptive loss '{self.mtl_type}' not in '{valid_mlt_type}'"
 
-        valid_mask_oov_embed= ["none", "unk", "zero"]
+        valid_mask_oov_embed = ["none", "unk", "zero"]
         assert (
-            self.mask_oov_embed in valid_mask_oov_embed
+                self.mask_oov_embed in valid_mask_oov_embed
         ), f"Invalid mask_oov_embed '{self.mask_oov_embed}' not in '{valid_mask_oov_embed}'"
-
 
         # cross-check model type and losses
         if "hist" in self.model_type:
@@ -469,7 +471,7 @@ class InterpreterArguments(Params):
 
         if self.embed_type == "sratch":
             assert (
-                self.embed_dim == 768
+                    self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
@@ -532,5 +534,5 @@ class SpeakerArguments(Params):
         valis_type = ["hist", "no_hist", "binary", "domain", "multi"]
 
         assert (
-            self.model_type in valis_type
+                self.model_type in valis_type
         ), f"Invalid model type '{self.model_type}' not in '{valis_type}'"
