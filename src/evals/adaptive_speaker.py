@@ -11,7 +11,7 @@ import wandb
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          IntLossAdapt, get_dataloaders, get_int_chk,
                          load_wandb_checkpoint, mask_attn, parse_args,
-                         set_seed, mask_oov_embeds)
+                         set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance)
 from src.data.dataloaders import Vocab
 from src.models import InterpreterModel_no_hist, ListenerModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
@@ -216,8 +216,7 @@ def evaluate(
             target_img_feats,
         )
 
-        # todo: add translator
-        # translator(utts)
+        translator(utterance)
 
         origin_hypo = [list_vocab.decode(sent) for sent in utterance]
 
@@ -322,7 +321,7 @@ def evaluate(
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # break if listener gets it right
-            if aux["list_target_accuracy"]:
+            if aux["int_target_accuracy"]:
                 break
             i += 1
 
@@ -649,6 +648,9 @@ if __name__ == "__main__":
     train_dl_all, test_dl_all, val_dl_all = get_dataloaders(
         common_p, speak_vocab, domain="all"
     )
+
+    speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
+    translator = translate_utterance(speak2list_v, device)
 
     ###################################
     ##  LOSS
