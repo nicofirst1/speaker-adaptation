@@ -302,16 +302,16 @@ def evaluate(
             )
             s_accs[i] = list_target_accuracy
 
-            int_out = int_model(h0, context_separate, context_concat, prev_hist, masks)
-            s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
-
-            # compute loss and perform backprop
-            loss = criterion(int_out, targets, list_out, data["domain"])
-            loss.backward()
-            optimizer.step()
-            aux = acc_estimator(
-                int_out, targets, list_out, data["domain"], is_adaptive=True
-            )
+            # int_out = int_model(h0, context_separate, context_concat, prev_hist, masks)
+            # s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
+            #
+            # # compute loss and perform backprop
+            # loss = criterion(int_out, targets, list_out, data["domain"])
+            # loss.backward()
+            # optimizer.step()
+            # aux = acc_estimator(
+            #     int_out, targets, list_out, data["domain"], is_adaptive=True
+            # )
 
             int_accuracy[i] = aux["int_target_accuracy"]
             int_list_acc[i] = aux["int_list_accuracy"]
