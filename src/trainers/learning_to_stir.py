@@ -344,6 +344,7 @@ def process_epoch(
 
     aux.update({f"adaptive/{k}": v for k, v in infos.items()})
     aux["loss"] = mean([x[-1] for x in aux.pop("loss")])
+    logger.on_eval_end(aux, list_domain=list_model.domain, modality=split)
 
 
     return aux
@@ -562,7 +563,7 @@ if __name__ == "__main__":
         param.requires_grad = True
 
     with torch.set_grad_enabled(True):
-        df = process_epoch(
+        aux = process_epoch(
             data_loader=test_dl_all,
             int_model=int_model,
             speaker_model=speaker_model,
@@ -576,17 +577,7 @@ if __name__ == "__main__":
         )
 
 
-
         ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
-
-    logger.log_artifact(
-        file_name,
-        f"learning2stir_test_out_domain_{domain}",
-        "csv",
-        metadata=common_p,
-    )
 
     logger.on_train_end({}, epoch_id=0)
 
