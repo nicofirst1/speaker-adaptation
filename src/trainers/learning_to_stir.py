@@ -301,8 +301,8 @@ def process_epoch(
     list_model: torch.nn.Module,
     optimizer: Optional[optim.Optimizer],
     list_vocab: Vocab,
-    adapt_loss_f: torch.nn.Module,
-    acc_estimator: torch.nn.Module,
+    adapt_loss_f: IntLossAdapt,
+    acc_estimator: AccuracyEstimator,
     split: str,
     common_p,
 ) -> Dict:
@@ -317,7 +317,7 @@ def process_epoch(
     for i, data in rich.progress.track(
         enumerate(data_loader),
         total=len(data_loader),
-        description=f"{split} epoch {epoch}",
+        description=f"{split}",
     ):
         # get datapoints
         loss, aux = get_predictions(
@@ -536,10 +536,11 @@ if __name__ == "__main__":
     ##  Get speaker dataloader
     ###################################
 
-    data_domain = common_p.data_domain
-
-    training_loader, test_loader, val_loader = get_dataloaders(
-        common_p, speak_vocab, "all"
+    bs = common_p.batch_size
+    # need batchsize =1 for generating hypothesis
+    common_p.batch_size = 1
+    train_dl_all, test_dl_all, val_dl_all = get_dataloaders(
+        common_p, speak_vocab, domain="all"
     )
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
     translator = translate_utterance(speak2list_v, device)
@@ -552,96 +553,40 @@ if __name__ == "__main__":
         str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
-    for epoch in range(common_p.epochs):
+    int_model.train()
 
-        print("Epoch : ", epoch)
+    ###################################
+    ##  TRAIN LOOP
+    ###################################
+    for param in int_model.parameters():
+        param.requires_grad = True
 
-        auxs = []
-        data = {}
-
-        int_model.train()
-        int_model.use_batchnorm(False)
-
-        ###################################
-        ##  TRAIN LOOP
-        ###################################
-        for param in int_model.parameters():
-            param.requires_grad = True
-
-        with torch.set_grad_enabled(True):
-            aux = process_epoch(
-                training_loader,
-                int_model,
-                speaker_model,
-                list_model,
-                optimizer,
-                list_vocab,
-                adapt_loss_f,
-                acc_estimator,
-                "train",
-                common_p,
-            )
-
-        logger.on_eval_end(
-            aux,
-            list_domain=training_loader.dataset.domain,
-            modality="train",
-            commit=True,
-        )
-
-        print(
-            f"Train loss {mean(aux['loss']):.6f}, accuracy {mean(aux['adaptive/accs']):.4f} "
-        )
-
-        ###################################
-        ##  EVAL LOOP
-        ###################################
-
-        int_model.eval()
-
-        for param in int_model.parameters():
-            param.requires_grad = False
-
-        print(f"\nEvaluation")
-
-        aux = process_epoch(
-            val_loader,
-            int_model,
-            speaker_model,
-            list_model,
-            optimizer,
-            list_vocab,
-            adapt_loss_f,
-            acc_estimator,
-            "eval",
-            common_p,
-        )
-
-        logger.on_eval_end(
-            aux,
-            list_domain=val_loader.dataset.domain,
-            modality="eval",
-            commit=True,
-        )
-        eval_loss = mean(aux["loss"])
-        eval_accuracy = mean(aux["adaptive/accs"])
-        print(f"Eval loss {eval_loss:.6f}, accuracy {eval_accuracy:.4f} ")
-
-        save_model(
-            model=int_model,
-            model_type="Interpreter",
-            epoch=epoch,
-            accuracy=eval_accuracy,
+    with torch.set_grad_enabled(True):
+        df = process_epoch(
+            data_loader=test_dl_all,
+            int_model=int_model,
+            speaker_model=speaker_model,
+            list_model=list_model,
             optimizer=optimizer,
-            args=common_p,
-            timestamp=timestamp,
-            logger=logger,
-            loss=eval_loss,
+            list_vocab=list_vocab,
+            adapt_loss_f=adapt_loss_f,
+            acc_estimator=acc_estimator,
+            split="out_domain_test",
+            common_p=common_p,
         )
 
-        # check for early stopping
-        metric_val = eval_loss if common_p.metric == "loss" else eval_accuracy
-        if es.should_stop(metric_val):
-            break
 
-        logger.on_train_end({}, epoch_id=epoch)
+
+        ### saving df
+    file_name = "tmp.csv"
+    df.to_csv(file_name)
+
+    logger.log_artifact(
+        file_name,
+        f"learning2stir_test_out_domain_{domain}",
+        "csv",
+        metadata=common_p,
+    )
+
+    logger.on_train_end({}, epoch_id=0)
+
