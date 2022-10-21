@@ -545,7 +545,7 @@ if __name__ == "__main__":
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
-        project=f"adaptive-speaker-{common_p.type_of_int}",
+        project=f"continual-adaptation-{common_p.type_of_int}",
         tags=common_p.tags,
     )
 
