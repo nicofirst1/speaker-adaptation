@@ -15,8 +15,10 @@ def mask_oov_embeds(current_embeds: torch.nn.Embedding, full_vocab: Vocab, domai
 
     domain_vocab = []
 
+    #todo: maybe add eva/test as utterances
+
     # get domain specific vocab
-    file=f"{data_path}/chains-domain-specific/{domain}//train_ids_utterances.pickle"
+    file=f"{data_path}/chains-domain-specific/{domain}/train_ids_utterances.pickle"
     with open(file, 'rb') as f:
         domain_utts = pickle.load(f)
 

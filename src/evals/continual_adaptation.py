@@ -13,104 +13,11 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          load_wandb_checkpoint, mask_attn, parse_args,
                          set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance)
 from src.data.dataloaders import Vocab
+from src.evals.adaptive_speaker import generate_ood_table
 from src.models import InterpreterModel_no_hist, ListenerModel_hist, get_model
 from src.models.speaker.model_speaker_hist import SpeakerModel_hist
 from src.wandb_logging import ListenerLogger
 from torch.utils.data import DataLoader
-
-
-def generate_ood_table(df: pd.DataFrame,s_iter: int) -> wandb.Table:
-    rows = []
-    columns = [
-        "listener domain",
-        "interpreter domain",
-        "target domain",
-        "golden acc",
-        "original acc",
-        "adapted acc",
-    ]
-    ood_accs = {d: 0 for d in logger.domains}
-    for d in ood_accs.keys():
-        # filter out target with this domain
-        ood_df = df[df["target domain"] == d]
-
-        # get acc for this domain
-        golden_acc = ood_df["golden_acc"].mean()
-        original_acc = ood_df["original_acc"].mean()
-
-        # adapted accs are a matrix so remove -1, sum and get mean
-        adapt_acc_idx_0 = df.columns.get_loc("adapted_acc_s0")
-        adapt_acc_idx_1 = adapt_acc_idx_0+s_iter
-
-        adapt_acc = ood_df.iloc[:, adapt_acc_idx_0:adapt_acc_idx_1]
-        adapt_acc = adapt_acc[adapt_acc != -1]
-        adapt_acc = adapt_acc.dropna(axis=1, how="all")
-        adapt_mean = 0
-        idx = 0
-        for index, row in adapt_acc.iterrows():
-            row = row.dropna()
-            adapt_mean += row[-1]
-            idx += 1
-
-        if idx != 0:
-            adapt_mean /= idx
-
-        # append to rows
-        rows.append(
-            [
-                list_model.domain,
-                int_model.domain,
-                d,
-                golden_acc,
-                original_acc,
-                adapt_mean,
-            ]
-        )
-
-    table = wandb.Table(columns=columns, data=rows)
-    return table
-
-
-def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
-    """
-    Create and fill wandb table for logging
-    Parameters
-    ----------
-    data
-    target_domain
-    s
-
-    Returns
-    -------
-
-    """
-    # unflatten inner lists
-    new_data = []
-    for row, tg in zip(data, target_domain):
-        new_row = [tg]
-        for elem in row:
-            if isinstance(elem, list):
-                new_row += elem
-            else:
-                new_row.append(elem)
-        new_data.append(new_row)
-    data = new_data
-
-    table_columns = [
-        "target domain",
-        "golden hypo",
-        "golden guess",
-        "original hypo",
-        "original guess",
-    ]
-    table_columns += [f"adapted hypo {i}" for i in range(s)]
-    table_columns += [f"adapted acc {i}" for i in range(s)]
-    table_columns += [f"int acc {i}" for i in range(s)]
-    table_columns += [f"int list acc {i}" for i in range(s)]
-    table_columns += [f"diff {i}" for i in range(s)]
-
-    table = wandb.Table(columns=table_columns, data=data)
-    return table
 
 
 def evaluate(
@@ -119,7 +26,9 @@ def evaluate(
         int_model: InterpreterModel_no_hist,
         list_model: ListenerModel_hist,
         list_vocab: Vocab,
-        criterion: IntLossAdapt,
+        adaptation_criterion: IntLossAdapt,
+        continual_criterion: torch.nn.Module,
+        continual_optimizer: torch.optim.Optimizer,
         acc_estimator: AccuracyEstimator,
         split: str,
         lr: float = 0.1,
@@ -133,7 +42,7 @@ def evaluate(
     speak_model
     int_model
     list_model
-    criterion
+    adaptation_criterion
     split
     lr
     s
@@ -155,7 +64,8 @@ def evaluate(
     original_hypos = []
     golden_hypos = []
     modified_hypos = []
-    losses = []
+    losses_adapt = []
+    losses_continual = []
     h0s = []
     grads = []
 
@@ -246,6 +156,7 @@ def evaluate(
         h0 = decoder_hid.clone().detach().requires_grad_(True)
         optimizer = torch.optim.Adam([h0], lr=lr)
         optimizer.zero_grad()
+        continual_optimizer.zero_grad()
 
         # repeat for s interations
         s_hypo = ["" for _ in range(s)]
@@ -253,10 +164,12 @@ def evaluate(
         s_h0 = [-1 for _ in range(s)]
         s_adapted_list_outs = [-1 for _ in range(s)]
         s_adapted_int_outs = [-1 for _ in range(s)]
-        s_loss = [-1 for _ in range(s)]
+        s_loss_adapt = [-1 for _ in range(s)]
+        s_loss_continual = [-1 for _ in range(s)]
         s_grad = [-1 for _ in range(s)]
         int_accuracy = [-1 for _ in range(s)]
         int_list_acc = [-1 for _ in range(s)]
+
 
         # perform loop
         i = 0
@@ -267,14 +180,14 @@ def evaluate(
             s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
-            loss = criterion(int_out, targets, list_out, data["domain"])
+            loss_adapted = adaptation_criterion(int_out, targets, list_out, data["domain"])
             # aux = acc_estimator(
             #     int_out, targets, list_out, data["domain"], is_adaptive=True
             # )
-            loss.backward()
+            loss_adapted.backward(retain_graph=True)
             optimizer.step()
 
-            s_loss[i] = loss.detach().item()
+            s_loss_adapt[i] = loss_adapted.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
@@ -302,16 +215,21 @@ def evaluate(
             )
             s_accs[i] = list_target_accuracy
 
-
             aux = acc_estimator(
                 int_out, targets, list_out, data["domain"], is_adaptive=True
             )
 
+            # update on int weights
+            c_loss = continual_criterion(int_out, list_out)
+            c_loss.backward()
+            continual_optimizer.step()
+
             int_accuracy[i] = aux["int_target_accuracy"]
             int_list_acc[i] = aux["int_list_accuracy"]
-            s_accs[i] =  aux["list_target_accuracy"]
+            s_accs[i] = aux["list_target_accuracy"]
 
-            s_loss[i] = loss.detach().item()
+            s_loss_adapt[i] = loss_adapted.detach().item()
+            s_loss_continual[i] = c_loss.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
@@ -328,7 +246,8 @@ def evaluate(
         int_list_accs.append(int_list_acc)
         h0s.append([decoder_hid] + s_h0)
         target_domain.append(data["domain"][0])
-        losses.append(s_loss)
+        losses_adapt.append(s_loss_adapt)
+        losses_continual.append(s_loss_continual)
         grads.append(s_grad)
 
         ##########################
@@ -379,7 +298,7 @@ def evaluate(
         row += s_hypo
         row += [decoder_hid[0].tolist()]
         row += s_h0
-        row += s_loss
+        row += s_loss_adapt
         row += s_grad
         row += [golden_list_out.squeeze(dim=0).tolist()]
         row += [original_list_out.tolist()]
@@ -458,8 +377,11 @@ def evaluate(
     int_list_accs = [x for x in int_list_accs if len(x)]
     int_list_accs = np.mean([x[-1] for x in int_list_accs])
 
-    loss = [[y for y in x if y != -1] for x in losses]
-    loss = np.mean(loss)
+    loss_adapted = [[y for y in x if y != -1] for x in losses_adapt]
+    loss_adapted = np.mean(loss_adapted)
+
+    loss_continual = [[y for y in x if y != -1] for x in losses_continual]
+    loss_continual = np.mean(loss_continual)
 
     metrics = dict(
         original_accs=original_accs,
@@ -468,7 +390,8 @@ def evaluate(
         golden_accs=golden_accs,
         # hypo_table=hypo_table,
         ood_table=ood_table,
-        loss=loss,
+        loss_adapted=loss_adapted,
+        loss_continual=loss_continual,
         mean_s=mean_s,
         int_list_accs=int_list_accs,
     )
@@ -610,7 +533,6 @@ if __name__ == "__main__":
         int_model.load_state_dict(int_check["model_state_dict"])
 
     int_model = int_model.to(device)
-    int_model = int_model.eval()
 
     ###################################
     ##  LOGGER
@@ -660,6 +582,10 @@ if __name__ == "__main__":
         list_domain=domain,
         all_domains=logger.domains,
     )
+
+    continual_criterion = torch.nn.CrossEntropyLoss(reduction=common_p.reduction)
+    continual_optimizer = torch.optim.Adam(int_model.parameters(), lr=common_p.learning_rate)
+
     acc_estimator = AccuracyEstimator(
         domain, int_p.model_type, all_domains=logger.domains
     )
@@ -673,151 +599,7 @@ if __name__ == "__main__":
             str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
-    int_model.eval()
-
-    if common_p.log_train:
-        ##################
-        # ID TRAIN
-        ##################
-        print(f"\nTrain split for domain {domain}")
-        df = evaluate(
-            train_dl_dom,
-            speaker_model,
-            int_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="in_domain_train",
-            lr=common_p.learning_rate,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_train_in_domain_{domain}",
-            "csv",
-            metadata=int_p,
-        )
-
-        ##################
-        # ID EVAL
-        ##################
-
-        print(f"\nEval split for domain {domain}")
-        df = evaluate(
-            val_dl_dom,
-            speaker_model,
-            int_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="in_domain_eval",
-            lr=common_p.learning_rate,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_eval_in_domain_{domain}",
-            "csv",
-            metadata=int_p,
-        )
-
-        ##################
-        # ID TEST
-        ##################
-
-        print(f"\nTest split for domain {domain}")
-        df = evaluate(
-            test_dl_dom,
-            speaker_model,
-            int_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="in_domain_test",
-            lr=common_p.learning_rate,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_test_in_domain_{domain}",
-            "csv",
-            metadata=int_p,
-        )
-
-    if common_p.log_train:
-        ##################
-        # OOD TRAIN
-        ##################
-        print(f"\nTrain split for domain all")
-        df = evaluate(
-            train_dl_all,
-            speaker_model,
-            int_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="out_domain_train",
-            lr=common_p.learning_rate,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_train_out_domain_{domain}",
-            "csv",
-            metadata=int_p,
-        )
-
-        ##################
-        # OOD EVAL
-        ##################
-        print(f"\nEval split for domain all")
-        df = evaluate(
-            val_dl_all,
-            speaker_model,
-            int_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="out_domain_eval",
-            lr=common_p.learning_rate,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_eval_out_domain_{domain}",
-            "csv",
-            metadata=int_p,
-        )
+    int_model.train()
 
     ##################
     # OOD TEST
@@ -829,7 +611,9 @@ if __name__ == "__main__":
         int_model,
         list_model,
         list_vocab,
-        criterion=loss_f,
+        adaptation_criterion=loss_f,
+        continual_criterion=continual_criterion,
+        continual_optimizer=continual_optimizer,
         acc_estimator=acc_estimator,
         split="out_domain_test",
         lr=common_p.adapt_lr,
