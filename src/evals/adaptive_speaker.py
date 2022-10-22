@@ -316,7 +316,7 @@ def evaluate(
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # break if listener gets it right
-            if aux["int_target_accuracy"]:
+            if aux["list_target_accuracy"]:
                 break
             i += 1
 
