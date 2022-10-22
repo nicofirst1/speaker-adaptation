@@ -358,7 +358,7 @@ def evaluate(
     )
 
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table = generate_ood_table(df, s)
+    ood_table = generate_ood_table(df, s, logger.domains)
 
     ##############################
     # METRICS
