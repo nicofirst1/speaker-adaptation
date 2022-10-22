@@ -652,11 +652,11 @@ if __name__ == "__main__":
     ###################################
 
     loss_f = IntLossAdapt(
-        int_p.adaptive_loss,
-        int_p.reduction,
-        int_p.model_type,
-        alpha=int_p.focal_alpha,
-        gamma=int_p.focal_gamma,
+        common_p.adaptive_loss,
+        common_p.reduction,
+        common_p.model_type,
+        alpha=common_p.focal_alpha,
+        gamma=common_p.focal_gamma,
         list_domain=domain,
         all_domains=logger.domains,
     )
