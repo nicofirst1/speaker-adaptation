@@ -19,7 +19,7 @@ from src.wandb_logging import ListenerLogger
 from torch.utils.data import DataLoader
 
 
-def generate_ood_table(df: pd.DataFrame,s_iter: int, domain:List[str]) -> wandb.Table:
+def generate_ood_table(df: pd.DataFrame,s_iter: int, domain:List[str], list_domain:str, int_domain:str) -> wandb.Table:
     rows = []
     columns = [
         "listener domain",
@@ -58,8 +58,8 @@ def generate_ood_table(df: pd.DataFrame,s_iter: int, domain:List[str]) -> wandb.
         # append to rows
         rows.append(
             [
-                list_model.domain,
-                int_model.domain,
+                list_domain,
+                int_domain,
                 d,
                 golden_acc,
                 original_acc,
@@ -439,7 +439,7 @@ def evaluate(
     )
 
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table = generate_ood_table(df, s, logger.domains)
+    ood_table = generate_ood_table(df, s, logger.domains,list_model.domain,int_model.domain)
 
     ##############################
     # METRICS
