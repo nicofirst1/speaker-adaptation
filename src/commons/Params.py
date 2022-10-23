@@ -371,8 +371,8 @@ class InterpreterArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter: Optional[int] = 5
-    adapt_lr: Optional[float] = 0.03
+    s_iter: Optional[int] =11
+    adapt_lr: Optional[float] = 0.12
     log_train: Optional[bool] = False
     # pretrain loss for interpreter == listener out,
     # can be:
