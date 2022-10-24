@@ -1,0 +1,43 @@
+early_terminate:
+  eta: 3
+  min_iter: 10
+  type: hyperband
+method: bayes
+metric:
+  goal: maximize
+  name: eval/int_list_accuracy
+  target: 1.0
+project: inter-sweep
+
+parameters:
+    learning_rate:
+        distribution: uniform
+        max: 1
+        min: 0.0001
+
+    embedding_dim:
+      values:
+        - 512
+        - 1024
+        - 2042
+
+    hidden_dim:
+      values:
+        - 512
+        - 1024
+        - 128
+
+    dropout_prob:
+      distribution: uniform
+      max: 0.9
+      min: 0.0
+
+
+
+
+
+
+
+
+
+program: ../src/trainers/interpreter_pretrain.py

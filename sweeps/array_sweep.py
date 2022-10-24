@@ -17,6 +17,6 @@ if __name__ == "__main__":
         dict(train_domain=dict(value=common_p.train_domain), sweep_file=dict(value=common_p.sweep_file))
     )
     sweepid = wandb.sweep(
-        sweep_config, project=sweep_config["project"], entity="adaptive-speaker"
+        sweep_config, project=sweep_config["project"], entity="sweep"
     )
     wandb.agent(sweepid)
