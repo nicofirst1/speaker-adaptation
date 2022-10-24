@@ -77,9 +77,11 @@ class AccuracyEstimator(torch.nn.Module):
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
             # estimate kl divergence and kolmogorov-smirnov test
-            kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().numpy()
+            kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().item()
             p=preds.squeeze().detach().cpu().numpy()
             q=list_out.squeeze().detach().cpu().numpy()
+
+
             if p.ndim==1:
                 p=p.reshape(-1,1)
                 q=q.reshape(-1,1)

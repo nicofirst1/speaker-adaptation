@@ -29,6 +29,11 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
         aux["pos_pred_len"]
     )
 
+    if "kl_div" in aux.keys():
+        aux["kl_div"] = np.sum(aux["kl_div"]) / len(aux["kl_div"])
+        aux["kolmo_smir_stat"] = np.sum(aux["kolmo_smir_stat"]) / len(aux["kolmo_smir_stat"])
+        aux["kolmo_smir_pval"] = np.sum(aux["kolmo_smir_pval"]) / len(aux["kolmo_smir_pval"])
+
     def flatten(xss):
         return [x for xs in xss for x in xs]
 
