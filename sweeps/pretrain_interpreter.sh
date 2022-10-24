@@ -15,7 +15,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # perform sweep
-common_args=( --sweep_file ./interpreter_sweep.json)
+common_args=( --sweep_file ./interpreter_sweep.json --data_domain all)
 
 
 trainers_file="${HOME}/pb_speaker_adaptation/sweeps/array_sweep.py"
