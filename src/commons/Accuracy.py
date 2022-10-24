@@ -76,6 +76,7 @@ class AccuracyEstimator(torch.nn.Module):
         else:
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
+            # estimate kl divergence and kolmogorov-smirnov test
             kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().numpy()
             p=preds.squeeze().detach().cpu().numpy()
             q=list_out.squeeze().detach().cpu().numpy()
@@ -86,10 +87,11 @@ class AccuracyEstimator(torch.nn.Module):
             kolmo_smir_stat=sum([i.statistic for i in kolmo_smir])/len(kolmo_smir)
             kolmo_smir_pval=sum([i.pvalue for i in kolmo_smir])/len(kolmo_smir)
 
+            # get pos and neg predictions
             list_neg_preds = list_preds[neg_idx]
             list_pos_preds = list_preds[pos_idx]
 
-            # intulator is predicting the domain of the target
+            # interpreter is predicting the domain of the target
             if self.int_model_type == "domain":
                 int_target_accuracy = torch.eq(int_preds, doms)
                 # there is no int_list accuracy when predicting domain, set to -1

@@ -8,7 +8,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, IntLossPretrain, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model, speak2list_vocab, translate_utterance)
+                         save_model, speak2list_vocab, translate_utterance, mask_oov_embeds)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -224,6 +224,10 @@ if __name__ == "__main__":
     list_model.load_state_dict(list_checkpoint["model_state_dict"])
     list_model = list_model.to(device)
     list_model.eval()
+
+    with torch.no_grad():
+        list_model.embeddings = mask_oov_embeds(list_model.embeddings, list_vocab, domain,
+                                                replace_token=common_p.mask_oov_embed, data_path=common_p.data_path)
 
     ##########################
     # SPEAKER
