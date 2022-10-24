@@ -8,7 +8,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, IntLossPretrain, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model)
+                         save_model, speak2list_vocab, translate_utterance)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -95,6 +95,7 @@ def get_predictions(
 
     masks = mask_attn(lengths, max_length_tensor, device)
 
+    translator(utterance)
     # get outputs
     list_out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
 
@@ -329,6 +330,9 @@ if __name__ == "__main__":
     training_loader, test_loader, val_loader = get_dataloaders(
         int_p, speak_vocab, data_domain
     )
+
+    speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
+    translator = translate_utterance(speak2list_v, device)
 
     if common_p.is_test:
         training_loader = []
