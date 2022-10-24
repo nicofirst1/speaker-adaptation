@@ -422,6 +422,9 @@ if __name__ == "__main__":
             total=len(speak_train_dl),
             description=f"Training epoch {epoch}",
         ):
+
+            optimizer.zero_grad()
+
             # get datapoints
             loss, accuracy, aux = get_predictions(
                 data, list_model, int_model, loss_f, acc_estimator, list_vocab
@@ -430,7 +433,6 @@ if __name__ == "__main__":
             auxs.append(aux)
 
             # optimizer
-            int_model.zero_grad()
             loss.backward()
             optimizer.step()
 

@@ -1,4 +1,5 @@
 import torch
+from scipy.stats import ks_2samp
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -15,6 +16,8 @@ class AccuracyEstimator(torch.nn.Module):
         self.domain2idx = {d: idx for idx, d in enumerate(sorted(all_domains))}
         self.domain2idx["all"] = len(all_domains)
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
+        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean")
+
 
     def forward(self, preds, targets, list_out, domains, is_adaptive=False):
 
@@ -66,9 +69,17 @@ class AccuracyEstimator(torch.nn.Module):
 
             list_neg_preds = list_target_accuracy[neg_idx]
             list_pos_preds = list_target_accuracy[pos_idx]
+            kl_div=0
+            kolmo_smir_stat=0
+            kolmo_smir_pval=0
 
         else:
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
+
+            kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().numpy()
+            kolmo_smir=[ks_2samp(preds[i].squeeze().detach(), list_out[i].squeeze().detach()) for i in range (preds.shape[1])]
+            kolmo_smir_stat=sum([i.statistic for i in kolmo_smir])/len(kolmo_smir)
+            kolmo_smir_pval=sum([i.pvalue for i in kolmo_smir])/len(kolmo_smir)
 
             list_neg_preds = list_preds[neg_idx]
             list_pos_preds = list_preds[pos_idx]
@@ -138,6 +149,10 @@ class AccuracyEstimator(torch.nn.Module):
             int_list_neg_accuracy_dom=int_list_neg_accuracy_dom,
             int_list_pos_accuracy_dom=int_list_pos_accuracy_dom,
             domains=domains,
+            # divergence stats
+            kl_div=kl_div,
+            kolmo_smir_stat=kolmo_smir_stat,
+            kolmo_smir_pval=kolmo_smir_pval,
         )
 
         return aux

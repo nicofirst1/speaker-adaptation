@@ -174,7 +174,6 @@ def load_wandb_dataset(
 
     try:
         # try to download the dataset from wandb
-        DATASET_CHK[split][domain]="fdfasd"
         file = load_wandb_file(DATASET_CHK[split][domain])
         dataset = torch.load(file)
 
