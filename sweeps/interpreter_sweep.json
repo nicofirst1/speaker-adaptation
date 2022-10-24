@@ -15,6 +15,9 @@ parameters:
         max: 1
         min: 0.0001
 
+    data_domain:
+        value: all
+
     embedding_dim:
       values:
         - 512
