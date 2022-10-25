@@ -358,9 +358,9 @@ class InterpreterArguments(Params):
     # 4. domain: predicts datapoint domain
 
     model_type: Optional[str] = "no_hist"
-    hidden_dim: Optional[int] = 512
+    hidden_dim: Optional[int] = 1024
     attention_dim: Optional[int] = 512
-    dropout_prob: Optional[float] = 0.1
+    dropout_prob: Optional[float] = 0.64
     int_domain: Optional[str] = ""
 
     # when != "", ignore the canonical wandb checkpoint and load this

@@ -70,24 +70,13 @@ class AccuracyEstimator(torch.nn.Module):
             list_neg_preds = list_target_accuracy[neg_idx]
             list_pos_preds = list_target_accuracy[pos_idx]
             kl_div=0
-            kolmo_smir_stat=0
-            kolmo_smir_pval=0
+
 
         else:
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
             # estimate kl divergence and kolmogorov-smirnov test
             kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().item()
-            p=preds.squeeze().detach().cpu().numpy()
-            q=list_out.squeeze().detach().cpu().numpy()
-
-
-            if p.ndim==1:
-                p=p.reshape(-1,1)
-                q=q.reshape(-1,1)
-            kolmo_smir=[ks_2samp(p[i], q[i]) for i in range(p.shape[1])]
-            kolmo_smir_stat=sum([i.statistic for i in kolmo_smir])/len(kolmo_smir)
-            kolmo_smir_pval=sum([i.pvalue for i in kolmo_smir])/len(kolmo_smir)
 
             # get pos and neg predictions
             list_neg_preds = list_preds[neg_idx]
@@ -160,8 +149,7 @@ class AccuracyEstimator(torch.nn.Module):
             domains=domains,
             # divergence stats
             kl_div=kl_div,
-            kolmo_smir_stat=kolmo_smir_stat,
-            kolmo_smir_pval=kolmo_smir_pval,
+
         )
 
         return aux
