@@ -479,24 +479,24 @@ if __name__ == "__main__":
                 aux, list_domain=speak_val_dl.dataset.domain, modality="eval"
             )
 
-            print(f"\nTest")
-            aux = evaluate(
-                speak_test_dl,
-                int_model,
-                list_model,
-                list_vocab,
-                loss_f,
-                acc_estimator,
-                all_domains=logger.domains,
-                split="test",
-            )
-
-            test_accuracy, test_loss = aux["int_list_accuracy"], aux["loss"]
-            print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
-
-            logger.on_eval_end(
-                aux, list_domain=speak_test_dl.dataset.domain, modality="test"
-            )
+            # print(f"\nTest")
+            # aux = evaluate(
+            #     speak_test_dl,
+            #     int_model,
+            #     list_model,
+            #     list_vocab,
+            #     loss_f,
+            #     acc_estimator,
+            #     all_domains=logger.domains,
+            #     split="test",
+            # )
+            #
+            # test_accuracy, test_loss = aux["int_list_accuracy"], aux["loss"]
+            # print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
+            #
+            # logger.on_eval_end(
+            #     aux, list_domain=speak_test_dl.dataset.domain, modality="test"
+            # )
 
         if not common_p.is_test:
             save_model(
