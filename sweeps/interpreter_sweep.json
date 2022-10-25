@@ -18,6 +18,9 @@ parameters:
     data_domain:
         value: all
 
+    model_type:
+        value: dev
+
     attention_dim:
       values:
         - 128
