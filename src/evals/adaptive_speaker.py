@@ -270,9 +270,9 @@ def evaluate(
 
             # compute loss and perform backprop
             loss = criterion(int_out, targets, list_out, data["domain"])
-            # aux = acc_estimator(
-            #     int_out, targets, list_out, data["domain"], is_adaptive=True
-            # )
+            aux = acc_estimator(
+                int_out, targets, list_out, data["domain"], is_adaptive=True
+            )
             loss.backward()
             optimizer.step()
 
@@ -305,9 +305,9 @@ def evaluate(
             s_accs[i] = list_target_accuracy
 
 
-            aux = acc_estimator(
-                int_out, targets, list_out, data["domain"], is_adaptive=True
-            )
+            # aux = acc_estimator(
+            #     int_out, targets, list_out, data["domain"], is_adaptive=True
+            # )
 
             int_accuracy[i] = aux["int_target_accuracy"]
             int_list_acc[i] = aux["int_list_accuracy"]
