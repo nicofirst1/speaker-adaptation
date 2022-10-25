@@ -1,6 +1,7 @@
 from typing import Literal
 
 from .interpreter.model_interpreter_binary import InterpreterModel_binary
+from .interpreter.model_interpreter_dev import InterpreterModel_dev
 from .interpreter.model_interpreter_domain import InterpreterModel_domain
 from .interpreter.model_interpreter_hist import InterpreterModel_hist
 from .interpreter.model_interpreter_multi import InterpreterModel_multi
@@ -21,6 +22,7 @@ __all__ = [
     "InterpreterModel_binary",
     "InterpreterModel_domain",
     "InterpreterModel_multi",
+    "InterpreterModel_dev",
 ]
 
 
@@ -46,6 +48,8 @@ def get_model(model: Literal["list", "speak", "int"], model_type: str):
             return InterpreterModel_domain
         elif model_type == "multi":
             return InterpreterModel_multi
+        elif model_type == "dev":
+            return InterpreterModel_dev
 
     else:
         raise KeyError(f"No model type named '{model}'")

@@ -351,6 +351,13 @@ class InterpreterArguments(Params):
     embed_dim: Optional[int] = 768
     mask_oov_embed: Optional[str] = "none"
 
+    #########################
+    # dev model options
+    num_layers_sep : Optional[int] = 1
+    num_layers_emb2hid : Optional[int] = 1
+    num_layers_contx : Optional[int] = 1
+    num_layers_mm : Optional[int] = 1
+
     # Interpreter model type, can be one of the following:
     # 1. no_hist: predicts list out without using context hist
     # 2. hist: predicts list out using context hist
@@ -429,7 +436,7 @@ class InterpreterArguments(Params):
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
-        valis_type = ["hist", "no_hist", "binary", "domain", "multi"]
+        valis_type = ["hist", "no_hist", "binary", "domain", "multi", "dev"]
 
         assert (
                 self.model_type in valis_type
@@ -459,7 +466,7 @@ class InterpreterArguments(Params):
         ), f"Invalid mask_oov_embed '{self.mask_oov_embed}' not in '{valid_mask_oov_embed}'"
 
         # cross-check model type and losses
-        if "hist" in self.model_type:
+        if "hist" in self.model_type or "dev" in self.model_type:
             assert self.pretrain_loss in ["ce", "kl"]
             assert self.adaptive_loss in ["ce", "none"]
         elif "binary" in self.model_type:
@@ -531,7 +538,7 @@ class SpeakerArguments(Params):
 
     def check_parameters(self):
         super(SpeakerArguments, self).check_parameters()
-        valis_type = ["hist", "no_hist", "binary", "domain", "multi"]
+        valis_type = ["hist", "no_hist", "binary", "domain", "multi", "dev"]
 
         assert (
                 self.model_type in valis_type

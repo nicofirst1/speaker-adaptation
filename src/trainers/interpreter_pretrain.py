@@ -278,6 +278,7 @@ if __name__ == "__main__":
     int_p = common_p
 
     model = get_model("int", int_p.model_type)
+
     int_model = model(
         len(list_vocab),
         speak_p.hidden_dim,
@@ -287,6 +288,7 @@ if __name__ == "__main__":
         int_p.dropout_prob,
         int_p.train_domain,
         int_p.device,
+        vars(int_p),
     ).to(device)
 
     ###################################

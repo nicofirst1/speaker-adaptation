@@ -25,12 +25,45 @@ parameters:
         - 1024
         - 2042
 
+    embedding_dim:
+      values:
+        - 128
+        - 512
+        - 1024
+        - 2042
+
     hidden_dim:
       values:
         - 128
         - 512
         - 1024
-        - 128
+
+    num_layers_emb2hid:
+      values:
+        - 1
+        - 2
+        - 3
+        - 4
+
+    num_layers_contx:
+      values:
+        - 1
+        - 2
+        - 3
+        - 4
+    num_layers_mm:
+      values:
+        - 1
+        - 2
+        - 3
+        - 4
+    num_layers_sep:
+      values:
+        - 1
+        - 2
+        - 3
+        - 4
+
 
     dropout_prob:
       distribution: uniform

@@ -63,7 +63,6 @@ class InterpreterModel_no_hist(ListenerModel_no_hist):
         input_reps = F.normalize(input_reps, p=2, dim=1)
 
         # [32,512]
-
         # visual context is processed
         visual_context = self.dropout(visual_context)
         projected_context = self.relu(self.lin_context(visual_context))
