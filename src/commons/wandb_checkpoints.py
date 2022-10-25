@@ -40,12 +40,12 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
 INT_NOHIST_CE_CHK = dict(
     # epoch 10
-    all="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_all:v37",
+    all="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_all:v216",
     food="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_food:v10",
-    appliances="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_appliances:v10",
-    indoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_indoor:v10",
-    outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_outdoor:v10",
-    vehicles="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_vehicles:v10",
+    appliances="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_appliances:v216",
+    indoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_indoor:v151",
+    outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_outdoor:v213",
+    vehicles="adaptive-speaker/interpreter-pretrain/InterpreterModel_no_hist_vehicles:v241",
 )
 
 INT_NOHIST_KL_CHK = dict(
