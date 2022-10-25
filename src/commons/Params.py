@@ -358,9 +358,9 @@ class InterpreterArguments(Params):
     # 4. domain: predicts datapoint domain
 
     model_type: Optional[str] = "no_hist"
-    hidden_dim: Optional[int] = 512
+    hidden_dim: Optional[int] = 1024
     attention_dim: Optional[int] = 512
-    dropout_prob: Optional[float] = 0.1
+    dropout_prob: Optional[float] = 0.64
     int_domain: Optional[str] = ""
 
     # when != "", ignore the canonical wandb checkpoint and load this
@@ -371,8 +371,8 @@ class InterpreterArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter: Optional[int] = 5
-    adapt_lr: Optional[float] = 0.03
+    s_iter: Optional[int] =11
+    adapt_lr: Optional[float] = 0.12
     log_train: Optional[bool] = False
     # pretrain loss for interpreter == listener out,
     # can be:

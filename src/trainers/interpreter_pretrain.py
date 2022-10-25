@@ -8,7 +8,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, IntLossPretrain, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model)
+                         save_model, speak2list_vocab, translate_utterance, mask_oov_embeds)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.wandb_logging import ListenerLogger
@@ -28,6 +28,10 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
     aux["int_list_pos_accuracy"] = np.sum(aux["int_list_pos_accuracy"]) / np.sum(
         aux["pos_pred_len"]
     )
+
+    if "kl_div" in aux.keys():
+        aux["kl_div"] = np.sum(aux["kl_div"]) / len(aux["kl_div"])
+
 
     def flatten(xss):
         return [x for xs in xss for x in xs]
@@ -95,6 +99,7 @@ def get_predictions(
 
     masks = mask_attn(lengths, max_length_tensor, device)
 
+    translator(utterance)
     # get outputs
     list_out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
 
@@ -224,6 +229,10 @@ if __name__ == "__main__":
     list_model = list_model.to(device)
     list_model.eval()
 
+    with torch.no_grad():
+        list_model.embeddings = mask_oov_embeds(list_model.embeddings, list_vocab, domain,
+                                                replace_token=common_p.mask_oov_embed, data_path=common_p.data_path)
+
     ##########################
     # SPEAKER
     ##########################
@@ -330,6 +339,9 @@ if __name__ == "__main__":
         int_p, speak_vocab, data_domain
     )
 
+    speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
+    translator = translate_utterance(speak2list_v, device)
+
     if common_p.is_test:
         training_loader = []
         int_p.epochs = 1
@@ -418,6 +430,9 @@ if __name__ == "__main__":
             total=len(speak_train_dl),
             description=f"Training epoch {epoch}",
         ):
+
+            optimizer.zero_grad()
+
             # get datapoints
             loss, accuracy, aux = get_predictions(
                 data, list_model, int_model, loss_f, acc_estimator, list_vocab
@@ -426,7 +441,6 @@ if __name__ == "__main__":
             auxs.append(aux)
 
             # optimizer
-            int_model.zero_grad()
             loss.backward()
             optimizer.step()
 

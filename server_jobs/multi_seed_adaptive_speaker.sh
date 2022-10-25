@@ -19,13 +19,13 @@ common_args=(
 --adapt_lr
 0.12
 --s_iter
-20
+11
 --type_of_int
 domain
 --test_split
 seen
 --pretrain_loss
-kl
+ce
 --adaptive_loss
 ce
 --model_type

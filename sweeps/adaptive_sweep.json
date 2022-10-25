@@ -5,7 +5,7 @@ early_terminate:
 method: bayes
 metric:
   goal: maximize
-  name: out_domain_test/int_accs
+  name: out_domain_test/adapted_accs
   target: 1.0
 project: speaker-influence-sweep
 
@@ -13,12 +13,12 @@ parameters:
     adapt_lr:
         distribution: uniform
         max: 1
-        min: 0.01
+        min: 0.001
 
     s_iter:
         distribution: int_uniform
         max: 25
-        min: 14
+        min: 3
 
     model_type:
         value : no_hist

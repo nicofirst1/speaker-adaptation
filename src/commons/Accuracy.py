@@ -1,4 +1,5 @@
 import torch
+from scipy.stats import ks_2samp
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -15,6 +16,8 @@ class AccuracyEstimator(torch.nn.Module):
         self.domain2idx = {d: idx for idx, d in enumerate(sorted(all_domains))}
         self.domain2idx["all"] = len(all_domains)
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
+        self.kl_div = torch.nn.KLDivLoss(reduction="batchmean")
+
 
     def forward(self, preds, targets, list_out, domains, is_adaptive=False):
 
@@ -66,14 +69,20 @@ class AccuracyEstimator(torch.nn.Module):
 
             list_neg_preds = list_target_accuracy[neg_idx]
             list_pos_preds = list_target_accuracy[pos_idx]
+            kl_div=0
+
 
         else:
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
+            # estimate kl divergence and kolmogorov-smirnov test
+            kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().item()
+
+            # get pos and neg predictions
             list_neg_preds = list_preds[neg_idx]
             list_pos_preds = list_preds[pos_idx]
 
-            # intulator is predicting the domain of the target
+            # interpreter is predicting the domain of the target
             if self.int_model_type == "domain":
                 int_target_accuracy = torch.eq(int_preds, doms)
                 # there is no int_list accuracy when predicting domain, set to -1
@@ -138,6 +147,9 @@ class AccuracyEstimator(torch.nn.Module):
             int_list_neg_accuracy_dom=int_list_neg_accuracy_dom,
             int_list_pos_accuracy_dom=int_list_pos_accuracy_dom,
             domains=domains,
+            # divergence stats
+            kl_div=kl_div,
+
         )
 
         return aux

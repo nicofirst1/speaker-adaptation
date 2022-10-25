@@ -297,7 +297,7 @@ class IntLossPretrain(torch.nn.Module):
                 doms = torch.as_tensor(doms).to(device)
                 loss = self.ce(preds, doms)
             else:
-                loss = self.ce(preds, list_out)
+                loss = self.ce(preds, list_preds)
         elif self.loss_type == "kl":
             loss = self.kl(preds, list_out)
         elif self.loss_type == "bce":

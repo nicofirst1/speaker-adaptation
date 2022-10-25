@@ -18,7 +18,7 @@ source activate uvapb
 
 
 # if true then use general simulator on all domains
-#common_args=("${common_args[@]}" --resume_train true )
+common_args=()
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/data/wandb_dataset.py"
 

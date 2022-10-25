@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=continual_lr
+#SBATCH --job-name=adapt_speak_sweep
 #SBATCH --cpus-per-task=1
-#SBATCH --time=02:00:00
+#SBATCH --time=15:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=2
+#SBATCH --gpus-per-node=1
 
 
 
@@ -14,32 +14,11 @@ module load 2021
 module load Anaconda3/2021.05
 source activate uvapb
 
-#create output directory
-common_args=(
---seed 69
---adapt_lr
-0.12
---s_iter
-20
---type_of_int
-domain
---test_split
-seen
---pretrain_loss
-ce
---adaptive_loss
-ce
---model_type
-no_hist
---data_domain
-all
-
-)
+# perform sweep
+common_args=( --sweep_file ./interpreter_sweep.json )
 
 
-
-
-trainers_file="${HOME}/pb_speaker_adaptation/src/evals/continual_adaptation.py"
+trainers_file="${HOME}/pb_speaker_adaptation/sweeps/array_sweep.py"
 
 #running the actual code
 echo "Starting the process..."

@@ -4,7 +4,7 @@ import os.path
 from typing import Dict, Optional, Tuple
 
 import numpy as np
-import rich
+import rich.progress
 import torch
 import wandb
 from PIL import Image, ImageDraw, ImageFont
@@ -216,7 +216,7 @@ def load_wandb_dataset(
 
 def speaker_augmented_dataloader(
     dataloader: DataLoader,
-    vocab: Vocab,
+    listener_vocab: Vocab,
     speak_model: torch.nn.Module,
     split_name: str,
     load_params: Dict,
@@ -244,10 +244,10 @@ def speaker_augmented_dataloader(
         visual_context = data["concat_context"]
 
         # generate hypo with speaker
-        hypo, _, h1 = speak_model.generate_hypothesis(
+        utterance, _, h1 = speak_model.generate_hypothesis(
             prev_utterance, prev_utt_lengths, visual_context, target_img_feats
         )
-        utterance = hypo2utterance(hypo, vocab)
+
         utterance = utterance.squeeze().tolist()
         h1 = h1.squeeze().tolist()
 
