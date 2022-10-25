@@ -18,14 +18,16 @@ parameters:
     data_domain:
         value: all
 
-    embedding_dim:
+    attention_dim:
       values:
+        - 128
         - 512
         - 1024
         - 2042
 
     hidden_dim:
       values:
+        - 128
         - 512
         - 1024
         - 128
