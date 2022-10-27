@@ -267,6 +267,7 @@ def evaluate(
 
             speak_out=h0
 
+            # if tom is network then feed both embeds and utterances
             if "tom" in type(int_model).__name__:
                 speak_out=[h0,utterance]
 
@@ -612,7 +613,6 @@ if __name__ == "__main__":
         common_p.dropout_prob,
         common_p.int_domain,
         common_p.device,
-        None,
     ).to(device)
 
     if common_p.type_of_int != "untrained":

@@ -101,11 +101,11 @@ INT_DOMAIN_KL_OOD_CHK = dict(
 INT_TOM_CE_CHK = dict(
     # epoch 83
     all="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_all:v49",
-    food="",
-    appliances="",
-    indoor="",
+    food="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_food:v40",
+    appliances="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_appliances:v50",
+    indoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_indoor:v50",
     outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_outdoor:v51",
-    vehicles="",
+    vehicles="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_vehicles:v50",
 )
 
 INT_CHECKPOINTS = dict(

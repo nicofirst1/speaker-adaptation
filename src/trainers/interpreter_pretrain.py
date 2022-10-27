@@ -293,7 +293,6 @@ if __name__ == "__main__":
         int_p.dropout_prob,
         int_p.train_domain,
         int_p.device,
-        vars(int_p),
     ).to(device)
 
     ###################################
