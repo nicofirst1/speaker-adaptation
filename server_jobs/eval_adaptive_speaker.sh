@@ -21,13 +21,13 @@ common_args=( --seed 69
 --s_iter
 5
 --type_of_int
-domain
+tom
 --test_split
 seen
 --pretrain_loss
-fbce
+ce
 --adaptive_loss
-bce
+ce
 --model_type
 binary
 --data_domain
