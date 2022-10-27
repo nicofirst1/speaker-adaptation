@@ -139,7 +139,7 @@ class InterpreterModel_tom(ListenerModel_no_hist):
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance
 
-        embeds=torch.bmm(utt_out,embeds_out)
+        embeds=utt_out*embeds_out
         dot = torch.bmm(separate_images, embeds.view(batch_size, self.hidden_dim, 1))
         # [batch, 6, 1]
 

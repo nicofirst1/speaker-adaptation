@@ -98,6 +98,16 @@ INT_DOMAIN_KL_OOD_CHK = dict(
     vehicles="",
 )
 
+INT_TOM_CE_CHK = dict(
+    # epoch 83
+    all="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_all:v49",
+    food="",
+    appliances="",
+    indoor="",
+    outdoor="adaptive-speaker/interpreter-pretrain/InterpreterModel_tom_outdoor:v51",
+    vehicles="",
+)
+
 INT_CHECKPOINTS = dict(
     INT_NOHIST_CE_CHK=INT_NOHIST_CE_CHK,
     INT_NOHIST_KL_CHK=INT_NOHIST_KL_CHK,
@@ -105,6 +115,7 @@ INT_CHECKPOINTS = dict(
     INT_BINARY_FBCE_CHK=INT_BINARY_FBCE_CHK,
     INT_DOMAIN_CE_CHK=INT_DOMAIN_CE_CHK,
     INT_DOMAIN_KL_OOD_CHK=INT_DOMAIN_KL_OOD_CHK,
+    INT_TOM_CE_CHK=INT_TOM_CE_CHK,
 )
 
 

@@ -265,7 +265,12 @@ def evaluate(
         while i < s:
             set_seed(seed)
 
-            int_out = int_model(h0, context_separate, context_concat, prev_hist, masks)
+            speak_out=h0
+
+            if "tom" in type(int_model).__name__:
+                speak_out=[h0,utterance]
+
+            int_out = int_model(speak_out, context_separate, context_concat, prev_hist, masks)
             s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
@@ -607,6 +612,7 @@ if __name__ == "__main__":
         common_p.dropout_prob,
         common_p.int_domain,
         common_p.device,
+        None,
     ).to(device)
 
     if common_p.type_of_int != "untrained":
