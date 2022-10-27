@@ -258,7 +258,6 @@ def evaluate(
         int_accuracy = [-1 for _ in range(s)]
         int_list_acc = [-1 for _ in range(s)]
 
-        prev_utt=""
 
         # perform loop
         i = 0
@@ -324,9 +323,8 @@ def evaluate(
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # break if listener gets it right
-            if aux["int_target_accuracy"] and prev_utt!=hypo:
+            if aux["int_target_accuracy"]:
                 break
-            prev_utt=hypo
             i += 1
 
         adapted_int_outs.append(s_adapted_int_outs)
