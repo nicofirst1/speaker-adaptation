@@ -13,7 +13,7 @@ from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
 from torch import nn
 
 
-class InterpreterModel_no_hist(ListenerModel_no_hist):
+class InterpreterModel_tom(ListenerModel_no_hist):
     def __init__(
         self,
         vocab_size,
