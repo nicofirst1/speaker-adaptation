@@ -79,10 +79,32 @@ class InterpreterModel_tom(ListenerModel_no_hist):
         projected_context = self.relu(self.lin_context(visual_context))
         projected_context = F.normalize(projected_context, p=2, dim=1)
 
+        repeated_context = projected_context.unsqueeze(1).repeat(
+            1, input_reps.shape[1], 1
+        )
         # multimodal utterance representations
         mm_reps = self.relu(
-            self.lin_mm(torch.cat((input_reps, projected_context), dim=-1))
+            self.lin_mm(torch.cat((input_reps, repeated_context), dim=-1))
         )
+
+        # attention over the multimodal utterance representations (tokens and visual context interact)
+        outputs_att = self.att_linear_1(mm_reps)
+        outputs_att = self.relu(outputs_att)
+        outputs_att = F.normalize(outputs_att, p=2, dim=1)
+        outputs_att = self.att_linear_2(outputs_att)
+        # outputs_att = self.relu(outputs_att)
+
+        # mask pads so that no attention is paid to them (with -inf)
+        masks = masks.bool()
+        outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
+
+        # final attention weights
+        att_weights = self.softmax(outputs_att)
+
+        # encoder context representation
+        attended_hids = (mm_reps * att_weights).sum(dim=1)
+
+        # image features per image in context are processed
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
@@ -93,7 +115,7 @@ class InterpreterModel_tom(ListenerModel_no_hist):
 
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance
-        dot = torch.bmm(separate_images, mm_reps.view(batch_size, self.hidden_dim, 1))
+        dot = torch.bmm(separate_images, attended_hids.view(batch_size, self.hidden_dim, 1))
         # [batch, 6, 1]
 
         return dot
