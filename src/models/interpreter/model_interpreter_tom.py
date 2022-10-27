@@ -24,8 +24,9 @@ class InterpreterModel_tom(ListenerModel_no_hist):
         dropout_prob,
         domain,
         device,
+        args,
     ):
-        super(InterpreterModel_no_hist, self).__init__(
+        super(InterpreterModel_tom, self).__init__(
             vocab_size,
             embedding_dim,
             hidden_dim,
