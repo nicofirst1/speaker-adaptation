@@ -436,7 +436,7 @@ class InterpreterArguments(Params):
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
-        valis_type = ["hist", "no_hist", "binary", "domain", "multi", "dev"]
+        valis_type = ["hist", "no_hist", "binary", "domain", "multi", "dev", "tom"]
 
         assert (
                 self.model_type in valis_type
@@ -538,7 +538,7 @@ class SpeakerArguments(Params):
 
     def check_parameters(self):
         super(SpeakerArguments, self).check_parameters()
-        valis_type = ["hist", "no_hist", "binary", "domain", "multi", "dev"]
+        valis_type = ["hist", "no_hist", "binary", "domain", "multi", "dev" ,"tom"]
 
         assert (
                 self.model_type in valis_type

@@ -16,9 +16,9 @@ source activate uvapb
 
 # static arguments
 common_args=(--metric accs --reduction sum --subset_size -1  --seed 42
--shuffle --test_split seen --data_domain all --type_of_int domain --mask_oov_embed unk)
+-shuffle --test_split seen --data_domain all --type_of_int domain --mask_oov_embed unk --model_type tom)
 # train arguments
-common_args=("${common_args[@]}" --epochs 250 --patience 20 --pretrain_loss ce --adaptive_loss ce --learning_rate 0.8486 -shuffle )
+common_args=("${common_args[@]}" --epochs 250 --patience 20 --pretrain_loss ce --adaptive_loss ce --learning_rate 0.001 -shuffle )
 
 # model arguments
 common_args=("${common_args[@]}"  --dropout 0.64  --embedding_dim 512 --hidden_dim 1024 )

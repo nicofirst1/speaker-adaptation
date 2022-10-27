@@ -103,7 +103,12 @@ def get_predictions(
     # get outputs
     list_out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
 
-    int_out = int_model(speak_embds, context_separate, context_concat, prev_hist, masks)
+    if "tom" in type(int_model).__name__:
+        speak_out=[speak_embds,utterance]
+    else:
+        speak_out=speak_embds
+
+    int_out = int_model(speak_out, context_separate, context_concat, prev_hist, masks)
 
     targets = targets.to(device)
 

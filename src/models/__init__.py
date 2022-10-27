@@ -6,6 +6,7 @@ from .interpreter.model_interpreter_domain import InterpreterModel_domain
 from .interpreter.model_interpreter_hist import InterpreterModel_hist
 from .interpreter.model_interpreter_multi import InterpreterModel_multi
 from .interpreter.model_interpreter_no_hist import InterpreterModel_no_hist
+from .interpreter.model_interpreter_tom import InterpreterModel_tom
 from .listener.ListenerModel_hist import ListenerModel_hist
 from .listener.ListenerModel_no_hist import ListenerModel_no_hist
 from .speaker.model_speaker_hist import SpeakerModel_hist
@@ -50,6 +51,8 @@ def get_model(model: Literal["list", "speak", "int"], model_type: str):
             return InterpreterModel_multi
         elif model_type == "dev":
             return InterpreterModel_dev
+        elif model_type == "tom":
+            return InterpreterModel_tom
 
     else:
         raise KeyError(f"No model type named '{model}'")
