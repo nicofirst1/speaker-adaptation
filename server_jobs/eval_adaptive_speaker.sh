@@ -21,7 +21,7 @@ common_args=( --seed 69
 --s_iter
 5
 --type_of_int
-tom
+domain
 --test_split
 seen
 --pretrain_loss
@@ -29,7 +29,7 @@ ce
 --adaptive_loss
 ce
 --model_type
-binary
+tom
 --data_domain
 all
 )
