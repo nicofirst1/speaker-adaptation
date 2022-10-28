@@ -12,7 +12,7 @@ project: inter-sweep
 parameters:
     learning_rate:
         distribution: uniform
-        max: 0.6
+        max: 0.1
         min: 0.001
 
     data_domain:
@@ -25,7 +25,6 @@ parameters:
       values:
         - 128
         - 512
-        - 1024
 
     embedding_dim:
       values:
@@ -37,13 +36,12 @@ parameters:
       values:
         - 128
         - 512
-        - 1024
 
 
     dropout_prob:
       distribution: uniform
       max: 0.1
-      min: 0.0
+      min: 0.03
 
 
 
