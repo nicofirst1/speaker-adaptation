@@ -1,5 +1,5 @@
 early_terminate:
-  eta: 3
+  eta: 4
   min_iter: 10
   type: hyperband
 method: bayes
@@ -12,8 +12,8 @@ project: inter-sweep
 parameters:
     learning_rate:
         distribution: uniform
-        max: 1
-        min: 0.0001
+        max: 0.6
+        min: 0.001
 
     data_domain:
         value: all
@@ -26,14 +26,12 @@ parameters:
         - 128
         - 512
         - 1024
-        - 2042
 
     embedding_dim:
       values:
         - 128
         - 512
         - 1024
-        - 2042
 
     hidden_dim:
       values:
