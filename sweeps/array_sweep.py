@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     cuda_devices=torch.cuda.device_count()
     procs = []
-    for i in range(3):
+    for i in range(cuda_devices):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
         proc = mp.Process(target=wandb.agent, args=( sweepid,))
         procs.append(proc)
