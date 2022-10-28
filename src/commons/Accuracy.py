@@ -1,6 +1,7 @@
 import torch
 from scipy.stats import ks_2samp
-from torch import nn, functional
+from torch import nn
+from torch.nn import functional as F
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -77,10 +78,12 @@ class AccuracyEstimator(torch.nn.Module):
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
             # estimate kl divergence and kolmogorov-smirnov test
-            soft=nn.Softmax(dim=1)
-            p= torch.log(soft(preds.squeeze(dim=-1)))
-            l=soft(list_out.squeeze(dim=-1))
+            p=preds.squeeze(dim=-1)
+            l=list_out.squeeze(dim=-1)
+            p= F.log_softmax(p, dim=1)
+            l=F.softmax(l, dim=1)
             kl_div=self.kl_div(p,l).detach().cpu().item()
+
 
             # get pos and neg predictions
             list_neg_preds = list_preds[neg_idx]
@@ -131,6 +134,9 @@ class AccuracyEstimator(torch.nn.Module):
         list_preds = list_preds.tolist()
         int_preds = int_preds.tolist()
 
+        list_dist=F.softmax(list_out.squeeze(dim=-1).detach().cpu(),dim=1)
+        pred_dist=F.softmax(preds.squeeze(dim=-1).detach().cpu(),dim=1)
+
         # build dict
         aux = dict(
             # accuracy
@@ -139,11 +145,17 @@ class AccuracyEstimator(torch.nn.Module):
             int_target_accuracy=int_target_accuracy,
             int_list_neg_accuracy=int_list_neg_accuracy,
             int_list_pos_accuracy=int_list_pos_accuracy,
+
             # preds
             list_preds=list_preds,
             int_preds=int_preds,
             neg_pred_len=len(list_neg_preds),
             pos_pred_len=len(list_pos_preds),
+
+            # distributions
+            list_dist=list_dist,
+            int_dist=pred_dist,
+
             # domain specific
             list_target_accuracy_dom=list_target_accuracy_dom,
             int_list_accuracy_dom=int_list_accuracy_dom,

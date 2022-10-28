@@ -2,9 +2,12 @@ import random
 from typing import Any, Dict, Optional
 
 import PIL.Image
+import numpy as np
 import torch
 import wandb
 from PIL import ImageOps
+from matplotlib import pyplot as plt
+
 from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
@@ -194,8 +197,35 @@ class ListenerLogger(WandbLogger):
             # log plot for each domain
             logs["domain_acc_plots"] = dict(domain_accuracy)
 
+
         logs.update(metrics)
         logs = {f"{modality}/{k}": v for k, v in logs.items()}
+
+
+        # detach torch tensor
+        for k, v in logs.items():
+            if isinstance(v, torch.Tensor):
+                v = v.detach()
+                # transform to list/float
+                if v.ndim > 0:
+                    logs[k] = v.tolist()
+                else:
+                    logs[k] = v.item()
+
+                v=logs[k]
+
+            # transform list into histograms
+            if isinstance(v, list) and len(v) > 0:
+                try:
+                    num_bins = max(v) if max(v) > 0 else 1
+                    logs[k] = wandb.Histogram(v, num_bins=num_bins)
+                except TypeError:
+                    h= np.histogram(v)
+                    logs[k] = wandb.Histogram(np_histogram=h)
+
+
+
+
 
         self.log_to_wandb(logs, commit=commit)
 

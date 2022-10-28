@@ -65,6 +65,9 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
     aux["int_preds"] = flatten(aux["int_preds"])
     aux["list_preds"] = flatten(aux["list_preds"])
 
+    aux["list_dist"] = torch.concat(aux["list_dist"], dim=0).T
+    aux["int_dist"] = torch.concat(aux["int_dist"], dim=0).T
+
     if len(aux["target"]) > max_targets:
         aux["target"] = np.random.choice(
             aux["target"], size=max_targets, replace=False
