@@ -1,5 +1,6 @@
 import torch
 from scipy.stats import ks_2samp
+from torch import nn, functional
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -76,7 +77,10 @@ class AccuracyEstimator(torch.nn.Module):
             int_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
             # estimate kl divergence and kolmogorov-smirnov test
-            kl_div=self.kl_div(preds.squeeze(dim=-1),list_out.squeeze(dim=-1)).detach().cpu().item()
+            soft=nn.Softmax(dim=1)
+            p= torch.log(soft(preds.squeeze(dim=-1)))
+            l=soft(list_out.squeeze(dim=-1))
+            kl_div=self.kl_div(p,l).detach().cpu().item()
 
             # get pos and neg predictions
             list_neg_preds = list_preds[neg_idx]
