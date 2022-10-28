@@ -82,17 +82,17 @@ class InterpreterModel_tom(nn.Module):
 
         nn_lin = nn.LeakyReLU() if use_leaky else nn.ReLU()
 
-        layers = [nn.Linear(input_dim, self.hidden_dim), nn_lin, self.dropout]
+        layers = [self.dropout, nn.Linear(input_dim, self.hidden_dim), nn_lin]
 
         for l in range(num_layers - 1):
+            layers.append(self.dropout)
             layers.append(nn.Linear(self.hidden_dim, self.hidden_dim))
             layers.append(nn_lin)
-            layers.append(self.dropout)
 
         if end_dim != -1:
+            layers.append(self.dropout)
             layers.append(nn.Linear(self.hidden_dim, end_dim))
             layers.append(nn_lin)
-            layers.append(self.dropout)
 
         return nn.Sequential(*layers)
 
