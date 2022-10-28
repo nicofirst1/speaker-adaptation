@@ -44,7 +44,7 @@ parameters:
 
     dropout_prob:
       distribution: uniform
-      max: 0.9
+      max: 0.1
       min: 0.0
 
 
