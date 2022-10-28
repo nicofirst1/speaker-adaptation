@@ -28,6 +28,6 @@ if __name__ == "__main__":
     cuda_devices=torch.cuda.device_count()
 
     for i in range(cuda_devices):
-        os.environ["CUDA_VISIBLE_DEVICES"] = i
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
         wandb.agent(sweepid, count=TRIALS//cuda_devices)
         sleep(10)
