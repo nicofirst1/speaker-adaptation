@@ -2,6 +2,8 @@ import os
 from time import sleep
 
 import torch
+from joblib._multiprocessing_helpers import mp
+
 import wandb
 import yaml
 from src.commons import parse_args
@@ -26,8 +28,14 @@ if __name__ == "__main__":
     )
 
     cuda_devices=torch.cuda.device_count()
-
-    for i in range(cuda_devices):
+    procs = []
+    for i in range(3):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
-        wandb.agent(sweepid, count=TRIALS//cuda_devices)
-        sleep(10)
+        proc = mp.Process(target=wandb.agent, args=( sweepid,))
+        procs.append(proc)
+        proc.start()
+
+    # complete the processes
+    for proc in procs:
+        proc.join()
+
