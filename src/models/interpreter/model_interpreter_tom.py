@@ -13,7 +13,7 @@ from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
 from torch import nn
 
 
-class InterpreterModel_tom(ListenerModel_no_hist):
+class InterpreterModel_tom(nn.Module):
     def __init__(
         self,
         vocab_size,
@@ -25,27 +25,82 @@ class InterpreterModel_tom(ListenerModel_no_hist):
         domain,
         device,
     ):
-        super(InterpreterModel_tom, self).__init__(
-            vocab_size,
-            embedding_dim,
-            hidden_dim,
-            img_dim,
-            att_dim,
-            dropout_prob,
-            domain,
-            device,
-        )
-        self.relu = nn.LeakyReLU()
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
+        self.hidden_dim = hidden_dim
+        self.img_dim = img_dim
+        self.attention_dim = att_dim
+        self.device = device
+        self.domain = domain
 
-        # self.att_linear_2 = nn.Linear(self.attention_dim, self.hidden_dim)
-        self.init_weights()  # initialize layers
+
+        self.dropout = nn.Dropout(dropout_prob)
+
+        # embeddings learned from scratch
+        self.embeddings = nn.Embedding(
+            self.vocab_size,
+            self.embedding_dim,
+            padding_idx=0,
+            scale_grad_by_freq=True,
+        )
+
+        # project images to hidden dimensions
+        self.linear_separate = nn.Linear(self.img_dim, self.hidden_dim)
+
+        # from embedding dimensions to hidden dimensions
+        #self.lin_emb2hid = nn.Linear(self.embedding_dim, self.hidden_dim)
+
+        self.lin_emb2hid=self.init_sequential(self.embedding_dim, 1, use_leaky=True)
+
+
+        # Concatenation of 6 images in the context projected to hidden
+        #self.lin_context = nn.Linear(self.img_dim * 6, self.hidden_dim)
+        self.lin_context=self.init_sequential(self.img_dim *6 , 3, use_leaky=False)
+
+
+        # Multimodal (text representation; visual context)
+        #self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
+        self.lin_mm=self.init_sequential(self.hidden_dim * 2, 1, use_leaky=False)
+
+        # attention linear layers
+        #self.att_linear_1 = nn.Linear(self.hidden_dim, self.attention_dim)
+        self.att_linear_1 = self.init_sequential(self.hidden_dim , 3, use_leaky=True, end_dim=self.attention_dim)
+        self.att_linear_2 = nn.Linear(self.attention_dim, 1)
+
+        self.relu = nn.ReLU()
+        self.lrelu = nn.LeakyReLU()
+
+        self.softmax = nn.Softmax(dim=1)
+
+
+
+    def init_sequential(self, input_dim, num_layers, use_leaky=False, end_dim=-1):
+        """
+        Initializes the sequential layers of the model
+        """
+
+        nn_lin = nn.LeakyReLU() if use_leaky else nn.ReLU()
+
+        layers = [nn.Linear(input_dim, self.hidden_dim), nn_lin, self.dropout]
+
+        for l in range(num_layers - 1):
+            layers.append(nn.Linear(self.hidden_dim, self.hidden_dim))
+            layers.append(nn_lin)
+            layers.append(self.dropout)
+
+        if end_dim != -1:
+            layers.append(nn.Linear(self.hidden_dim, end_dim))
+            layers.append(nn_lin)
+            layers.append(self.dropout)
+
+        return nn.Sequential(*layers)
 
     def utterance_forward(self, speaker_utterances,projected_context, masks):
 
         representations = self.embeddings(speaker_utterances)
         # utterance representations are processed
-        representations = self.dropout(representations)
-        input_reps = self.lrelu(self.lin_emb2hid(representations))
+        input_reps = self.lin_emb2hid(representations)
         input_reps = F.normalize(input_reps, p=2, dim=1)
 
 
@@ -59,10 +114,8 @@ class InterpreterModel_tom(ListenerModel_no_hist):
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_att = self.att_linear_1(mm_reps)
-        outputs_att = self.relu(outputs_att)
         outputs_att = F.normalize(outputs_att, p=2, dim=1)
         outputs_att = self.att_linear_2(outputs_att)
-        # outputs_att = self.relu(outputs_att)
 
         # mask pads so that no attention is paid to them (with -inf)
         masks = masks.bool()
@@ -79,8 +132,7 @@ class InterpreterModel_tom(ListenerModel_no_hist):
     def embeds_forward(self,speaker_embeds,projected_context):
 
         # utterance representations are processed
-        representations = self.dropout(speaker_embeds)
-        input_reps = self.lrelu(self.lin_emb2hid(representations))
+        input_reps = self.lin_emb2hid(speaker_embeds)
         input_reps = F.normalize(input_reps, p=2, dim=1)
 
 
@@ -90,6 +142,7 @@ class InterpreterModel_tom(ListenerModel_no_hist):
         )
 
         return mm_reps
+
 
 
     def forward(
@@ -114,8 +167,7 @@ class InterpreterModel_tom(ListenerModel_no_hist):
 
         # [32,512]
         # visual context is processed
-        visual_context = self.dropout(visual_context)
-        projected_context = self.relu(self.lin_context(visual_context))
+        projected_context = self.lin_context(visual_context)
         projected_context = F.normalize(projected_context, p=2, dim=1)
 
         utt_out = self.utterance_forward(speaker_utterances,projected_context,masks)
