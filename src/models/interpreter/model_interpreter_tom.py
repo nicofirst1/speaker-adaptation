@@ -56,7 +56,7 @@ class InterpreterModel_tom(nn.Module):
 
         # Concatenation of 6 images in the context projected to hidden
         #self.lin_context = nn.Linear(self.img_dim * 6, self.hidden_dim)
-        self.lin_context=self.init_sequential(self.img_dim *6 , 3, use_leaky=False)
+        self.lin_context=self.init_sequential(self.img_dim *6 , 1, use_leaky=False)
 
 
         # Multimodal (text representation; visual context)
@@ -65,7 +65,7 @@ class InterpreterModel_tom(nn.Module):
 
         # attention linear layers
         #self.att_linear_1 = nn.Linear(self.hidden_dim, self.attention_dim)
-        self.att_linear_1 = self.init_sequential(self.hidden_dim , 3, use_leaky=True, end_dim=self.attention_dim)
+        self.att_linear_1 = self.init_sequential(self.hidden_dim , 1, use_leaky=True, end_dim=self.attention_dim)
         self.att_linear_2 = nn.Linear(self.attention_dim, 1)
 
         self.relu = nn.ReLU()
