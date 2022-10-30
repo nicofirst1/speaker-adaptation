@@ -64,8 +64,8 @@ class InterpreterModel_tom(nn.Module):
         self.lin_mm=self.init_sequential(self.hidden_dim * 2, 1, use_leaky=False)
 
         # attention linear layers
-        #self.att_linear_1 = nn.Linear(self.hidden_dim, self.attention_dim)
-        self.att_linear_1 = self.init_sequential(self.hidden_dim , 1, use_leaky=True, end_dim=self.attention_dim)
+        self.att_linear_1 = nn.Linear(self.hidden_dim, self.attention_dim)
+        #self.att_linear_1 = self.init_sequential(self.hidden_dim , 1, use_leaky=True, end_dim=self.attention_dim)
         self.att_linear_2 = nn.Linear(self.attention_dim, 1)
 
         self.relu = nn.ReLU()
@@ -114,6 +114,7 @@ class InterpreterModel_tom(nn.Module):
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_att = self.att_linear_1(mm_reps)
+        outputs_att = self.relu(outputs_att)
         outputs_att = F.normalize(outputs_att, p=2, dim=1)
         outputs_att = self.att_linear_2(outputs_att)
 
