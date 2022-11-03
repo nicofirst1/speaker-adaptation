@@ -21,7 +21,7 @@ parameters:
         min: 3
 
     model_type:
-        value : no_hist
+        value : tom
 
     adaptive_loss:
         value: ce
