@@ -4,6 +4,8 @@ from typing import Dict, List, Tuple
 import numpy as np
 import rich.progress
 import torch
+from torch.optim.lr_scheduler import ExponentialLR
+
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, IntLossPretrain, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint,
@@ -36,30 +38,38 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
     def flatten(xss):
         return [x for xs in xss for x in xs]
 
-    domains = flatten(aux.pop("domains"))
-    aux["domain/list_target_acc"] = get_domain_accuracy(
-        flatten(aux.pop("list_target_accuracy_dom")), domains, all_domains
-    )
-    aux["domain/int_list_acc"] = get_domain_accuracy(
-        flatten(aux.pop("int_list_accuracy_dom")), domains, all_domains
-    )
-    aux["domain/int_target_acc"] = get_domain_accuracy(
-        flatten(aux.pop("int_target_accuracy_dom")), domains, all_domains
-    )
+    # domains = flatten(aux.pop("domains"))
+    # aux["domain/list_target_acc"] = get_domain_accuracy(
+    #     flatten(aux.pop("list_target_accuracy_dom")), domains, all_domains
+    # )
+    # aux["domain/int_list_acc"] = get_domain_accuracy(
+    #     flatten(aux.pop("int_list_accuracy_dom")), domains, all_domains
+    # )
+    # aux["domain/int_target_acc"] = get_domain_accuracy(
+    #     flatten(aux.pop("int_target_accuracy_dom")), domains, all_domains
+    # )
 
-    int_list_neg_accuracy_dom = aux.pop("int_list_neg_accuracy_dom")
-    d = [x[1] for x in int_list_neg_accuracy_dom]
-    correct = [x[0] for x in int_list_neg_accuracy_dom]
-    d = flatten(d)
-    correct = flatten(correct)
-    aux["domain/int_list_neg_acc"] = get_domain_accuracy(correct, d, all_domains)
+    # int_list_neg_accuracy_dom = aux.pop("int_list_neg_accuracy_dom")
+    # d = [x[1] for x in int_list_neg_accuracy_dom]
+    # correct = [x[0] for x in int_list_neg_accuracy_dom]
+    # d = flatten(d)
+    # correct = flatten(correct)
+    # aux["domain/int_list_neg_acc"] = get_domain_accuracy(correct, d, all_domains)
+    #
+    # int_list_neg_accuracy_dom = aux.pop("int_list_pos_accuracy_dom")
+    # d = [x[1] for x in int_list_neg_accuracy_dom]
+    # correct = [x[0] for x in int_list_neg_accuracy_dom]
+    # d = flatten(d)
+    # correct = flatten(correct)
+    # aux["domain/int_list_pos_acc"] = get_domain_accuracy(correct, d, all_domains)
 
-    int_list_neg_accuracy_dom = aux.pop("int_list_pos_accuracy_dom")
-    d = [x[1] for x in int_list_neg_accuracy_dom]
-    correct = [x[0] for x in int_list_neg_accuracy_dom]
-    d = flatten(d)
-    correct = flatten(correct)
-    aux["domain/int_list_pos_acc"] = get_domain_accuracy(correct, d, all_domains)
+    aux.pop("int_list_pos_accuracy_dom")
+    aux.pop("int_list_neg_accuracy_dom")
+    aux.pop("domains")
+    aux.pop("int_list_accuracy_dom")
+    aux.pop("int_target_accuracy_dom")
+    aux.pop("list_target_accuracy_dom")
+
 
     # flatten nested lists
     aux["int_preds"] = flatten(aux["int_preds"])
@@ -315,7 +325,7 @@ if __name__ == "__main__":
     acc_estimator = AccuracyEstimator(
         domain, common_p.model_type, all_domains=logger.domains
     )
-
+    #scheduler = ExponentialLR(optimizer, gamma=0.9)
 
 
     ###################################
@@ -332,7 +342,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([int_model])
+    #logger.watch_model([int_model])
 
     ###################################
     ##  Get speaker dataloader
@@ -344,8 +354,8 @@ if __name__ == "__main__":
     data_domain = common_p.data_domain
 
     shuffle = common_p.shuffle
-    training_loader, test_loader, val_loader = get_dataloaders(
-        int_p, speak_vocab, data_domain
+    training_loader, _, val_loader = get_dataloaders(
+        int_p, speak_vocab, data_domain, splits=["train", "val"]
     )
 
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
@@ -395,16 +405,6 @@ if __name__ == "__main__":
         list_vocab,
         speaker_model,
         val_loader,
-        logger,
-        subset_size=common_p.subset_size,
-    )
-    speak_test_dl = load_wandb_dataset(
-        "test",
-        data_domain,
-        load_params,
-        list_vocab,
-        speaker_model,
-        test_loader,
         logger,
         subset_size=common_p.subset_size,
     )
@@ -459,7 +459,7 @@ if __name__ == "__main__":
             aux, list_domain=speak_train_dl.dataset.domain, modality="train"
         )
 
-        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['int_list_accuracy']:.3f} ")
+        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['int_list_accuracy']*100:.2f} ")
 
         ###################################
         ##  EVAL LOOP
@@ -481,7 +481,7 @@ if __name__ == "__main__":
             )
             eval_accuracy, eval_loss = aux["int_list_accuracy"], aux["loss"]
 
-            print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy:.3f} ")
+            print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy*100:.3f} ")
             logger.on_eval_end(
                 aux, list_domain=speak_val_dl.dataset.domain, modality="eval"
             )
@@ -505,7 +505,7 @@ if __name__ == "__main__":
             #     aux, list_domain=speak_test_dl.dataset.domain, modality="test"
             # )
 
-        if not common_p.is_test:
+        if not common_p.is_test and epoch%2 == 0:
             save_model(
                 model=int_model,
                 model_type="interpreter",
@@ -524,3 +524,4 @@ if __name__ == "__main__":
             break
 
         logger.on_train_end({}, epoch_id=epoch)
+        print("\n\n")

@@ -74,7 +74,7 @@ class WandbLogger:
             mode="disabled" if opts["debug"] else "online",
             tags=tags,
             reinit=True,
-            # settings=wandb.Settings(start_method='fork'),
+            settings=wandb.Settings(start_method='fork'),
             **kwargs,
         )
         wandb.config.update(opts)

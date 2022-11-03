@@ -1,7 +1,7 @@
 import argparse
 import copy
 import os.path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 import numpy as np
 import rich.progress
@@ -61,6 +61,7 @@ def get_dataloaders(
     vocab: Vocab,
     domain: str = None,
     unary_val_bs: Optional[bool] = True,
+    splits: Optional[List[str]] = ["train", "val", "test"],
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load dataloaders based on args. Can be either the speaker or the listener
@@ -76,11 +77,11 @@ def get_dataloaders(
 
     """
 
-    datasets = []
+    datasets = {}
     # copy args to avoid modifying original
     args_copy = copy.deepcopy(args)
     # generate kwargs for different splits
-    for split in ["train", "val", "test"]:
+    for split in splits:
 
         # differenciate between seen/unseen/merged tests
         if domain is not None and split == "test":
@@ -111,7 +112,7 @@ def get_dataloaders(
         else:
             _set = SpeakerDataset(**kwargs)
 
-        datasets.append(_set)
+        datasets[split]=_set
 
     load_params = {
         "batch_size": args_copy.batch_size,
@@ -131,13 +132,20 @@ def get_dataloaders(
 
     load_params_val = load_params_test if unary_val_bs else load_params
 
-    training_loader = torch.utils.data.DataLoader(datasets[0], **load_params)
+    train_loader = None
+    val_loader = None
+    test_loader = None
 
-    val_loader = torch.utils.data.DataLoader(datasets[1], **load_params_val)
+    if "train" in splits:
+        train_loader = DataLoader(datasets["train"], **load_params)
+    if "val" in splits:
+        val_loader = DataLoader(datasets["val"], **load_params_val)
+    if "test" in splits:
+        test_loader = DataLoader(datasets["test"], **load_params_test)
 
-    test_loader = torch.utils.data.DataLoader(datasets[2], **load_params_test)
 
-    return training_loader, test_loader, val_loader
+
+    return train_loader, test_loader, val_loader
 
 
 def load_wandb_dataset(
