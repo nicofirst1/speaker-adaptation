@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=15:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=1
+#SBATCH --gpus-per-node=4
 
 
 
