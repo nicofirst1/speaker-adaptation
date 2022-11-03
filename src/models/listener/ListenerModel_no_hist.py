@@ -90,6 +90,12 @@ class ListenerModel_no_hist(nn.Module):
         ]:
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
+    @staticmethod
+    def standardize(tensor):
+        """
+        Standardizes a tensor
+        """
+        return (tensor - tensor.mean()) / tensor.std()
 
     def forward(
         self,
@@ -122,15 +128,14 @@ class ListenerModel_no_hist(nn.Module):
         # utterance representations are processed
         representations = self.dropout(representations)
         input_reps = self.lrelu(self.lin_emb2hid(representations))
-        input_reps = F.normalize(input_reps, p=2, dim=1)
+        input_reps = self.standardize(input_reps)
 
         # [32,33,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
         projected_context = self.relu(self.lin_context(visual_context))
-        projected_context = F.normalize(projected_context, p=2, dim=1)
-
+        projected_context = self.standardize(projected_context)
         repeated_context = projected_context.unsqueeze(1).repeat(
             1, input_reps.shape[1], 1
         )
@@ -143,7 +148,7 @@ class ListenerModel_no_hist(nn.Module):
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_att = self.att_linear_1(mm_reps)
         outputs_att = self.relu(outputs_att)
-        outputs_att = F.normalize(outputs_att, p=2, dim=1)
+        outputs_att = self.standardize(outputs_att)
         outputs_att = self.att_linear_2(outputs_att)
         # outputs_att = self.relu(outputs_att)
 
@@ -162,7 +167,7 @@ class ListenerModel_no_hist(nn.Module):
         separate_images = self.linear_separate(separate_images)
 
         separate_images = self.relu(separate_images)
-        separate_images = F.normalize(separate_images, p=2, dim=2)
+        separate_images = self.standardize(separate_images)
 
         # dot product between the candid ate images and
         # the final multimodal representation of the input utterance
