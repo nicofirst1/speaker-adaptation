@@ -41,9 +41,9 @@ parameters:
 
     dropout_prob:
       distribution: q_uniform
-        max: 0.5
-        min: 0.0
-        q: 0.01
+      max: 0.5
+      min: 0.0
+      q: 0.01
 
 
 
