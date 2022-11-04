@@ -349,7 +349,7 @@ class InterpreterArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
-    mask_oov_embed: Optional[str] = "none"
+    mask_oov_embed: Optional[str] = "unk"
 
     #########################
 
