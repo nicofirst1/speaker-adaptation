@@ -20,9 +20,9 @@ common_args=( --seed 69
 --hidden_dim 128
 --embedding_dim 128
 --adapt_lr
-0.03
+0.5
 --s_iter
-5
+20
 --type_of_int
 domain
 --test_split

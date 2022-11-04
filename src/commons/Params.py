@@ -359,7 +359,7 @@ class InterpreterArguments(Params):
     # 3. binary: predicts if the list will be correct or not
     # 4. domain: predicts datapoint domain
 
-    model_type: Optional[str] = "no_hist"
+    model_type: Optional[str] = "tom"
     hidden_dim: Optional[int] = 128
     embedding_dim: Optional[int] = 128
     attention_dim: Optional[int] = 128
@@ -374,8 +374,8 @@ class InterpreterArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter: Optional[int] =11
-    adapt_lr: Optional[float] = 0.12
+    s_iter: Optional[int] =20
+    adapt_lr: Optional[float] = 0.5
     log_train: Optional[bool] = False
     # pretrain loss for interpreter == listener out,
     # can be:
