@@ -16,10 +16,13 @@ source activate uvapb
 
 #create output directory
 common_args=(
+--attention_dim 128
+--hidden_dim 128
+--embedding_dim 128
 --adapt_lr
-0.12
+0.5
 --s_iter
-11
+20
 --type_of_int
 domain
 --test_split
@@ -29,10 +32,12 @@ ce
 --adaptive_loss
 ce
 --model_type
-no_hist
+tom
 --data_domain
 all
 --train_domain
+food
+--int_domain
 food
 )
 
