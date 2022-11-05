@@ -176,7 +176,13 @@ def evaluate(
         while i < s:
             set_seed(seed)
 
-            int_out = int_model(h0, context_separate, context_concat, prev_hist, masks)
+            speak_out=h0
+
+            # if tom is network then feed both embeds and utterances
+            if "tom" in type(int_model).__name__:
+                speak_out = [h0, utterance]
+
+            int_out = int_model(speak_out, context_separate, context_concat, prev_hist, masks)
             s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
@@ -190,6 +196,7 @@ def evaluate(
             s_loss_adapt[i] = loss_adapted.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
             s_grad[i] = h0.grad[0].clone().detach().tolist()
+
 
             # get modified hypo
             utterance = speak_model.nucleus_sampling(h0, history_att, speak_masks)
