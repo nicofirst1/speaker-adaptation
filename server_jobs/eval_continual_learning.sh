@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=02:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=2
+#SBATCH --gpus-per-node=1
 
 
 
@@ -18,7 +18,7 @@ source activate uvapb
 common_args=(
 --seed 69
 --adapt_lr
-0.12
+0.5
 --s_iter
 20
 --type_of_int
@@ -30,7 +30,7 @@ ce
 --adaptive_loss
 ce
 --model_type
-no_hist
+tom
 --data_domain
 all
 
