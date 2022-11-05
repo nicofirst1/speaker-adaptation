@@ -187,11 +187,15 @@ def evaluate(
 
             # compute loss and perform backprop
             loss_adapted = adaptation_criterion(int_out, targets, list_out, data["domain"])
+            # update on int weights
+            c_loss = continual_criterion(int_out, list_out)
             # aux = acc_estimator(
             #     int_out, targets, list_out, data["domain"], is_adaptive=True
             # )
-            loss_adapted.backward(retain_graph=True)
+            loss=c_loss+loss_adapted
+            loss.backward()
             optimizer.step()
+            continual_optimizer.step()
 
             s_loss_adapt[i] = loss_adapted.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
@@ -226,10 +230,7 @@ def evaluate(
                 int_out, targets, list_out, data["domain"], is_adaptive=True
             )
 
-            # update on int weights
-            c_loss = continual_criterion(int_out, list_out)
-            c_loss.backward()
-            continual_optimizer.step()
+
 
             int_accuracy[i] = aux["int_target_accuracy"]
             int_list_acc[i] = aux["int_list_accuracy"]
