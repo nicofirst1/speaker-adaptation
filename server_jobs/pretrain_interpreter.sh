@@ -22,7 +22,7 @@ common_args=("${common_args[@]}" --epochs 50 --patience 10 --pretrain_loss ce --
 
 # model arguments
 common_args=("${common_args[@]}"  --dropout 0.3  --embedding_dim 128 --hidden_dim 128 --attention_dim 128 )
-# restore the interpreter
+# restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/trainers/interpreter_pretrain.py"

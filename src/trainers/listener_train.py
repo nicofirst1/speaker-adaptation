@@ -11,6 +11,7 @@ from src.commons import (LISTENER_CHK_DICT, EarlyStopping, get_dataloaders,
                          parse_args, save_model)
 from src.data.dataloaders import Vocab
 from src.models import get_model
+from src.models.listener.ListenerModel import ListenerModel
 from src.wandb_logging import DataLogger, ListenerLogger
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -127,17 +128,8 @@ if __name__ == "__main__":
 
     args = parse_args("list")
 
-    print(args)
-
-    t = datetime.datetime.now()
-    timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
-    )
-    print("code starts", timestamp)
-
     domain = args.train_domain
 
-    model_type = args.model_type
 
     # for reproducibilty
     torch.manual_seed(args.seed)
@@ -150,10 +142,6 @@ if __name__ == "__main__":
     vocab_size = len(vocab)
     # print(f'vocab size {vocab_size}')
 
-    # add debug label
-    tags = []
-    if args.debug or args.subset_size != -1:
-        tags = ["debug"]
 
     logger = ListenerLogger(
         vocab=vocab,
@@ -161,7 +149,6 @@ if __name__ == "__main__":
         group=args.train_domain,
         train_logging_step=20,
         val_logging_step=1,
-        tags=tags,
     )
 
     ###################################
@@ -187,7 +174,6 @@ if __name__ == "__main__":
         data_logger = DataLogger(
             vocab=vocab,
             opts=vars(args),
-            tags=tags,
         )
         data_logger.log_dataset(training_loader.dataset, "train")
         data_logger.log_dataset(val_loader.dataset, "val")
@@ -207,8 +193,7 @@ if __name__ == "__main__":
 
     # depending on the selected model type, we will have a different architecture
 
-    model = get_model("list", model_type)
-    model = model(
+    model = ListenerModel(
         vocab_size,
         embedding_dim,
         hidden_dim,
@@ -360,7 +345,7 @@ if __name__ == "__main__":
             if not args.is_test:
                 save_model(
                     model=model,
-                    model_type=model_type,
+                    model_type="listener",
                     epoch=epoch,
                     accuracy=current_accuracy,
                     optimizer=optimizer,

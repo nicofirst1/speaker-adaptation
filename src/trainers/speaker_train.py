@@ -13,6 +13,7 @@ from src.commons import (SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          save_model)
 from src.data.dataloaders import Vocab
 from src.models import get_model
+from src.models.speaker.SpeakerModel import SpeakerModel
 from src.wandb_logging import SpeakerLogger
 from torch import nn, optim
 
@@ -133,7 +134,6 @@ if __name__ == "__main__":
     speak_p = parse_args("speak")
     print(speak_p)
 
-    model_type = speak_p.model_type
 
     # for reproducibility
     seed = speak_p.seed
@@ -184,8 +184,7 @@ if __name__ == "__main__":
     ##  MODEL
     ###################################
 
-    model = get_model("speak", model_type)
-    model = model(
+    model = SpeakerModel(
         vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
@@ -368,7 +367,7 @@ if __name__ == "__main__":
             if not speak_p.is_test:
                 save_model(
                     model=model,
-                    model_type=model_type,
+                    model_type="speaker",
                     epoch=epoch,
                     accuracy=current_score,
                     optimizer=optimizer,

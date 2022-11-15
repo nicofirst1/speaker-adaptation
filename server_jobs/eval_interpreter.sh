@@ -17,7 +17,7 @@ source activate uvapb
 #create output directory
 common_args=( --subset_size -1 --seed 42 --test_split all --type_of_int domain)
 
-# if true then use general interpreter on all domains
+# if true then use general simulator on all domains
 #common_args=("${common_args[@]}" --resume_train true )
 
 trainers_file="${HOME}/pb_speaker_adaptation/src/evals/interpreter_eval.py"

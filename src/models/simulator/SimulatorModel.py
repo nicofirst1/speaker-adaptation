@@ -2,14 +2,14 @@ from typing import List
 
 import torch
 import torch.nn.functional as F
-from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
+from src.models.listener.ListenerModel import ListenerModel
 from torch import nn
 
 from typing import List
 
 import torch
 import torch.nn.functional as F
-from src.models.listener.ListenerModel_no_hist import ListenerModel_no_hist
+from src.models.listener.ListenerModel import ListenerModel
 from torch import nn
 
 
@@ -22,7 +22,7 @@ def linear(input_dim, output_dim):
     torch.nn.init.xavier_uniform_(linear.weight)
     return linear
 
-class InterpreterModel_tom(nn.Module):
+class SimulatorModel(nn.Module):
     def __init__(
         self,
         vocab_size,
@@ -183,7 +183,8 @@ class InterpreterModel_tom(nn.Module):
 
     def forward(
         self,
-        speaker_out: torch.Tensor,
+        speaker_embeds : torch.Tensor,
+        speaker_utterances : torch.Tensor,
         separate_images: torch.Tensor,
         visual_context: torch.Tensor,
         prev_hist: List,
@@ -196,7 +197,6 @@ class InterpreterModel_tom(nn.Module):
         @param prev_hist: contains histories for 6 images separately (if exists for a given image)
         @param masks: attention mask for pad tokens
         """
-        speaker_embeds, speaker_utterances = speaker_out
         speaker_utterances = speaker_utterances.to(self.device)
         separate_images = separate_images.to(self.device)
         visual_context = visual_context.to(self.device)

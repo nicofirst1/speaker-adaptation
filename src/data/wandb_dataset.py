@@ -187,7 +187,7 @@ if __name__ == "__main__":
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
-        project="interpreter-data",
+        project="simulator-data",
     )
 
     for s in splits:

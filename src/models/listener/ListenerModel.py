@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ListenerModel_no_hist(nn.Module):
+class ListenerModel(nn.Module):
     def __init__(
         self,
         vocab_size,

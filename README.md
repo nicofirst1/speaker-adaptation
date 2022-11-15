@@ -17,6 +17,9 @@ the corresponding conda env `uvapb` will be created.
 You can also install by running the following command:
 `pip install .`
 
+and nlgeval with:
+`pip install git+https://github.com/Maluuba/nlg-eval.git`
+
 ### Additional setup
 remember to download spacy with 
 `python -m spacy download en_core_web_lg`

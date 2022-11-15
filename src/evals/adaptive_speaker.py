@@ -8,13 +8,14 @@ import torch
 from torch import nn
 
 import wandb
-from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
-                         IntLossAdapt, get_dataloaders, get_int_chk,
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
                          load_wandb_checkpoint, mask_attn, parse_args,
-                         set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance)
+                         set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance, SIM_CHECKPOINTS)
 from src.data.dataloaders import Vocab
-from src.models import InterpreterModel_no_hist, ListenerModel_hist, get_model
-from src.models.speaker.model_speaker_hist import SpeakerModel_hist
+from src.models import get_model
+from src.models.listener import ListenerModel
+from src.models.simulator.SimulatorModel import SimulatorModel
+from src.models.speaker import SpeakerModel
 from src.wandb_logging import ListenerLogger
 from torch.utils.data import DataLoader
 
@@ -23,7 +24,7 @@ def generate_ood_table(df: pd.DataFrame,s_iter: int, domain:List[str], list_doma
     rows = []
     columns = [
         "listener domain",
-        "interpreter domain",
+        "simulator domain",
         "target domain",
         "golden acc",
         "original acc",
@@ -115,11 +116,11 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 
 def evaluate(
         data_loader: DataLoader,
-        speak_model: SpeakerModel_hist,
-        int_model: InterpreterModel_no_hist,
-        list_model: ListenerModel_hist,
+        speak_model: SpeakerModel,
+        sim_model: SimulatorModel,
+        list_model: ListenerModel,
         list_vocab: Vocab,
-        criterion: IntLossAdapt,
+        criterion: nn.CrossEntropyLoss,
         acc_estimator: AccuracyEstimator,
         split: str,
         lr: float = 0.1,
@@ -131,7 +132,7 @@ def evaluate(
     ----------
     data_loader
     speak_model
-    int_model
+    sim_model
     list_model
     criterion
     split
@@ -267,14 +268,14 @@ def evaluate(
             speak_out=h0
 
             # if tom is network then feed both embeds and utterances
-            if "tom" in type(int_model).__name__:
+            if "tom" in type(sim_model).__name__:
                 speak_out=[h0,utterance]
 
-            int_out = int_model(speak_out, context_separate, context_concat, prev_hist, masks)
+            int_out = sim_model(speak_out, context_separate, context_concat, prev_hist, masks)
             s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
-            loss = criterion(int_out, targets, list_out, data["domain"])
+            loss = criterion(int_out, targets)
             aux = acc_estimator(
                 int_out, targets, list_out, data["domain"], is_adaptive=True
             )
@@ -358,7 +359,7 @@ def evaluate(
         # the informations to log are:
         # 1. target domain X 1
         # 2. list domain X 1
-        # 3. interpreter domain X 1
+        # 3. simulator domain X 1
         # 4. target index X 1
         # 5. distractor+target img paths X 6
         # 6. golden captions X 1
@@ -371,16 +372,16 @@ def evaluate(
         # 12. the listener's output distribution given the golden caption x1
         # 13. the listener's output distribution given the non-adapted/original utterance x1
         # 14. the listener's output distribution given the adapted utterance (for each backprop step) xs
-        # 15. the interpreter's output distribution given h0 x1
-        # 16. the interpreter's output distribution given h0' (for each backprop step) xs
+        # 15. the simulator's output distribution given h0 x1
+        # 16. the simulator's output distribution given h0' (for each backprop step) xs
         # 17. whether the listener makes a correct guess given the caption x1
         # 18. whether the listener makes a correct guess given the original utterance x1
-        # 19. whether the interpreter makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
+        # 19. whether the simulator makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
         # 20. whether the listener makes a correct guess given the adapted utterance (for each backprop step) x(s-1)
         # 20. Simulator accuracy on listener (for each backprop step) x(s-1)
         # size formula : 16+7s
 
-        row = [data["domain"][0], list_model.domain, int_model.domain, target_img_idx]
+        row = [data["domain"][0], list_model.domain, sim_model.domain, target_img_idx]
         row += distractors_img_path
         row += [data["orig_utterance"][0], origin_hypo]
         row += s_hypo
@@ -404,7 +405,7 @@ def evaluate(
     columns = [
         "target domain",
         "listener domain",
-        "interpreter domain",
+        "simulator domain",
         "target img idx",
     ]
     columns += [f"img path #{x}" for x in range(6)]
@@ -446,7 +447,7 @@ def evaluate(
     )
 
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table = generate_ood_table(df, s, logger.domains,list_model.domain,int_model.domain)
+    ood_table = generate_ood_table(df, s, logger.domains,list_model.domain,sim_model.domain)
 
     ##############################
     # METRICS
@@ -579,7 +580,7 @@ if __name__ == "__main__":
     ##########################
 
     if common_p.force_resume_url == "":
-        check = get_int_chk(common_p.model_type, common_p.pretrain_loss, common_p.int_domain)
+        check = SIM_CHECKPOINTS[common_p.int_domain]
     else:
         check = common_p.force_resume_url
     int_check, _ = load_wandb_checkpoint(check, device)
@@ -589,20 +590,9 @@ if __name__ == "__main__":
     common_p.train_domain = domain
     common_p.device = device
 
-    # for debug
-    # common_p.subset_size = common_p.subset_size
-    # common_p.debug = common_p.debug
-    # common_p.s_iter = common_p.s_iter
-    # common_p.adapt_lr=common_p.adapt_lr
-    # common_p.learning_rate = common_p.learning_rate
-    # common_p.type_of_int = common_p.type_of_int
-    # common_p.seed = seed
-    # common_p.test_split = common_p.test_split
-    #
-    # common_p.reset_paths()
 
-    model = get_model("int", common_p.model_type)
-    int_model = model(
+
+    sim_model = SimulatorModel(
         len(list_vocab),
         speak_p.hidden_dim,
         common_p.hidden_dim,
@@ -614,10 +604,10 @@ if __name__ == "__main__":
     ).to(device)
 
     if common_p.type_of_int != "untrained":
-        int_model.load_state_dict(int_check["model_state_dict"])
+        sim_model.load_state_dict(int_check["model_state_dict"])
 
-    int_model = int_model.to(device)
-    int_model = int_model.eval()
+    sim_model = sim_model.to(device)
+    sim_model = sim_model.eval()
 
     ###################################
     ##  LOGGER
@@ -637,7 +627,7 @@ if __name__ == "__main__":
     metric = common_p.metric
     sweep_config = wandb.config
 
-    logger.watch_model([int_model], log_freq=10)
+    logger.watch_model([sim_model], log_freq=10)
 
     ###################################
     ##  Get speaker dataloader
@@ -658,15 +648,7 @@ if __name__ == "__main__":
     ##  LOSS
     ###################################
 
-    loss_f = IntLossAdapt(
-        common_p.adaptive_loss,
-        common_p.reduction,
-        common_p.model_type,
-        alpha=common_p.focal_alpha,
-        gamma=common_p.focal_gamma,
-        list_domain=domain,
-        all_domains=logger.domains,
-    )
+    loss_f = nn.CrossEntropyLoss(reduction=common_p.reduction)
     acc_estimator = AccuracyEstimator(
         domain, int_p.model_type, all_domains=logger.domains
     )
@@ -680,7 +662,7 @@ if __name__ == "__main__":
             str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
-    int_model.eval()
+    sim_model.eval()
 
     if common_p.log_train:
         ##################
@@ -690,7 +672,7 @@ if __name__ == "__main__":
         df = evaluate(
             train_dl_dom,
             speaker_model,
-            int_model,
+            sim_model,
             list_model,
             list_vocab,
             criterion=loss_f,
@@ -719,7 +701,7 @@ if __name__ == "__main__":
         df = evaluate(
             val_dl_dom,
             speaker_model,
-            int_model,
+            sim_model,
             list_model,
             list_vocab,
             criterion=loss_f,
@@ -748,7 +730,7 @@ if __name__ == "__main__":
         df = evaluate(
             test_dl_dom,
             speaker_model,
-            int_model,
+            sim_model,
             list_model,
             list_vocab,
             criterion=loss_f,
@@ -777,7 +759,7 @@ if __name__ == "__main__":
         df = evaluate(
             train_dl_all,
             speaker_model,
-            int_model,
+            sim_model,
             list_model,
             list_vocab,
             criterion=loss_f,
@@ -805,7 +787,7 @@ if __name__ == "__main__":
         df = evaluate(
             val_dl_all,
             speaker_model,
-            int_model,
+            sim_model,
             list_model,
             list_vocab,
             criterion=loss_f,
@@ -833,7 +815,7 @@ if __name__ == "__main__":
     df = evaluate(
         test_dl_all,
         speaker_model,
-        int_model,
+        sim_model,
         list_model,
         list_vocab,
         criterion=loss_f,
