@@ -1,24 +1,22 @@
+import pickle
 from typing import Literal
 
 import torch
-import pickle
 
 from src.data.dataloaders import Vocab
 
 
 def mask_oov_embeds(current_embeds: torch.nn.Embedding, full_vocab: Vocab, domain: str,
-                    replace_token: Literal["none", "zero", "unk"], data_path:str) -> torch.nn.Embedding:
-
-
+                    replace_token: Literal["none", "zero", "unk"], data_path: str) -> torch.nn.Embedding:
     if replace_token == "none":
         return current_embeds
 
     domain_vocab = []
 
-    #todo: maybe add eva/test as utterances
+    # todo: maybe add eva/test as utterances
 
     # get domain specific vocab
-    file=f"{data_path}/chains-domain-specific/{domain}/train_ids_utterances.pickle"
+    file = f"{data_path}/chains-domain-specific/{domain}/train_ids_utterances.pickle"
     with open(file, 'rb') as f:
         domain_utts = pickle.load(f)
 
@@ -37,11 +35,11 @@ def mask_oov_embeds(current_embeds: torch.nn.Embedding, full_vocab: Vocab, domai
     unk_i = full_vocab.word2index['<unk>']
 
     # get replacement based on replace_token
-    replacement=current_embeds.weight[unk_i] if replace_token == "unk" else torch.zeros(current_embeds.weight.shape[1])
+    replacement = current_embeds.weight[unk_i] if replace_token == "unk" else torch.zeros(
+        current_embeds.weight.shape[1])
 
     # mask or zero out oovs
     for w in domain_oov_set:
-        current_embeds.weight[w]=replacement
-
+        current_embeds.weight[w] = replacement
 
     return current_embeds

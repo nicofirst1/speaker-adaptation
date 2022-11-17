@@ -4,22 +4,18 @@ from typing import Dict, List, Tuple
 import numpy as np
 import rich.progress
 import torch
-from torch.optim.lr_scheduler import ExponentialLR
+from torch import optim, nn
+from torch.utils.data import DataLoader
 
-from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
+from src.commons import (SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, get_dataloaders,
-                         get_domain_accuracy, load_wandb_checkpoint,
+                         load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
                          save_model, speak2list_vocab, translate_utterance, mask_oov_embeds, set_seed,
                          get_listener_check)
 from src.data.dataloaders import AbstractDataset, Vocab
-from src.models import get_model
-from src.models.listener.ListenerModel import ListenerModel
-from src.models.simulator.SimulatorModel import SimulatorModel
-from src.models.speaker.SpeakerModel import SpeakerModel
+from src.models import ListenerModel, SimulatorModel, SpeakerModel
 from src.wandb_logging import ListenerLogger
-from torch import optim, nn
-from torch.utils.data import DataLoader
 
 
 def normalize_aux(aux, data_length, all_domains, max_targets=3):
@@ -37,7 +33,6 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
 
     if "kl_div" in aux.keys():
         aux["kl_div"] = np.sum(aux["kl_div"]) / len(aux["kl_div"])
-
 
     def flatten(xss):
         return [x for xs in xss for x in xs]
@@ -74,7 +69,6 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
     aux.pop("sim_target_accuracy_dom")
     aux.pop("list_target_accuracy_dom")
 
-
     # flatten nested lists
     aux["sim_preds"] = flatten(aux["sim_preds"])
     aux["list_preds"] = flatten(aux["list_preds"])
@@ -89,12 +83,12 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
 
 
 def get_predictions(
-    data: Dict,
-    list_model: torch.nn.Module,
-    sim_model: torch.nn.Module,
-    loss_f: nn.CrossEntropyLoss,
-    acc_estimator: AccuracyEstimator,
-    list_vocab: Vocab,
+        data: Dict,
+        list_model: torch.nn.Module,
+        sim_model: torch.nn.Module,
+        loss_f: nn.CrossEntropyLoss,
+        acc_estimator: AccuracyEstimator,
+        list_vocab: Vocab,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -120,9 +114,8 @@ def get_predictions(
     list_out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
     sim_out = sim_model(speak_embds, utterance, context_separate, context_concat, prev_hist, masks)
 
-
     # Losses and preds
-    list_preds=torch.argmax(list_out,dim=1)
+    list_preds = torch.argmax(list_out, dim=1)
     loss = loss_f(sim_out, list_preds)
     aux = acc_estimator(sim_out, targets, list_out, domains)
 
@@ -132,14 +125,14 @@ def get_predictions(
 
 
 def evaluate(
-    data_loader: DataLoader,
-    sim_model: torch.nn.Module,
-    list_model: torch.nn.Module,
-    list_vocab: Vocab,
-    loss_f: torch.nn.Module,
-    acc_estimator: AccuracyEstimator,
-    all_domains: List,
-    split: str,
+        data_loader: DataLoader,
+        sim_model: torch.nn.Module,
+        list_model: torch.nn.Module,
+        list_vocab: Vocab,
+        loss_f: torch.nn.Module,
+        acc_estimator: AccuracyEstimator,
+        all_domains: List,
+        split: str,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -152,9 +145,9 @@ def evaluate(
     auxs = []
 
     for ii, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"evaluating '{split}' split...",
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
             data, list_model, sim_model, loss_f, acc_estimator, list_vocab
@@ -206,7 +199,7 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_check=get_listener_check(domain, common_p.golden_data_perc)
+    list_check = get_listener_check(domain, common_p.golden_data_perc)
 
     list_checkpoint, _ = load_wandb_checkpoint(
         list_check,
@@ -285,7 +278,6 @@ if __name__ == "__main__":
     # simulator
     ##########################
 
-
     sim_model = SimulatorModel(
         len(list_vocab),
         speak_p.hidden_dim,
@@ -307,8 +299,6 @@ if __name__ == "__main__":
         domain, all_domains=logger.domains
     )
 
-
-
     ###################################
     ## RESUME AND EARLYSTOPPING
     ###################################
@@ -323,7 +313,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    #logger.watch_model([sim_model])
+    # logger.watch_model([sim_model])
 
     ###################################
     ##  Get speaker dataloader
@@ -396,7 +386,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(common_p.epochs):
@@ -413,11 +403,10 @@ if __name__ == "__main__":
         ###################################
 
         for i, data in rich.progress.track(
-            enumerate(speak_train_dl),
-            total=len(speak_train_dl),
-            description=f"Training epoch {epoch}",
+                enumerate(speak_train_dl),
+                total=len(speak_train_dl),
+                description=f"Training epoch {epoch}",
         ):
-
             optimizer.zero_grad()
 
             # get datapoints
@@ -437,7 +426,7 @@ if __name__ == "__main__":
             aux, list_domain=speak_train_dl.dataset.domain, modality="train"
         )
 
-        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['sim_list_accuracy']*100:.2f} ")
+        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['sim_list_accuracy'] * 100:.2f} ")
 
         ###################################
         ##  EVAL LOOP
@@ -459,7 +448,7 @@ if __name__ == "__main__":
             )
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["loss"]
 
-            print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy*100:.3f} ")
+            print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f} ")
             logger.on_eval_end(
                 aux, list_domain=speak_val_dl.dataset.domain, modality="eval"
             )
@@ -483,7 +472,7 @@ if __name__ == "__main__":
             #     aux, list_domain=speak_test_dl.dataset.domain, modality="test"
             # )
 
-        if not common_p.is_test and epoch%2 == 0:
+        if not common_p.is_test and epoch % 2 == 0:
             save_model(
                 model=sim_model,
                 model_type="simulator",

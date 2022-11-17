@@ -2,20 +2,19 @@ from typing import List
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class ListenerModel(nn.Module):
     def __init__(
-        self,
-        vocab_size,
-        embedding_dim,
-        hidden_dim,
-        img_dim,
-        att_dim,
-        dropout_prob,
-        domain,
-        device,
+            self,
+            vocab_size,
+            embedding_dim,
+            hidden_dim,
+            img_dim,
+            att_dim,
+            dropout_prob,
+            domain,
+            device,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -90,6 +89,7 @@ class ListenerModel(nn.Module):
         ]:
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
+
     @staticmethod
     def standardize(tensor):
         """
@@ -98,12 +98,12 @@ class ListenerModel(nn.Module):
         return (tensor - tensor.mean()) / tensor.std()
 
     def forward(
-        self,
-        text: torch.Tensor,
-        separate_images: torch.Tensor,
-        visual_context: torch.Tensor,
-        prev_hist: List,
-        masks: torch.Tensor,
+            self,
+            text: torch.Tensor,
+            separate_images: torch.Tensor,
+            visual_context: torch.Tensor,
+            prev_hist: List,
+            masks: torch.Tensor,
     ):
 
         """

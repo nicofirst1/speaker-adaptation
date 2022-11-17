@@ -318,8 +318,6 @@ class ListenerArguments(Params):
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}' not in '{valis_metr}'"
 
-
-
         if self.embed_type == "sratch":
             assert (
                     self.embed_dim == 768
@@ -348,9 +346,7 @@ class InterpreterArguments(Params):
     mask_oov_embed: Optional[str] = "unk"
     golden_data_perc: Optional[float] = 1.0
 
-
     #########################
-
 
     hidden_dim: Optional[int] = 128
     embedding_dim: Optional[int] = 128
@@ -366,11 +362,9 @@ class InterpreterArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter: Optional[int] =20
+    s_iter: Optional[int] = 20
     adapt_lr: Optional[float] = 0.5
     log_train: Optional[bool] = False
-
-
 
     def __init__(self):
         super(InterpreterArguments, self).__init__()
@@ -389,8 +383,6 @@ class InterpreterArguments(Params):
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
-
-
     def check_parameters(self):
         super(InterpreterArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
@@ -398,13 +390,10 @@ class InterpreterArguments(Params):
                 self.metric in valis_metr
         ), f"Invalid metric '{self.metric}'not in '{valis_metr}'"
 
-
-
         valid_mask_oov_embed = ["none", "unk", "zero"]
         assert (
                 self.mask_oov_embed in valid_mask_oov_embed
         ), f"Invalid mask_oov_embed '{self.mask_oov_embed}' not in '{valid_mask_oov_embed}'"
-
 
         if self.embed_type == "sratch":
             assert (
@@ -455,6 +444,3 @@ class SpeakerArguments(Params):
 
         self.img2dom_file = join(self.data_path, "img2dom.json")
         self.vocab_file = join(self.data_path, "speaker", self.vocab_file)
-
-
-

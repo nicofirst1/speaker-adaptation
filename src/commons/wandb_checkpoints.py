@@ -14,7 +14,6 @@ LISTENER_CHK_DICT = dict(
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
 )
 
-
 # listeners checkpoint with various values of golden_data_percent
 LISTENER_CHK_DICT_1 = dict(
     all="",
@@ -41,6 +40,7 @@ LISTENER_CHK_DICT_05 = dict(
     vehicles="",
 )
 
+
 def get_listener_check(domain, golden_data_percent):
     if golden_data_percent == 0:
         return LISTENER_CHK_DICT_0[domain]
@@ -50,6 +50,7 @@ def get_listener_check(domain, golden_data_percent):
         return LISTENER_CHK_DICT_1[domain]
     else:
         raise ValueError("golden_data_percent must be 0, 0.5, or 1")
+
 
 ########
 # SPEAK
@@ -80,9 +81,6 @@ SIM_CHECKPOINTS = dict(
 #     outdoor="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_outdoor:v242",
 #     vehicles="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_vehicles:v205",
 # )
-
-
-
 
 
 ########

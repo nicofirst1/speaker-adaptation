@@ -8,14 +8,14 @@ import rich.progress
 import torch.utils.data
 from bert_score import score
 from nlgeval import NLGEval
+from torch import nn, optim
+
 from src.commons import (SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, mask_attn, parse_args,
                          save_model)
 from src.data.dataloaders import Vocab
-from src.models import get_model
 from src.models.speaker.SpeakerModel import SpeakerModel
 from src.wandb_logging import SpeakerLogger
-from torch import nn, optim
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -36,12 +36,12 @@ if not os.path.isdir("speaker_outputs"):
 
 
 def eval_beam_histatt(
-    split_data_loader,
-    model,
-    args,
-    nlgeval_obj,
-    logger,
-    split: str,
+        split_data_loader,
+        model,
+        args,
+        nlgeval_obj,
+        logger,
+        split: str,
 ):
     """
     Evaluation
@@ -58,9 +58,9 @@ def eval_beam_histatt(
     hypotheses = []
 
     for i, data in rich.progress.track(
-        enumerate(split_data_loader),
-        total=len(split_data_loader),
-        description=f"Processing {split}...",
+            enumerate(split_data_loader),
+            total=len(split_data_loader),
+            description=f"Processing {split}...",
     ):
         # print(i)
 
@@ -127,13 +127,12 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
     speak_p = parse_args("speak")
     print(speak_p)
-
 
     # for reproducibility
     seed = speak_p.seed
@@ -247,7 +246,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp_tr = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
@@ -264,9 +263,9 @@ if __name__ == "__main__":
         out = []
 
         for i, data in rich.progress.track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description=f"Train epoch {epoch}",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description=f"Train epoch {epoch}",
         ):
             # load infos from datapoint
             utterances_text_ids = data["utterance"]

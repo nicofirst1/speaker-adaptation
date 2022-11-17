@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 import rich.progress
 import torch
-from torch import nn
-
 import wandb
+from torch import nn
+from torch.utils.data import DataLoader
+
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
                          load_wandb_checkpoint, mask_attn, parse_args,
                          set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance, SIM_CHECKPOINTS)
@@ -17,10 +18,10 @@ from src.models.listener import ListenerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
 from src.models.speaker import SpeakerModel
 from src.wandb_logging import ListenerLogger
-from torch.utils.data import DataLoader
 
 
-def generate_ood_table(df: pd.DataFrame,s_iter: int, domain:List[str], list_domain:str, int_domain:str) -> wandb.Table:
+def generate_ood_table(df: pd.DataFrame, s_iter: int, domain: List[str], list_domain: str,
+                       int_domain: str) -> wandb.Table:
     rows = []
     columns = [
         "listener domain",
@@ -41,7 +42,7 @@ def generate_ood_table(df: pd.DataFrame,s_iter: int, domain:List[str], list_doma
 
         # adapted accs are a matrix so remove -1, sum and get mean
         adapt_acc_idx_0 = df.columns.get_loc("adapted_acc_s0")
-        adapt_acc_idx_1 = adapt_acc_idx_0+s_iter
+        adapt_acc_idx_1 = adapt_acc_idx_0 + s_iter
 
         adapt_acc = ood_df.iloc[:, adapt_acc_idx_0:adapt_acc_idx_1]
         adapt_acc = adapt_acc[adapt_acc != -1]
@@ -259,17 +260,16 @@ def evaluate(
         int_accuracy = [-1 for _ in range(s)]
         int_list_acc = [-1 for _ in range(s)]
 
-
         # perform loop
         i = 0
         while i < s:
             set_seed(seed)
 
-            speak_out=h0
+            speak_out = h0
 
             # if tom is network then feed both embeds and utterances
             if "tom" in type(sim_model).__name__:
-                speak_out=[h0,utterance]
+                speak_out = [h0, utterance]
 
             int_out = sim_model(speak_out, context_separate, context_concat, prev_hist, masks)
             s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
@@ -310,14 +310,13 @@ def evaluate(
             )
             s_accs[i] = list_target_accuracy
 
-
             # aux = acc_estimator(
             #     int_out, targets, list_out, data["domain"], is_adaptive=True
             # )
 
             int_accuracy[i] = aux["int_target_accuracy"]
             int_list_acc[i] = aux["int_list_accuracy"]
-            s_accs[i] =  aux["list_target_accuracy"]
+            s_accs[i] = aux["list_target_accuracy"]
 
             s_loss[i] = loss.detach().item()
             s_h0[i] = h0[0].clone().detach().tolist()
@@ -447,7 +446,7 @@ def evaluate(
     )
 
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table = generate_ood_table(df, s, logger.domains,list_model.domain,sim_model.domain)
+    ood_table = generate_ood_table(df, s, logger.domains, list_model.domain, sim_model.domain)
 
     ##############################
     # METRICS
@@ -589,8 +588,6 @@ if __name__ == "__main__":
     int_p = int_check["args"]
     common_p.train_domain = domain
     common_p.device = device
-
-
 
     sim_model = SimulatorModel(
         len(list_vocab),

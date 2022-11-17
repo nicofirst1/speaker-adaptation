@@ -7,17 +7,16 @@ import torch
 import torch.utils.data
 import wandb
 from rich.progress import track
+from torch import nn, optim
+from torch.utils.data import DataLoader
+
 from src.commons import (LISTENER_CHK_DICT, EarlyStopping, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint, mask_attn,
                          parse_args, save_model, SPEAKER_CHK, speak2list_vocab, translate_utterance, merge_dict)
 from src.commons.data_utils import load_wandb_dataset
 from src.data.dataloaders import Vocab, AbstractDataset
-from src.models import get_model
-from src.models.listener.ListenerModel import ListenerModel
-from src.models.speaker.SpeakerModel import SpeakerModel
+from src.models import ListenerModel, SpeakerModel
 from src.wandb_logging import DataLogger, ListenerLogger
-from torch import nn, optim
-from torch.utils.data import DataLoader
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -99,7 +98,6 @@ def evaluate(
             enumerate(data_loader),
             total=len(data_loader),
             description=f"{flag}"):
-
         loss, aux = get_prediction(data, use_golden[ii], list_model, translator)
         losses_eval.append(loss.item())
         domains += data["domain"]
@@ -323,8 +321,10 @@ if __name__ == "__main__":
         subset_size=list_args.subset_size,
     )
 
+
     def rnd():
         return torch.FloatTensor(1).uniform_(0, 1)
+
 
     # define percentage of data to be used
     use_golden_train = {k: rnd() for k in range(len(speak_train_dl))}
@@ -400,7 +400,7 @@ if __name__ == "__main__":
             ranks.append(aux["ranks"])
             auxs.append(aux)
 
-        aux=merge_dict(auxs)
+        aux = merge_dict(auxs)
         losses = np.mean(losses)
         accuracies = np.mean(aux["accuracy"])
         ranks = np.mean(aux["ranks"])
@@ -429,7 +429,7 @@ if __name__ == "__main__":
             print(f"\nEval on all domains")
             evaluate(speak_val_dl_all, listener_model, in_domain=False, split="eval", use_golden=use_golden_val_all,
                      translator=translator)
-            if epoch%2==0:
+            if epoch % 2 == 0:
                 save_model(
                     model=listener_model,
                     model_type="listener",

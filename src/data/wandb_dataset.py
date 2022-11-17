@@ -1,9 +1,10 @@
 import numpy as np
 import torch
+
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
-from src.models import get_model
+from src.models import SpeakerModel, ListenerModel
 from src.wandb_logging import ListenerLogger
 
 
@@ -57,8 +58,7 @@ def compute_domain(common_p):
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-    model = get_model("list", list_args.model_type)
-    list_model = model(
+    list_model = ListenerModel(
         len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
@@ -90,8 +90,7 @@ def compute_domain(common_p):
 
     # init speak model and load state
 
-    model = get_model("speak", speak_p.model_type)
-    speaker_model = model(
+    speaker_model = SpeakerModel(
         speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
