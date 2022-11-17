@@ -346,6 +346,8 @@ class InterpreterArguments(Params):
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
     mask_oov_embed: Optional[str] = "unk"
+    golden_data_perc: Optional[float] = 1.0
+
 
     #########################
 
@@ -408,15 +410,6 @@ class InterpreterArguments(Params):
             assert (
                     self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
-
-
-class SimulatorArguments(InterpreterArguments):
-    """
-    Legacy class for simulator arguments
-    """
-
-    def __init__(self):
-        super(SimulatorArguments, self).__init__()
 
 
 class SpeakerArguments(Params):

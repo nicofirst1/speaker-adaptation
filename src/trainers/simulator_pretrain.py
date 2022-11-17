@@ -10,7 +10,8 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model, speak2list_vocab, translate_utterance, mask_oov_embeds, set_seed)
+                         save_model, speak2list_vocab, translate_utterance, mask_oov_embeds, set_seed,
+                         get_listener_check)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.models.simulator.SimulatorModel import SimulatorModel
@@ -107,21 +108,19 @@ def get_predictions(
     prev_hist = data["prev_histories"]
     speak_embds = data["speak_h1embed"]
     max_length_tensor = utterance.shape[1]
-    batch_size = utterance.shape[0]
-    device = list_model.device
     domains = data["domain"]
 
-    masks = mask_attn(lengths, max_length_tensor, device)
-
+    # get mask and translate utterance
+    masks = mask_attn(lengths, max_length_tensor, list_model.device)
     translator(utterance)
+
     # get outputs
     list_out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
-
     sim_out = sim_model(speak_embds, utterance, context_separate, context_concat, prev_hist, masks)
 
-    list_preds=torch.argmax(list_out,dim=1)
 
     # Losses and preds
+    list_preds=torch.argmax(list_out,dim=1)
     loss = loss_f(sim_out, list_preds)
     aux = acc_estimator(sim_out, targets, list_out, domains)
 
@@ -205,8 +204,10 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
+    list_check=get_listener_check(domain, common_p.golden_data_perc)
+
     list_checkpoint, _ = load_wandb_checkpoint(
-        LISTENER_CHK_DICT[domain],
+        list_check,
         device,
     )
     # datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
@@ -305,7 +306,7 @@ if __name__ == "__main__":
     acc_estimator = AccuracyEstimator(
         domain, all_domains=logger.domains
     )
-    #scheduler = ExponentialLR(optimizer, gamma=0.9)
+
 
 
     ###################################

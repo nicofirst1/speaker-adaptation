@@ -429,19 +429,19 @@ if __name__ == "__main__":
             print(f"\nEval on all domains")
             evaluate(speak_val_dl_all, listener_model, in_domain=False, split="eval", use_golden=use_golden_val_all,
                      translator=translator)
-
-            save_model(
-                model=listener_model,
-                model_type="listener",
-                epoch=epoch,
-                accuracy=current_accuracy,
-                optimizer=optimizer,
-                args=list_args,
-                timestamp=timestamp,
-                logger=logger,
-                loss=current_loss,
-                mrr=current_MRR,
-            )
+            if epoch%2==0:
+                save_model(
+                    model=listener_model,
+                    model_type="listener",
+                    epoch=epoch,
+                    accuracy=current_accuracy,
+                    optimizer=optimizer,
+                    args=list_args,
+                    timestamp=timestamp,
+                    logger=logger,
+                    loss=current_loss,
+                    mrr=current_MRR,
+                )
             print("\n\n")
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)
