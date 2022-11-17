@@ -52,48 +52,48 @@ SIM_CHECKPOINTS = dict(
 # DATA
 ########
 TRAIN_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/train_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/train_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/train_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/train_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/train_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/train_dataloader_vehicles:latest",
+    all="adaptive-speaker/speaker-gen-data/train_dataloader_all:latest",
+    food="adaptive-speaker/speaker-gen-data/train_dataloader_food:latest",
+    appliances="adaptive-speaker/speaker-gen-data/train_dataloader_appliances:latest",
+    indoor="adaptive-speaker/speaker-gen-data/train_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/speaker-gen-data/train_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/speaker-gen-data/train_dataloader_vehicles:latest",
 )
 
 VAL_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/val_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/val_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/val_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/val_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/val_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/val_dataloader_vehicles:latest",
+    all="adaptive-speaker/speaker-gen-data/val_dataloader_all:latest",
+    food="adaptive-speaker/speaker-gen-data/val_dataloader_food:latest",
+    appliances="adaptive-speaker/speaker-gen-data/val_dataloader_appliances:latest",
+    indoor="adaptive-speaker/speaker-gen-data/val_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/speaker-gen-data/val_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/speaker-gen-data/val_dataloader_vehicles:latest",
 )
 
 TEST_ALL_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/test_all_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/test_all_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/test_all_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/test_all_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/test_all_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/test_all_dataloader_vehicles:latest",
+    all="adaptive-speaker/speaker-gen-data/test_all_dataloader_all:latest",
+    food="adaptive-speaker/speaker-gen-data/test_all_dataloader_food:latest",
+    appliances="adaptive-speaker/speaker-gen-data/test_all_dataloader_appliances:latest",
+    indoor="adaptive-speaker/speaker-gen-data/test_all_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/speaker-gen-data/test_all_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/speaker-gen-data/test_all_dataloader_vehicles:latest",
 )
 
 TEST_SEEN_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/test_seen_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/test_seen_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/test_seen_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/test_seen_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/test_seen_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/test_seen_dataloader_vehicles:latest",
+    all="adaptive-speaker/speaker-gen-data/test_seen_dataloader_all:latest",
+    food="adaptive-speaker/speaker-gen-data/test_seen_dataloader_food:latest",
+    appliances="adaptive-speaker/speaker-gen-data/test_seen_dataloader_appliances:latest",
+    indoor="adaptive-speaker/speaker-gen-data/test_seen_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/speaker-gen-data/test_seen_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/speaker-gen-data/test_seen_dataloader_vehicles:latest",
 )
 
 TEST_UNSEEN_DATASET_CHK = dict(
-    all="adaptive-speaker/simulator-data/test_unseen_dataloader_all:latest",
-    food="adaptive-speaker/simulator-data/test_unseen_dataloader_food:latest",
-    appliances="adaptive-speaker/simulator-data/test_unseen_dataloader_appliances:latest",
-    indoor="adaptive-speaker/simulator-data/test_unseen_dataloader_indoor:latest",
-    outdoor="adaptive-speaker/simulator-data/test_unseen_dataloader_outdoor:latest",
-    vehicles="adaptive-speaker/simulator-data/test_unseen_dataloader_vehicles:latest",
+    all="adaptive-speaker/speaker-gen-data/test_unseen_dataloader_all:latest",
+    food="adaptive-speaker/speaker-gen-data/test_unseen_dataloader_food:latest",
+    appliances="adaptive-speaker/speaker-gen-data/test_unseen_dataloader_appliances:latest",
+    indoor="adaptive-speaker/speaker-gen-data/test_unseen_dataloader_indoor:latest",
+    outdoor="adaptive-speaker/speaker-gen-data/test_unseen_dataloader_outdoor:latest",
+    vehicles="adaptive-speaker/speaker-gen-data/test_unseen_dataloader_vehicles:latest",
 )
 
 DATASET_CHK = dict(
