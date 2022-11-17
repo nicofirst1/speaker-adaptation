@@ -12,7 +12,6 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint, mask_attn,
                          parse_args)
 from src.data.dataloaders import Vocab
-from src.models import get_model
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 

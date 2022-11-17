@@ -71,6 +71,49 @@ SIM_CHECKPOINTS = dict(
     vehicles="",
 )
 
+SIM_CHECKPOINTS_1 = dict(
+    # epoch 83
+    all="",
+    food="",
+    appliances="",
+    indoor="",
+    outdoor="",
+    vehicles="",
+)
+
+SIM_CHECKPOINTS_05 = dict(
+    # epoch 83
+    all="",
+    food="",
+    appliances="",
+    indoor="",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v15",
+    vehicles="",
+)
+
+
+SIM_CHECKPOINTS_0 = dict(
+    # epoch 83
+    all="",
+    food="",
+    appliances="",
+    indoor="",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v14",
+    vehicles="",
+)
+
+
+def get_simulator_check(domain, golden_data_percent):
+    if golden_data_percent == 0:
+        return SIM_CHECKPOINTS_0[domain]
+    elif golden_data_percent == 0.5:
+        return SIM_CHECKPOINTS_05[domain]
+    elif golden_data_percent == 1:
+        return SIM_CHECKPOINTS_1[domain]
+    else:
+        raise ValueError("golden_data_percent must be 0, 0.5, or 1")
+
+
 #
 # SIM_CHECKPOINTS = dict(
 #     # epoch 83

@@ -352,7 +352,7 @@ class InterpreterArguments(Params):
     embedding_dim: Optional[int] = 128
     attention_dim: Optional[int] = 128
     dropout_prob: Optional[float] = 0.0
-    int_domain: Optional[str] = ""
+    sim_domain: Optional[str] = ""
 
     # when != "", ignore the canonical wandb checkpoint and load this
     force_resume_url = ""
@@ -369,8 +369,8 @@ class InterpreterArguments(Params):
     def __init__(self):
         super(InterpreterArguments, self).__init__()
 
-        if self.int_domain == "":
-            self.int_domain = self.train_domain
+        if self.sim_domain == "":
+            self.sim_domain = self.train_domain
 
         self.check_parameters()
 

@@ -11,17 +11,15 @@ from torch.utils.data import DataLoader
 
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
                          load_wandb_checkpoint, mask_attn, parse_args,
-                         set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance, SIM_CHECKPOINTS)
+                         set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance, SIM_CHECKPOINTS,
+                         get_listener_check, get_simulator_check)
 from src.data.dataloaders import Vocab
-from src.models import get_model
-from src.models.listener import ListenerModel
-from src.models.simulator.SimulatorModel import SimulatorModel
-from src.models.speaker import SpeakerModel
+from src.models import ListenerModel,SimulatorModel,SpeakerModel
 from src.wandb_logging import ListenerLogger
 
 
 def generate_ood_table(df: pd.DataFrame, s_iter: int, domain: List[str], list_domain: str,
-                       int_domain: str) -> wandb.Table:
+                       sim_domain: str) -> wandb.Table:
     rows = []
     columns = [
         "listener domain",
@@ -61,7 +59,7 @@ def generate_ood_table(df: pd.DataFrame, s_iter: int, domain: List[str], list_do
         rows.append(
             [
                 list_domain,
-                int_domain,
+                sim_domain,
                 d,
                 golden_acc,
                 original_acc,
@@ -107,8 +105,8 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
     ]
     table_columns += [f"adapted hypo {i}" for i in range(s)]
     table_columns += [f"adapted acc {i}" for i in range(s)]
-    table_columns += [f"int acc {i}" for i in range(s)]
-    table_columns += [f"int list acc {i}" for i in range(s)]
+    table_columns += [f"sim acc {i}" for i in range(s)]
+    table_columns += [f"sim list acc {i}" for i in range(s)]
     table_columns += [f"diff {i}" for i in range(s)]
 
     table = wandb.Table(columns=table_columns, data=data)
@@ -146,13 +144,13 @@ def evaluate(
 
     """
     adapted_list_outs = []
-    adapted_int_outs = []
+    adapted_sim_outs = []
 
     original_accs = []
     golden_accs = []
     adapted_accs = []
-    int_accs = []
-    int_list_accs = []
+    sim_accs = []
+    sim_list_accs = []
 
     original_hypos = []
     golden_hypos = []
@@ -254,30 +252,24 @@ def evaluate(
         s_accs = [-1 for _ in range(s)]
         s_h0 = [-1 for _ in range(s)]
         s_adapted_list_outs = [-1 for _ in range(s)]
-        s_adapted_int_outs = [-1 for _ in range(s)]
+        s_adapted_sim_outs = [-1 for _ in range(s)]
         s_loss = [-1 for _ in range(s)]
         s_grad = [-1 for _ in range(s)]
-        int_accuracy = [-1 for _ in range(s)]
-        int_list_acc = [-1 for _ in range(s)]
+        sim_accuracy = [-1 for _ in range(s)]
+        sim_list_acc = [-1 for _ in range(s)]
 
         # perform loop
         i = 0
         while i < s:
             set_seed(seed)
 
-            speak_out = h0
-
-            # if tom is network then feed both embeds and utterances
-            if "tom" in type(sim_model).__name__:
-                speak_out = [h0, utterance]
-
-            int_out = sim_model(speak_out, context_separate, context_concat, prev_hist, masks)
-            s_adapted_int_outs[i] = int_out.squeeze(dim=0).tolist()
+            sim_out = sim_model(h0, utterance, context_separate, context_concat, prev_hist, masks)
+            s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
-            loss = criterion(int_out, targets)
+            loss = criterion(sim_out, targets)
             aux = acc_estimator(
-                int_out, targets, list_out, data["domain"], is_adaptive=True
+                sim_out, targets, list_out, data["domain"], is_adaptive=True
             )
             loss.backward()
             optimizer.step()
@@ -311,11 +303,11 @@ def evaluate(
             s_accs[i] = list_target_accuracy
 
             # aux = acc_estimator(
-            #     int_out, targets, list_out, data["domain"], is_adaptive=True
+            #     sim_out, targets, list_out, data["domain"], is_adaptive=True
             # )
 
-            int_accuracy[i] = aux["int_target_accuracy"]
-            int_list_acc[i] = aux["int_list_accuracy"]
+            sim_accuracy[i] = aux["sim_target_accuracy"]
+            sim_list_acc[i] = aux["sim_list_accuracy"]
             s_accs[i] = aux["list_target_accuracy"]
 
             s_loss[i] = loss.detach().item()
@@ -323,16 +315,16 @@ def evaluate(
             s_grad[i] = h0.grad[0].clone().detach().tolist()
 
             # break if listener gets it right
-            if aux["int_target_accuracy"]:
+            if aux["sim_target_accuracy"]:
                 break
             i += 1
 
-        adapted_int_outs.append(s_adapted_int_outs)
+        adapted_sim_outs.append(s_adapted_sim_outs)
         adapted_list_outs.append(s_adapted_list_outs)
         modified_hypos.append(s_hypo)
         adapted_accs.append(s_accs)
-        int_accs.append(int_accuracy)
-        int_list_accs.append(int_list_acc)
+        sim_accs.append(sim_accuracy)
+        sim_list_accs.append(sim_list_acc)
         h0s.append([decoder_hid] + s_h0)
         target_domain.append(data["domain"][0])
         losses.append(s_loss)
@@ -391,12 +383,12 @@ def evaluate(
         row += [golden_list_out.squeeze(dim=0).tolist()]
         row += [original_list_out.tolist()]
         row += s_adapted_list_outs
-        row += s_adapted_int_outs
+        row += s_adapted_sim_outs
         row += [golden_acc]
         row += [original_accs[-1]]
-        row += int_accuracy
+        row += sim_accuracy
         row += s_accs
-        row += int_list_acc
+        row += sim_list_acc
 
         csv_data.append(row)
 
@@ -416,13 +408,13 @@ def evaluate(
     columns += [f"grad s{i}" for i in range(s)]
     columns += ["golden_list_out", "original_list_out"]
     columns += [f"adapted_list_out_s{i}" for i in range(s)]
-    columns += ["original_int_out"]
-    columns += [f"adapted_int_out_s{i}" for i in range(s - 1)]
+    columns += ["original_sim_out"]
+    columns += [f"adapted_sim_out_s{i}" for i in range(s - 1)]
     columns += [f"golden_acc"]
     columns += [f"original_acc"]
-    columns += [f"int_acc_s{i}" for i in range(s)]
+    columns += [f"sim_acc_s{i}" for i in range(s)]
     columns += [f"adapted_acc_s{i}" for i in range(s)]
-    columns += [f"int_list_acc{i}" for i in range(s)]
+    columns += [f"sim_list_acc{i}" for i in range(s)]
 
     df = pd.DataFrame(columns=columns, data=csv_data)
 
@@ -438,8 +430,8 @@ def evaluate(
                 original_accs,
                 modified_hypos,
                 adapted_accs,
-                int_accs,
-                int_list_accs,
+                sim_accs,
+                sim_list_accs,
                 [[x != y1 for y1 in y] for x, y in zip(original_accs, adapted_accs)],
             )
         )
@@ -458,12 +450,12 @@ def evaluate(
     mean_s = np.mean([len(x) for x in adapted_accs])
     adapted_accs = np.mean([x[-1] for x in adapted_accs])
 
-    int_accs = [[y for y in x if y != -1] for x in int_accs]
-    int_accs = np.mean([x[-1] for x in int_accs])
+    sim_accs = [[y for y in x if y != -1] for x in sim_accs]
+    sim_accs = np.mean([x[-1] for x in sim_accs])
 
-    int_list_accs = [[y for y in x if y != -1] for x in int_list_accs]
-    int_list_accs = [x for x in int_list_accs if len(x)]
-    int_list_accs = np.mean([x[-1] for x in int_list_accs])
+    sim_list_accs = [[y for y in x if y != -1] for x in sim_list_accs]
+    sim_list_accs = [x for x in sim_list_accs if len(x)]
+    sim_list_accs = np.mean([x[-1] for x in sim_list_accs])
 
     loss = [[y for y in x if y != -1] for x in losses]
     loss = np.mean(loss)
@@ -471,13 +463,13 @@ def evaluate(
     metrics = dict(
         original_accs=original_accs,
         adapted_accs=adapted_accs,
-        int_accs=int_accs,
+        sim_accs=sim_accs,
         golden_accs=golden_accs,
         # hypo_table=hypo_table,
         ood_table=ood_table,
         loss=loss,
         mean_s=mean_s,
-        int_list_accs=int_list_accs,
+        sim_list_accs=sim_list_accs,
     )
 
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
@@ -497,7 +489,8 @@ if __name__ == "__main__":
     # LISTENER
     ##########################
 
-    list_checkpoint, _ = load_wandb_checkpoint(LISTENER_CHK_DICT[domain], device)
+    list_checkpoint=get_listener_check(common_p.train_domain, common_p.golden_data_perc)
+    list_checkpoint, _ = load_wandb_checkpoint(list_checkpoint, device)
     list_args = list_checkpoint["args"]
 
     # update list args
@@ -519,8 +512,7 @@ if __name__ == "__main__":
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-    model = get_model("list", list_args.model_type)
-    list_model = model(
+    list_model = ListenerModel(
         len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
@@ -553,8 +545,7 @@ if __name__ == "__main__":
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
     common_speak_p = parse_args("speak")
 
-    model = get_model("speak", speak_p.model_type)
-    speaker_model = model(
+    speaker_model = SpeakerModel(
         speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
@@ -579,13 +570,13 @@ if __name__ == "__main__":
     ##########################
 
     if common_p.force_resume_url == "":
-        check = SIM_CHECKPOINTS[common_p.int_domain]
+        check=get_simulator_check(common_p.sim_domain, common_p.golden_data_perc)
     else:
         check = common_p.force_resume_url
-    int_check, _ = load_wandb_checkpoint(check, device)
+    sim_check, _ = load_wandb_checkpoint(check, device)
 
     # load args
-    int_p = int_check["args"]
+    sim_p = sim_check["args"]
     common_p.train_domain = domain
     common_p.device = device
 
@@ -596,12 +587,12 @@ if __name__ == "__main__":
         img_dim,
         common_p.attention_dim,
         common_p.dropout_prob,
-        common_p.int_domain,
+        common_p.sim_domain,
         common_p.device,
     ).to(device)
 
     if common_p.type_of_int != "untrained":
-        sim_model.load_state_dict(int_check["model_state_dict"])
+        sim_model.load_state_dict(sim_check["model_state_dict"])
 
     sim_model = sim_model.to(device)
     sim_model = sim_model.eval()
@@ -631,7 +622,7 @@ if __name__ == "__main__":
     ###################################
     bs = common_p.batch_size
     # need batchsize =1 for generating hypothesis
-    int_p.batch_size = 1
+    sim_p.batch_size = 1
     common_p.batch_size = 1
     train_dl_dom, test_dl_dom, val_dl_dom = get_dataloaders(common_p, speak_vocab, domain)
     train_dl_all, test_dl_all, val_dl_all = get_dataloaders(
@@ -647,7 +638,7 @@ if __name__ == "__main__":
 
     loss_f = nn.CrossEntropyLoss(reduction=common_p.reduction)
     acc_estimator = AccuracyEstimator(
-        domain, int_p.model_type, all_domains=logger.domains
+        domain, all_domains=logger.domains
     )
 
     ###################################
@@ -687,7 +678,7 @@ if __name__ == "__main__":
             file_name,
             f"adaptive_speak_train_in_domain_{domain}",
             "csv",
-            metadata=int_p,
+            metadata=sim_p,
         )
 
         ##################
@@ -716,7 +707,7 @@ if __name__ == "__main__":
             file_name,
             f"adaptive_speak_eval_in_domain_{domain}",
             "csv",
-            metadata=int_p,
+            metadata=sim_p,
         )
 
         ##################
@@ -745,7 +736,7 @@ if __name__ == "__main__":
             file_name,
             f"adaptive_speak_test_in_domain_{domain}",
             "csv",
-            metadata=int_p,
+            metadata=sim_p,
         )
 
     if common_p.log_train:
@@ -774,7 +765,7 @@ if __name__ == "__main__":
             file_name,
             f"adaptive_speak_train_out_domain_{domain}",
             "csv",
-            metadata=int_p,
+            metadata=sim_p,
         )
 
         ##################
@@ -802,7 +793,7 @@ if __name__ == "__main__":
             file_name,
             f"adaptive_speak_eval_out_domain_{domain}",
             "csv",
-            metadata=int_p,
+            metadata=sim_p,
         )
 
     ##################
@@ -830,7 +821,7 @@ if __name__ == "__main__":
         file_name,
         f"adaptive_speak_test_out_domain_{domain}",
         "csv",
-        metadata=int_p,
+        metadata=sim_p,
     )
 
     logger.on_train_end({}, epoch_id=0)
