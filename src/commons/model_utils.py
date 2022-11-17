@@ -165,8 +165,9 @@ def load_wandb_file(url: str, datadir="") -> str:
     -------
 
     """
+
+    new_url = url
     if datadir == "":
-        new_url = url
         api = wandb.Api()
         try:
             artifact = api.artifact(url)

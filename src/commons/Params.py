@@ -101,7 +101,7 @@ class Params:
     ############################################
 
     # Domain to train the listener on
-    train_domain: Optional[str] = "food"
+    train_domain: Optional[str] = "outdoor"
 
     ############################################
     # Speaker
@@ -295,6 +295,7 @@ class ListenerArguments(Params):
     dropout_prob: Optional[float] = 0.0
 
     metric: Optional[str] = "accs"
+    golden_data_perc: Optional[float] = 1.0
 
     def __init__(self):
         super(ListenerArguments, self).__init__()

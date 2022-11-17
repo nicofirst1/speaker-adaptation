@@ -8,6 +8,8 @@ import rich.progress
 import torch
 import wandb
 from PIL import Image, ImageDraw, ImageFont
+from torch import nn
+
 from src.commons.model_utils import hypo2utterance, load_wandb_file
 from src.commons.wandb_checkpoints import DATASET_CHK
 from src.data.dataloaders import (AbstractDataset, ListenerDataset,
@@ -264,6 +266,7 @@ def speaker_augmented_dataloader(
         # append to new data
         new_data[ii]["speak_utterance"] = utterance
         new_data[ii]["speak_h1embed"] = h1
+        new_data[ii]["speak_length"] = len(utterance)
 
         # show_img(data, dataloader.dataset.img_id2path,f"original_{split_name}", hypo=hypo,idx=ii)
         assert data["orig_utterance"][0] == new_data[ii]["orig_utterance"]
@@ -279,3 +282,7 @@ def speaker_augmented_dataloader(
     dataloader = torch.utils.data.DataLoader(new_dataset, **load_params)
 
     return dataloader
+
+
+
+
