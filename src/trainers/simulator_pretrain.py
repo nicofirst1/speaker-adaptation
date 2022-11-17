@@ -10,7 +10,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
-                         save_model, speak2list_vocab, translate_utterance, mask_oov_embeds)
+                         save_model, speak2list_vocab, translate_utterance, mask_oov_embeds, set_seed)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
 from src.models.simulator.SimulatorModel import SimulatorModel
@@ -175,6 +175,12 @@ if __name__ == "__main__":
     common_p = parse_args("int")
     domain = common_p.train_domain
 
+    # for reproducibility
+    seed = common_p.seed
+    set_seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
     ###################################
     ##  LOGGER
     ###################################
@@ -210,17 +216,6 @@ if __name__ == "__main__":
     list_args.batch_size = 1  # hypotesis generation does not support batch
     list_args.device = device
     list_args.reset_paths()
-
-    # for debug
-    list_args.subset_size = common_p.subset_size
-    list_args.debug = common_p.debug
-
-    # for reproducibility
-    seed = list_args.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
 
     # update paths
     # list_args.__parse_args()
@@ -412,9 +407,6 @@ if __name__ == "__main__":
 
         sim_model.train()
         # torch.enable_grad()
-
-        i = 0
-
         ###################################
         ##  TRAIN LOOP
         ###################################

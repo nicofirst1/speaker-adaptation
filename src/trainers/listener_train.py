@@ -323,16 +323,18 @@ if __name__ == "__main__":
         subset_size=list_args.subset_size,
     )
 
+    def rnd():
+        return torch.FloatTensor(1).uniform_(0, 1)
 
     # define percentage of data to be used
-    use_golden_train = {k: torch.randn((1,)) for k in range(len(speak_train_dl))}
-    use_golden_train = {k: (v > list_args.golden_data_perc).item() for k, v in use_golden_train.items()}
+    use_golden_train = {k: rnd() for k in range(len(speak_train_dl))}
+    use_golden_train = {k: (v < list_args.golden_data_perc).item() for k, v in use_golden_train.items()}
 
-    use_golden_val_domain = {k: torch.randn((1,)) for k in range(len(speak_val_dl_domain))}
-    use_golden_val_domain = {k: (v > list_args.golden_data_perc).item() for k, v in use_golden_val_domain.items()}
+    use_golden_val_domain = {k: rnd() for k in range(len(speak_val_dl_domain))}
+    use_golden_val_domain = {k: (v < list_args.golden_data_perc).item() for k, v in use_golden_val_domain.items()}
 
-    use_golden_val_all = {k: torch.randn((1,)) for k in range(len(speak_val_dl_all))}
-    use_golden_val_all = {k: (v > list_args.golden_data_perc).item() for k, v in use_golden_val_all.items()}
+    use_golden_val_all = {k: rnd() for k in range(len(speak_val_dl_all))}
+    use_golden_val_all = {k: (v < list_args.golden_data_perc).item() for k, v in use_golden_val_all.items()}
 
     if list_args.log_data:
         # log dataset once
