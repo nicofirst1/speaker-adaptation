@@ -102,7 +102,7 @@ def get_predictions(
     context_separate = data["separate_images"]
     context_concat = data["concat_context"]
     utterance = data["speak_utterance"]
-    lengths = [utterance.shape[1]]
+    lengths = data["speak_length"]
     targets = data["target"]
     prev_hist = data["prev_histories"]
     speak_embds = data["speak_h1embed"]

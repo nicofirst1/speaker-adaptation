@@ -26,7 +26,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # define variables
-common_args=( --dropout 0.3 --batch_size 64 --model_type no_hist --embed_type scratch --vectors_file vectors.json --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle -log_data)
+common_args=( --dropout 0.2 --batch_size 64  --embed_type scratch --vectors_file vectors.json --reduction sum --subset_size -1 --seed 42 --learning_rate 0.0001 -shuffle --golden_data_perc 1)
 restore_arg=( -resume_train -is_test)
 #common_args=("${common_args[@]}" "${restore_arg[@]}")
 

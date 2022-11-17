@@ -26,7 +26,7 @@ import datetime
 global logger
 
 
-def get_prediction(use_golden, list_model, translator):
+def get_prediction(data, use_golden, list_model, translator):
     context_separate = data["separate_images"]
     context_concat = data["concat_context"]
     targets = data["target"]
@@ -95,8 +95,12 @@ def evaluate(
     flag = f"{split}/"
     flag += "in_domain" if in_domain else "out_domain"
 
-    for ii, data in enumerate(data_loader):
-        loss, aux = get_prediction(use_golden[ii], list_model, translator)
+    for ii, data in track(
+            enumerate(data_loader),
+            total=len(data_loader),
+            description=f"{flag}"):
+
+        loss, aux = get_prediction(data, use_golden[ii], list_model, translator)
         losses_eval.append(loss.item())
         domains += data["domain"]
         auxs.append(aux)
@@ -104,7 +108,8 @@ def evaluate(
     aux = merge_dict(auxs)
 
     if not in_domain:
-        domain_accuracy = get_domain_accuracy(aux['accuracy'], domains, logger.domains)
+        domain_accuracy = get_domain_accuracy(aux['correct'], domains, logger.domains)
+        print(domain_accuracy)
 
     # normalize based on batches
     # domain_accuracy = {k: v / ii for k, v in domain_accuracy.items()}
@@ -118,6 +123,8 @@ def evaluate(
 
     # logger.log_datapoint(data, preds, modality="eval")
     # logger.log_viz_embeddings(data, modality="eval")
+    print(f"{flag} loss {loss:.3f}, accuracy {accuracy:.3f}")
+
     logger.on_eval_end(metrics, list_domain=list_model.domain, modality=flag)
 
     return accuracy, loss, MRR
@@ -248,6 +255,8 @@ if __name__ == "__main__":
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
     translator = translate_utterance(speak2list_v, device)
 
+    # load golden dataloader
+
     training_loader, test_loader, val_loader = get_dataloaders(
         list_args, list_vocab, domain, unary_val_bs=False
     )
@@ -268,6 +277,8 @@ if __name__ == "__main__":
             list_vocab["<nohs>"],
         ),
     }
+
+    # load spekaer augmented dataloaders
 
     speak_train_dl = load_wandb_dataset(
         "train",
@@ -307,11 +318,13 @@ if __name__ == "__main__":
         load_params,
         list_vocab,
         speaker_model,
-        val_loader,
+        val_loader_speaker,
         logger,
         subset_size=list_args.subset_size,
     )
 
+
+    # define percentage of data to be used
     use_golden_train = {k: torch.randn((1,)) for k in range(len(speak_train_dl))}
     use_golden_train = {k: (v > list_args.golden_data_perc).item() for k, v in use_golden_train.items()}
 
@@ -359,6 +372,7 @@ if __name__ == "__main__":
         preds = []
         accuracies = []
         ranks = []
+        auxs = []
 
         listener_model.train()
         torch.enable_grad()
@@ -374,19 +388,20 @@ if __name__ == "__main__":
         ):
             listener_model.zero_grad()
 
-            loss, aux = get_prediction(use_golden_train[i], listener_model, translator)
+            loss, aux = get_prediction(data, use_golden_train[i], listener_model, translator)
 
             loss.backward()
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
             optimizer.step()
 
             losses.append(loss.item())
             accuracies.append(aux["accuracy"])
             ranks.append(aux["ranks"])
+            auxs.append(aux)
 
+        aux=merge_dict(auxs)
         losses = np.mean(losses)
-        accuracies = np.mean(accuracies)
-        ranks = np.mean(ranks)
+        accuracies = np.mean(aux["accuracy"])
+        ranks = np.mean(aux["ranks"])
         aux = dict(
             loss=losses,
             accuracy=accuracies,
@@ -425,6 +440,7 @@ if __name__ == "__main__":
                 loss=current_loss,
                 mrr=current_MRR,
             )
+            print("\n\n")
 
         logger.on_train_end({"loss": losses}, epoch_id=epoch)
 
