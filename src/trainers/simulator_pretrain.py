@@ -14,7 +14,9 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator,
                          get_listener_check)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import get_model
+from src.models.listener.ListenerModel import ListenerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
+from src.models.speaker.SpeakerModel import SpeakerModel
 from src.wandb_logging import ListenerLogger
 from torch import optim, nn
 from torch.utils.data import DataLoader
@@ -223,8 +225,7 @@ if __name__ == "__main__":
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-    model = get_model("list", list_args.model_type)
-    list_model = model(
+    list_model = ListenerModel(
         len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
@@ -260,8 +261,7 @@ if __name__ == "__main__":
 
     # init speak model and load state
 
-    model = get_model("speak", speak_p.model_type)
-    speaker_model = model(
+    speaker_model = SpeakerModel(
         speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
