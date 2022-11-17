@@ -15,7 +15,8 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 #create output directory
-common_args=( --seed 69
+common_args=(
+--seed 69
 --attention_dim 128
 --hidden_dim 128
 --embedding_dim 128
@@ -27,14 +28,10 @@ common_args=( --seed 69
 domain
 --test_split
 seen
---pretrain_loss
-ce
---adaptive_loss
-ce
---model_type
-tom
 --data_domain
 all
+--golden_data_perc
+1
 )
 
 
