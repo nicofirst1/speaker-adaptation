@@ -249,6 +249,8 @@ def merge_dict(dicts: List[Dict]) -> Dict:
     dd = defaultdict(list)
     for d in dicts:
         for key, value in d.items():
+            if isinstance(value, torch.Tensor):
+                value=value.detach().cpu()
             dd[key].append(value)
 
     return dd

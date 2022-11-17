@@ -205,7 +205,7 @@ class ListenerLogger(WandbLogger):
         # detach torch tensor
         for k, v in logs.items():
             if isinstance(v, torch.Tensor):
-                v = v.detach()
+                v = v.detach().cpu()
                 # transform to list/float
                 if v.ndim > 0:
                     logs[k] = v.tolist()
