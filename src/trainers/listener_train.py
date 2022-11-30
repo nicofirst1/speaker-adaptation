@@ -379,7 +379,12 @@ if __name__ == "__main__":
 
         listener_model.train()
         torch.enable_grad()
+
+        # randomize order of data
         speak_train_dl.dataset.randomize_target_location()
+        speak_val_dl_domain.dataset.randomize_target_location()
+        speak_val_dl_all.dataset.randomize_target_location()
+
 
         ###################################
         ##  TRAIN LOOP

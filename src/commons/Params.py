@@ -54,7 +54,7 @@ class Params:
     seed: Optional[int] = 42
 
     # Early stopping patience
-    patience: Optional[int] = 30
+    patience: Optional[int] = 5
 
     # If true use wandb checkpoints
     resume_train: Optional[bool] = False

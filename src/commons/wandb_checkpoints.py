@@ -20,7 +20,7 @@ LISTENER_CHK_DICT_1 = dict(
     appliances="",
     food="",
     indoor="",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v404",
+    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v520",
     vehicles="",
 )
 LISTENER_CHK_DICT_0 = dict(

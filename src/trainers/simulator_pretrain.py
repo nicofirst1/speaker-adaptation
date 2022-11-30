@@ -411,7 +411,9 @@ if __name__ == "__main__":
 
         sim_model.train()
 
+        # randomize order of data
         speak_train_dl.dataset.randomize_target_location()
+        speak_val_dl.dataset.randomize_target_location()
 
         # torch.enable_grad()
         ###################################

@@ -215,7 +215,7 @@ class ListenerLogger(WandbLogger):
             if isinstance(v, list) and len(v) > 0:
                 try:
                     num_bins = max(v) if max(v) > 0 else 1
-                    logs[k] = wandb.Histogram(v, num_bins=num_bins)
+                    logs[k] = wandb.Histogram(v, num_bins=num_bins+1)
                 except TypeError:
                     h = np.histogram(v)
                     logs[k] = wandb.Histogram(np_histogram=h)
