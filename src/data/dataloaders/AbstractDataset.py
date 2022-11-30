@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import pickle
@@ -82,6 +83,34 @@ class AbstractDataset(Dataset):
 
         self.load_data()
 
+    def randomize_target_location(self):
+        """
+        Randomize the location of the target
+
+        """
+
+        for dp in self.data.values():
+
+            #old_dp=copy.deepcopy(dp)
+
+            new_target_index = np.random.randint(0, 5)
+            old_target = dp["target"][0]
+
+            img_target = dp["image_set"][new_target_index]
+            dp["image_set"][new_target_index] = dp["image_set"][old_target]
+            dp["image_set"][old_target] = img_target
+
+            new_separate = dp["separate_images"][new_target_index].clone()
+            dp["separate_images"][new_target_index] = dp["separate_images"][old_target]
+            dp["separate_images"][old_target] = new_separate
+
+            # torch.all(dp['separate_images']==old_dp['separate_images'],dim=1)
+
+
+            dp["concat_context"]= torch.reshape( dp["separate_images"], (-1,))
+
+            dp["target"] = [new_target_index]
+
     def load_data(self):
         """
         Load every datapoint in the self.data attribute
@@ -89,7 +118,6 @@ class AbstractDataset(Dataset):
         -------
 
         """
-        print("processing", self.split)
 
         # every utterance in every chain, along with the relevant history
         for chain in self.chains[: self.subset_size]:

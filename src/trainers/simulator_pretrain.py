@@ -4,15 +4,17 @@ from typing import Dict, List, Tuple
 import numpy as np
 import rich.progress
 import torch
+import wandb
 from torch import optim, nn
 from torch.utils.data import DataLoader
+from sklearn.metrics import classification_report, cohen_kappa_score, matthews_corrcoef, precision_recall_fscore_support
 
 from src.commons import (SPEAKER_CHK, AccuracyEstimator,
                          EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint,
                          load_wandb_dataset, mask_attn, merge_dict, parse_args,
                          save_model, speak2list_vocab, translate_utterance, mask_oov_embeds, set_seed,
-                         get_listener_check)
+                         get_listener_check, get_domain_accuracy)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
 from src.wandb_logging import ListenerLogger
@@ -37,42 +39,52 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
     def flatten(xss):
         return [x for xs in xss for x in xs]
 
-    # domains = flatten(aux.pop("domains"))
-    # aux["domain/list_target_acc"] = get_domain_accuracy(
-    #     flatten(aux.pop("list_target_accuracy_dom")), domains, all_domains
-    # )
-    # aux["domain/sim_list_acc"] = get_domain_accuracy(
-    #     flatten(aux.pop("sim_list_accuracy_dom")), domains, all_domains
-    # )
-    # aux["domain/sim_target_acc"] = get_domain_accuracy(
-    #     flatten(aux.pop("sim_target_accuracy_dom")), domains, all_domains
-    # )
+    domains = flatten(aux.pop("domains"))
+    aux["domain/list_target_acc"] = get_domain_accuracy(
+        flatten(aux.pop("list_target_accuracy_dom")), domains, all_domains
+    )
+    aux["domain/sim_list_acc"] = get_domain_accuracy(
+        flatten(aux.pop("sim_list_accuracy_dom")), domains, all_domains
+    )
+    aux["domain/sim_target_acc"] = get_domain_accuracy(
+        flatten(aux.pop("sim_target_accuracy_dom")), domains, all_domains
+    )
 
-    # sim_list_neg_accuracy_dom = aux.pop("sim_list_neg_accuracy_dom")
-    # d = [x[1] for x in sim_list_neg_accuracy_dom]
-    # correct = [x[0] for x in sim_list_neg_accuracy_dom]
-    # d = flatten(d)
-    # correct = flatten(correct)
-    # aux["domain/sim_list_neg_acc"] = get_domain_accuracy(correct, d, all_domains)
-    #
-    # sim_list_neg_accuracy_dom = aux.pop("sim_list_pos_accuracy_dom")
-    # d = [x[1] for x in sim_list_neg_accuracy_dom]
-    # correct = [x[0] for x in sim_list_neg_accuracy_dom]
-    # d = flatten(d)
-    # correct = flatten(correct)
-    # aux["domain/sim_list_pos_acc"] = get_domain_accuracy(correct, d, all_domains)
+    sim_list_neg_accuracy_dom = aux.pop("sim_list_neg_accuracy_dom")
+    d = [x[1] for x in sim_list_neg_accuracy_dom]
+    correct = [x[0] for x in sim_list_neg_accuracy_dom]
+    d = flatten(d)
+    correct = flatten(correct)
+    aux["domain/sim_list_neg_acc"] = get_domain_accuracy(correct, d, all_domains)
 
-    aux.pop("sim_list_pos_accuracy_dom")
-    aux.pop("sim_list_neg_accuracy_dom")
-    aux.pop("domains")
-    aux.pop("sim_list_accuracy_dom")
-    aux.pop("sim_target_accuracy_dom")
-    aux.pop("list_target_accuracy_dom")
+    sim_list_neg_accuracy_dom = aux.pop("sim_list_pos_accuracy_dom")
+    d = [x[1] for x in sim_list_neg_accuracy_dom]
+    correct = [x[0] for x in sim_list_neg_accuracy_dom]
+    d = flatten(d)
+    correct = flatten(correct)
+    aux["domain/sim_list_pos_acc"] = get_domain_accuracy(correct, d, all_domains)
+
+    # aux.pop("sim_list_pos_accuracy_dom")
+    # aux.pop("sim_list_neg_accuracy_dom")
+    # aux.pop("domains")
+    # aux.pop("sim_list_accuracy_dom")
+    # aux.pop("sim_target_accuracy_dom")
+    # aux.pop("list_target_accuracy_dom")
 
     # flatten nested lists
     aux["sim_preds"] = flatten(aux["sim_preds"])
     aux["list_preds"] = flatten(aux["list_preds"])
 
+    aux["sim_list_cm"]=wandb.plot.confusion_matrix(probs=None,
+                                y_true=aux["list_preds"], preds=aux["sim_preds"])
+
+    p, r, f1, s =precision_recall_fscore_support( aux["list_preds"],   aux["sim_preds"])
+    aux["sim_list_f1"]=f1.mean()
+    aux["sim_list_precision"]=p.mean()
+    aux["sim_list_recall"]=r.mean()
+
+    aux["cohen_kappa_score"]=cohen_kappa_score(aux["list_preds"],   aux["sim_preds"])
+    aux['matthews_corrcoef']=matthews_corrcoef(aux["list_preds"],   aux["sim_preds"])
     aux["list_dist"] = torch.concat(aux["list_dist"], dim=0).T
     aux["sim_dist"] = torch.concat(aux["sim_dist"], dim=0).T
 
@@ -80,6 +92,7 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
         aux["target"] = np.random.choice(
             aux["target"], size=max_targets, replace=False
         ).tolist()
+
 
 
 def get_predictions(
@@ -350,7 +363,7 @@ if __name__ == "__main__":
 
     speak_train_dl = load_wandb_dataset(
         "train",
-        data_domain,
+        "all",
         load_params,
         list_vocab,
         speaker_model,
@@ -371,7 +384,7 @@ if __name__ == "__main__":
     }
     speak_val_dl = load_wandb_dataset(
         "val",
-        data_domain,
+        "all",
         load_params,
         list_vocab,
         speaker_model,
@@ -397,6 +410,9 @@ if __name__ == "__main__":
         data = {}
 
         sim_model.train()
+
+        speak_train_dl.dataset.randomize_target_location()
+
         # torch.enable_grad()
         ###################################
         ##  TRAIN LOOP

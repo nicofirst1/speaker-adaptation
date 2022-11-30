@@ -69,7 +69,8 @@ def get_prediction(data, use_golden, list_model, translator):
         scores_ranked=scores_ranked,
         images_ranked=images_ranked,
         accuracy=accuracy,
-        correct=correct
+        correct=correct,
+
     )
 
     # logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
@@ -115,7 +116,7 @@ def evaluate(
     accuracy = np.mean(aux["accuracy"])
     MRR = np.sum([1 / r for r in aux["ranks"]]) / len(aux["ranks"])
 
-    metrics = dict(mrr=MRR, loss=loss, accuracy=accuracy)
+    metrics = dict(mrr=MRR, loss=loss, accuracy=accuracy, preds=torch.stack(aux["preds"]))
     if len(domain_accuracy) > 0:
         metrics["domain_accuracy"] = domain_accuracy
 
@@ -342,7 +343,7 @@ if __name__ == "__main__":
             vocab=list_vocab,
             opts=vars(list_args),
         )
-        data_logger.log_dataset(training_loader.dataset, "train")
+        data_logger.log_dataset(speak_train_dl.dataset, "train")
         data_logger.log_dataset(val_loader.dataset, "val")
         print("Dataset logged")
 
@@ -378,6 +379,7 @@ if __name__ == "__main__":
 
         listener_model.train()
         torch.enable_grad()
+        speak_train_dl.dataset.randomize_target_location()
 
         ###################################
         ##  TRAIN LOOP
@@ -388,7 +390,7 @@ if __name__ == "__main__":
                 total=len(speak_train_dl),
                 description=f"Training epoch {epoch}",
         ):
-            listener_model.zero_grad()
+            optimizer.zero_grad()
 
             loss, aux = get_prediction(data, use_golden_train[i], listener_model, translator)
 
@@ -407,7 +409,8 @@ if __name__ == "__main__":
         aux = dict(
             loss=losses,
             accuracy=accuracies,
-            ranks=ranks
+            ranks=ranks,
+            preds=torch.cat(aux["preds"]),
         )
         print(f"Train loss {losses:.3f}, accuracy {accuracies:.3f}")
         # logger.log_datapoint(data, preds, modality="train")

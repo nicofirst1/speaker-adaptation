@@ -57,6 +57,28 @@ class DataLogger(WandbLogger):
 
         return logs
 
+    def log_target_balance(self, dataset: ListenerDataset, modality: str) -> Dict:
+        """
+        Create  a table to log number of domain images
+        :param modality:
+        :return:
+        """
+
+        domains = [x["target"][0] for x in dataset.data.values()]
+
+        count = Counter(domains)
+        tot = len(domains)
+
+        columns = ["target", "img_num", "perc"]
+        data = []
+        for k, v in count.items():
+            data.append((k, v, v / tot))
+
+        new_table = wandb.Table(columns=columns, data=data)
+        logs = {f"target_stats/{modality}": new_table}
+
+        return logs
+
     def log_viz_embeddings(self, dataset: ListenerDataset, modality: str) -> Dict:
         """
         Log image embeddings
@@ -102,6 +124,7 @@ class DataLogger(WandbLogger):
         logs = {}
 
         logs.update(self.log_domain_balance(dataset, modality))
-        logs.update(self.log_viz_embeddings(dataset, modality))
+        logs.update(self.log_target_balance(dataset, modality))
+        #logs.update(self.log_viz_embeddings(dataset, modality))
 
         self.log_to_wandb(logs, commit=True)
