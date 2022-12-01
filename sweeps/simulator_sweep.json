@@ -14,7 +14,7 @@ parameters:
         distribution: q_uniform
         max: 0.001
         min: 0.0001
-        q:   0.0005
+        q:   0.0001
 
 
     data_domain:
@@ -23,18 +23,18 @@ parameters:
 
     attention_dim:
       values:
-        - 128
         - 512
+        - 1024
 
     embedding_dim:
       values:
-        - 128
         - 512
+        - 1024
 
     hidden_dim:
       values:
-        - 128
         - 512
+        - 1024
 
 
     dropout_prob:

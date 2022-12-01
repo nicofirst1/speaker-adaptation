@@ -21,7 +21,7 @@ common_args=(--metric accs --reduction sum --subset_size -1  --seed 42
 common_args=("${common_args[@]}" --epochs 50 --patience 10 --pretrain_loss ce --adaptive_loss ce --learning_rate 0.003 -shuffle )
 
 # model arguments
-common_args=("${common_args[@]}"  --dropout 0.3  --embedding_dim 128 --hidden_dim 128 --attention_dim 128 )
+common_args=("${common_args[@]}"  --dropout 0.1  --embedding_dim 512 --hidden_dim 512 --attention_dim 512 )
 # restore the simulator
 #common_args=("${common_args[@]}" --resume_train true )
 

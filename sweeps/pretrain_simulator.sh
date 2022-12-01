@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1
-#SBATCH --job-name=adapt_speak_sweep
+#SBATCH --job-name=sweep_sim
 #SBATCH --cpus-per-task=1
 #SBATCH --time=15:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=2
+#SBATCH --gpus-per-node=1
 
 
 
