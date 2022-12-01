@@ -57,7 +57,7 @@ class SimulatorModel(nn.Module):
 
         # Concatenation of 6 images in the context projected to hidden
         # self.lin_context = linear(self.img_dim * 6, self.hidden_dim)
-        self.lin_context = self.init_sequential(self.img_dim * 6, 2, use_leaky=True)
+        self.lin_context = self.init_sequential(self.img_dim * 6, 1, use_leaky=True)
 
         # Multimodal (text representation; visual context)
         # self.lin_mm = linear(self.hidden_dim * 2, self.hidden_dim)
@@ -65,7 +65,6 @@ class SimulatorModel(nn.Module):
 
         # attention linear layers
         self.att_linear_1 = linear(self.hidden_dim, self.attention_dim)
-        # self.att_linear_1 = self.init_sequential(self.hidden_dim , 1, use_leaky=True, end_dim=self.attention_dim)
         self.att_linear_2 = linear(self.attention_dim, 1)
 
         self.relu = nn.ReLU()
@@ -208,7 +207,6 @@ class SimulatorModel(nn.Module):
         separate_images = self.linear_separate(separate_images)
 
         separate_images = self.relu(separate_images)
-        # separate_images = F.normalize(separate_images, p=2, dim=2)
         separate_images = self.standardize(separate_images)
 
         # dot product between the candidate images and

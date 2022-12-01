@@ -6,6 +6,7 @@ import rich.progress
 import torch
 import wandb
 from torch import optim, nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report, cohen_kappa_score, matthews_corrcoef, precision_recall_fscore_support
 
@@ -19,6 +20,8 @@ from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
 from src.wandb_logging import ListenerLogger
 
+
+global common_p
 
 def normalize_aux(aux, data_length, all_domains, max_targets=3):
     aux["loss"] = np.mean(aux["loss"])
@@ -94,6 +97,32 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
         ).tolist()
 
 
+def weight_loss(loss, list_preds,targets,sim_out, domains, sim_model):
+
+    # get incorrect listener predictions
+    incorrect_list = list_preds != targets
+    incorrect_list=incorrect_list.nonzero(as_tuple=True)[0]
+
+    # get incorrect simulator predictions
+    incorrect_sim = torch.argmax(sim_out, dim=1) != list_preds
+    incorrect_sim=incorrect_sim.nonzero(as_tuple=True)[0]
+
+
+    if sim_model.training:
+
+        # get indomain indices
+        indomain_idx=[idx for idx in range(len(domains)) if domains[idx] == sim_model.domain]
+
+        # intersect incorrect listener and simulator predictions
+        incorrect_idx=np.intersect1d(incorrect_list.cpu().numpy(), indomain_idx)
+        incorrect_idx=np.intersect1d(incorrect_sim.cpu().numpy(), incorrect_idx)
+        incorrect_idx=torch.tensor(incorrect_idx).to(sim_model.device)
+
+        loss[incorrect_idx]*=2
+
+
+
+    return loss
 
 def get_predictions(
         data: Dict,
@@ -101,12 +130,13 @@ def get_predictions(
         sim_model: torch.nn.Module,
         loss_f: nn.CrossEntropyLoss,
         acc_estimator: AccuracyEstimator,
-        list_vocab: Vocab,
+        translator,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
 
     """
+    global common_p
 
     # get datapoints
     context_separate = data["separate_images"]
@@ -132,6 +162,13 @@ def get_predictions(
     loss = loss_f(sim_out, list_preds)
     aux = acc_estimator(sim_out, targets, list_out, domains)
 
+    if common_p.reduction == "mean":
+        loss = loss.mean()
+    elif common_p.reduction == "sum":
+        loss = loss.sum()
+    else:
+        raise ValueError("reduction not supported")
+
     aux["loss"] = loss.detach().cpu().item()
 
     return loss, aux["sim_list_accuracy"], aux
@@ -141,7 +178,7 @@ def evaluate(
         data_loader: DataLoader,
         sim_model: torch.nn.Module,
         list_model: torch.nn.Module,
-        list_vocab: Vocab,
+        translator,
         loss_f: torch.nn.Module,
         acc_estimator: AccuracyEstimator,
         all_domains: List,
@@ -163,7 +200,7 @@ def evaluate(
             description=f"evaluating '{split}' split...",
     ):
         loss, accuracy, aux = get_predictions(
-            data, list_model, sim_model, loss_f, acc_estimator, list_vocab
+            data, list_model, sim_model, loss_f, acc_estimator, translator
         )
 
         auxs.append(aux)
@@ -174,10 +211,11 @@ def evaluate(
     return aux
 
 
-if __name__ == "__main__":
+def main():
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
+    global common_p
 
     common_p = parse_args("int")
     domain = common_p.train_domain
@@ -306,8 +344,9 @@ if __name__ == "__main__":
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    optimizer = optim.Adam(sim_model.parameters(), lr=common_p.learning_rate)
-    loss_f = nn.CrossEntropyLoss(reduction=common_p.reduction)
+    optimizer = optim.AdamW(sim_model.parameters(), lr=common_p.learning_rate, weight_decay=0.0001)
+    scheduler = ReduceLROnPlateau(optimizer, 'max',patience=2, factor=0.5, verbose=True, threshold=0.5)
+    loss_f = nn.CrossEntropyLoss(reduction="none")
     acc_estimator = AccuracyEstimator(
         domain, all_domains=logger.domains
     )
@@ -326,7 +365,7 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    # logger.watch_model([sim_model])
+    logger.watch_model([sim_model])
 
     ###################################
     ##  Get speaker dataloader
@@ -429,14 +468,17 @@ if __name__ == "__main__":
 
             # get datapoints
             loss, accuracy, aux = get_predictions(
-                data, list_model, sim_model, loss_f, acc_estimator, list_vocab
+                data, list_model, sim_model, loss_f, acc_estimator, translator,
             )
 
             auxs.append(aux)
 
             # optimizer
             loss.backward()
+            nn.utils.clip_grad_value_(sim_model.parameters(), clip_value=1.0)
             optimizer.step()
+
+
 
         aux = merge_dict(auxs)
         normalize_aux(aux, len(speak_train_dl.dataset.data), all_domains=logger.domains)
@@ -458,13 +500,16 @@ if __name__ == "__main__":
                 speak_val_dl,
                 sim_model,
                 list_model,
-                list_vocab,
+                translator,
                 loss_f,
                 acc_estimator,
                 all_domains=logger.domains,
                 split="eval",
             )
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["loss"]
+
+            scheduler.step(eval_accuracy)
+
 
             print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f} ")
             logger.on_eval_end(
@@ -510,3 +555,12 @@ if __name__ == "__main__":
 
         logger.on_train_end({}, epoch_id=epoch)
         print("\n\n")
+
+
+if __name__ == "__main__":
+
+    try:
+        main()
+    except KeyboardInterrupt:
+        wandb.finish()
+        print("Keyboard Interrupt, finishing run")
