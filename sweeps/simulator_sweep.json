@@ -52,4 +52,4 @@ parameters:
 
 
 
-program: ../src/trainers/interpreter_simulator.py
+program: ../src/trainers/simulator_pretrain.py
