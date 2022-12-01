@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=15:00:00
 #SBATCH --partition=gpu_shared
-#SBATCH --gpus-per-node=4
+#SBATCH --gpus-per-node=2
 
 
 
@@ -15,7 +15,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # perform sweep
-common_args=( --sweep_file ./interpreter_sweep.json )
+common_args=( --sweep_file ./simulator_sweep.json )
 
 
 trainers_file="${HOME}/pb_speaker_adaptation/sweeps/array_sweep.py"
