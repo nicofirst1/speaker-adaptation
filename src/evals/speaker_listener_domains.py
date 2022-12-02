@@ -10,8 +10,11 @@ from torch.utils.data import DataLoader
 
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint, mask_attn,
-                         parse_args)
+                         parse_args, speak2list_vocab, translate_utterance, set_seed)
 from src.data.dataloaders import Vocab
+from src.models.listener.ListenerModel import ListenerModel
+from src.models.speaker.SpeakerModel import SpeakerModel
+from src.models.speaker.SpeakerModelEce import SpeakerModelEce
 from src.wandb_logging import ListenerLogger, WandbLogger
 
 
@@ -93,7 +96,7 @@ def dict_diff(golden_metrics: Dict, gen_metrics: Dict) -> Dict:
 def evaluate_trained_model(
         dataloader: DataLoader,
         list_model: torch.nn.Module,
-        vocab: Vocab,
+        translator,
         domain: str,
         logger: WandbLogger,
         split: str,
@@ -123,9 +126,9 @@ def evaluate_trained_model(
     ):
 
         # skip indomain samples
-        if not in_domain:
-            if data["domain"][0] == domain:
-                continue
+        # if not in_domain:
+        #     if data["domain"][0] == domain:
+        #         continue
 
         if speak_model is not None:
             # generate hypo with speaker
@@ -250,6 +253,7 @@ if __name__ == "__main__":
 
     speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
 
+
     # load args
     speak_p = speak_check["args"]
     speak_p.vocab_file = "vocab.csv"
@@ -257,8 +261,7 @@ if __name__ == "__main__":
 
     # for reproducibility
     seed = common_args.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    set_seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
@@ -266,25 +269,21 @@ if __name__ == "__main__":
     # SPEAKER
     ####################################
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
+    speak_check=torch.load("/home/dizzi/Downloads/model_speaker_adpnucleus_base_3_bert_2022-11-10-23-38-31.pkl", map_location=device)
+    speak_p = speak_check["args"]
 
     img_dim = 2048
-    model = get_model("speak", speak_p.model_type)
-    speaker_model = model(
-        speak_vocab,
+    speaker_model = SpeakerModelEce(
+        len(speak_vocab),
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
-        speak_p.attention_dim,
-        speak_p.beam_size,
-        speak_p.max_len,
-        speak_p.top_k,
-        speak_p.top_p,
-        device,
-        use_beam=speak_p.use_beam,
+        device
+
     )
 
-    speaker_model.load_state_dict(speak_check["model_state_dict"])
+    speaker_model.load_state_dict(speak_check['model_state_dict'])
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()
@@ -313,8 +312,7 @@ if __name__ == "__main__":
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
-    model = get_model("list", list_args.model_type)
-    list_model = model(
+    list_model = ListenerModel(
         len(list_vocab),
         list_args.embed_dim,
         list_args.hidden_dim,
@@ -338,7 +336,12 @@ if __name__ == "__main__":
         project="speaker-list-dom",
         tags=common_args.tags,
     )
+    speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
+    translator = translate_utterance(speak2list_v, device)
 
+    ########################################
+    # EVALUATE
+    ########################################
     # todo: log captions
 
     with torch.no_grad():
@@ -357,7 +360,7 @@ if __name__ == "__main__":
         golden_metrics = evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
-            vocab=list_vocab,
+            translator=translator,
             domain=dom,
             logger=logger,
             split="eval",
@@ -370,7 +373,7 @@ if __name__ == "__main__":
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
-            vocab=list_vocab,
+            translator=translator,
             domain=dom,
             logger=logger,
             split="eval",
@@ -385,32 +388,32 @@ if __name__ == "__main__":
         #  TEST DOMAIN-SPEC
         ########################
 
-        print(f"Test on '{list_args.train_domain}' domain with golden caption ")
-        golden_metrics = evaluate_trained_model(
-            dataloader=test_loader,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="test",
-        )
-
-        print(golden_metrics)
-
-        print(f"Test on '{list_args.train_domain}' domain")
-        gen_metrics = evaluate_trained_model(
-            dataloader=test_loader,
-            speak_model=speaker_model,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="test",
-        )
-        print(gen_metrics)
-
-        table = log_table(golden_metrics, gen_metrics)
-        logger.log_to_wandb(dict(test_in_domain=table), commit=True)
+        # print(f"Test on '{list_args.train_domain}' domain with golden caption ")
+        # golden_metrics = evaluate_trained_model(
+        #     dataloader=test_loader,
+        #     list_model=list_model,
+        #     translator=translator,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="test",
+        # )
+        #
+        # print(golden_metrics)
+        #
+        # print(f"Test on '{list_args.train_domain}' domain")
+        # gen_metrics = evaluate_trained_model(
+        #     dataloader=test_loader,
+        #     speak_model=speaker_model,
+        #     list_model=list_model,
+        #     translator=translator,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="test",
+        # )
+        # print(gen_metrics)
+        #
+        # table = log_table(golden_metrics, gen_metrics)
+        # logger.log_to_wandb(dict(test_in_domain=table), commit=True)
 
         ########################
         #  EVAL OOD
@@ -422,7 +425,7 @@ if __name__ == "__main__":
         golden_metrics = evaluate_trained_model(
             dataloader=val_loader,
             list_model=list_model,
-            vocab=list_vocab,
+            translator=translator,
             domain=dom,
             logger=logger,
             split="eval",
@@ -436,7 +439,7 @@ if __name__ == "__main__":
             dataloader=val_loader,
             speak_model=speaker_model,
             list_model=list_model,
-            vocab=list_vocab,
+            translator=translator,
             domain=dom,
             logger=logger,
             split="eval",
@@ -450,31 +453,31 @@ if __name__ == "__main__":
         #  TEST ODD
         ########################
 
-        print(f"Test on 'all' domain with golden caption")
-        golden_metrics = evaluate_trained_model(
-            dataloader=test_loader,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="test",
-        )
-        print(golden_metrics)
-
-        print(f"Test on 'all' domain")
-
-        gen_metrics = evaluate_trained_model(
-            dataloader=test_loader,
-            speak_model=speaker_model,
-            list_model=list_model,
-            vocab=list_vocab,
-            domain=dom,
-            logger=logger,
-            split="test",
-        )
-        print(gen_metrics)
-
-        table = log_table(golden_metrics, gen_metrics, in_domain=False)
-        logger.log_to_wandb(dict(test_out_domain=table), commit=True)
+        # print(f"Test on 'all' domain with golden caption")
+        # golden_metrics = evaluate_trained_model(
+        #     dataloader=test_loader,
+        #     list_model=list_model,
+        #     translator=translator,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="test",
+        # )
+        # print(golden_metrics)
+        #
+        # print(f"Test on 'all' domain")
+        #
+        # gen_metrics = evaluate_trained_model(
+        #     dataloader=test_loader,
+        #     speak_model=speaker_model,
+        #     list_model=list_model,
+        #     translator=translator,
+        #     domain=dom,
+        #     logger=logger,
+        #     split="test",
+        # )
+        # print(gen_metrics)
+        #
+        # table = log_table(golden_metrics, gen_metrics, in_domain=False)
+        # logger.log_to_wandb(dict(test_out_domain=table), commit=True)
 
         logger.wandb_close()

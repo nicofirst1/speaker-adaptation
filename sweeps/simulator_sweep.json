@@ -25,21 +25,27 @@ parameters:
       values:
         - 512
         - 1024
+        - 2048
+        - 4096
 
     embedding_dim:
       values:
         - 512
         - 1024
+        - 2048
+        - 4096
 
     hidden_dim:
       values:
         - 512
         - 1024
+        - 2048
+        - 4096
 
 
     dropout_prob:
       distribution: q_uniform
-      max: 0.5
+      max: 0.12
       min: 0.0
       q: 0.01
 
