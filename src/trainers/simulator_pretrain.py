@@ -562,5 +562,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        wandb.finish()
         print("Keyboard Interrupt, finishing run")
+        wandb.finish()

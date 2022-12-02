@@ -114,11 +114,19 @@ class SimulatorModel(nn.Module):
         return nn.Sequential(*layers)
 
     def utterance_forward(self, speaker_utterances, projected_context, masks):
+        """
+        Forward pass for the utterance representations
+        @param speaker_utterances: the speaker generated utterances
+        @param projected_context: the visual context
+        @param masks: the masks for the utterances
+        @return:
+
+        """
 
         representations = self.embeddings(speaker_utterances)
+
         # utterance representations are processed
         input_reps = self.lin_emb2hid(representations)
-        # input_reps = F.normalize(input_reps, p=2, dim=1)
         input_reps = self.standardize(input_reps)
 
         repeated_context = projected_context.unsqueeze(1)
@@ -146,6 +154,12 @@ class SimulatorModel(nn.Module):
         return attended_hids
 
     def embeds_forward(self, speaker_embeds, projected_context):
+        """
+        Forward pass for the embedding representations
+        @param speaker_embeds: speaker embeddings
+        @param projected_context: visual context
+        @return:
+        """
 
         # utterance representations are processed
         input_reps = self.lin_emb2hid(speaker_embeds)
@@ -184,28 +198,22 @@ class SimulatorModel(nn.Module):
         separate_images = self.standardize(separate_images)
         speaker_embeds = self.standardize(speaker_embeds)
 
-        # visual_context=self.change2random(visual_context)
-        # speaker_embeds=self.change2random(speaker_embeds)
-        # speaker_utterances=self.change2random(speaker_utterances)
-        # separate_images=self.separate_images(speaker_utterances)
 
-        # [32,512]
         # visual context is processed
         projected_context = self.lin_context(visual_context)
         projected_context = self.standardize(projected_context)
 
+        # utterance representations are processed
         utt_out = self.utterance_forward(speaker_utterances, projected_context, masks)
         embeds_out = self.embeds_forward(speaker_embeds, projected_context)
 
-        # representations = speaker_embeds
-        # [32,512]
 
-        batch_size = speaker_utterances.shape[0]  # effective batch size
+
+        batch_size = speaker_utterances.shape[0]
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
         separate_images = self.linear_separate(separate_images)
-
         separate_images = self.relu(separate_images)
         separate_images = self.standardize(separate_images)
 
