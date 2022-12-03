@@ -272,3 +272,10 @@ def translate_utterance(speak2list_v, device):
             utterance[idx] = torch.as_tensor(new_utt).to(device)
 
     return translate
+
+
+def standardize(tensor):
+    """
+    Standardizes a tensor
+    """
+    return (tensor - tensor.mean()) / tensor.std()

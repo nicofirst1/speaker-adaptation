@@ -74,20 +74,20 @@ SIM_CHECKPOINTS = dict(
 SIM_CHECKPOINTS_1 = dict(
     # epoch 83
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v750",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v918",
     appliances="",
     indoor="",
-    outdoor="adaptive-speaker/sim-sweep/SimulatorModel:v407",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v867",
     vehicles="",
 )
 
 SIM_CHECKPOINTS_05 = dict(
     # epoch 83
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v769",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v909",
     appliances="",
     indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v785",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v870",
     vehicles="",
 )
 
@@ -95,10 +95,10 @@ SIM_CHECKPOINTS_05 = dict(
 SIM_CHECKPOINTS_0 = dict(
     # epoch 83
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v780",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v866",
     appliances="",
     indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v811",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v844",
     vehicles="",
 )
 

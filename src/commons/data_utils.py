@@ -4,7 +4,7 @@ import os.path
 from typing import Dict, Optional, Tuple, List
 
 import numpy as np
-import rich.progress
+import rich.progress, rich.table
 import torch
 import wandb
 from PIL import Image, ImageDraw, ImageFont
@@ -279,3 +279,25 @@ def speaker_augmented_dataloader(
     dataloader = torch.utils.data.DataLoader(new_dataset, **load_params)
 
     return dataloader
+
+
+def wandb2rich_table(table: wandb.Table) -> rich.table.Table:
+    """
+    Convert wandb table to rich table
+    """
+
+    rich_table = rich.table.Table(show_header=True, header_style="bold magenta")
+    for col in table.columns:
+        rich_table.add_column(col)
+
+    rows=table.data
+
+    # sort rows based on the third column
+    rows.sort(key=lambda x: x[2], reverse=False)
+
+    for row in rows:
+        r=[str(x) for x in row]
+
+        rich_table.add_row(*r)
+
+    return rich_table

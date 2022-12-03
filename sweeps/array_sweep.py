@@ -10,7 +10,6 @@ from src.commons import parse_args
 
 if __name__ == "__main__":
 
-    TRIALS= 20
     common_p = parse_args("int")
 
     if "speaker_sweep.json" in common_p.sweep_file:

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.commons import mask_attn
+from src.commons import mask_attn, standardize
 
 
 class SpeakerModel(nn.Module):
@@ -118,140 +118,6 @@ class SpeakerModel(nn.Module):
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
 
-    def forward(
-            self,
-            utterance,
-            lengths,
-            prev_utterance,
-            prev_utt_lengths,
-            visual_context_sep,
-            visual_context,
-            target_img_feats,
-            targets,
-            prev_hist,
-            prev_hist_len,
-            normalize,
-            masks,
-    ):
-
-        """
-        @param utterance: ground-truth subsequent utterance converted into indices using the reduced vocabulary,
-        which will be fed into the decoder during teacher forcing
-        @param lengths: utterance lengths
-        @param prev_utterance: if exists, the previous utterance for the image, if not <nohs>
-        @param prev_utt_lengths: length of the previous utterance
-        @param visual_context_sep: image feature vectors for all 6 images in the context separately
-        @param visual_context: concatenation of 6 images in the context
-        @param target_img_feats: features of the image for which we will generate a new utterance
-        @param targets, prev_hist, prev_hist_len, normalize: not used in this self
-        @param masks: masks for pad tokens
-        @param device: device to which the tensors are moved
-        """
-
-        batch_size = utterance.shape[0]  # effective batch size
-        decode_length = utterance.shape[1] - 1  # teacher forcing (except eos)
-
-        # visual context and target image features are processed
-        visual_context_hid = self.relu(
-            self.lin_viscontext(self.dropout(visual_context))
-        )
-        target_img_hid = self.relu(self.linear_separate(self.dropout(target_img_feats)))
-
-        # concatenated visual input (context; target)
-        concat_visual_input = self.relu(
-            self.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
-        )
-
-        # here we need to get rid of all prev_utterances, do so by filling an empty torch tensor
-        pad_val = self.vocab.word2index["<pad>"]
-        nohs_val = self.vocab.word2index["<nohs>"]
-
-        empty_utt = torch.full(prev_utterance.shape, pad_val)
-        empty_utt[:, 0] = nohs_val
-        prev_utterance = empty_utt.to(self.device)
-
-        # previous utterance is embedded
-        embeds_words = self.dropout(self.embedding(prev_utterance))  # b, l, d
-
-        # pack sequence
-        sorted_prev_utt_lens, sorted_idx = torch.sort(prev_utt_lengths, descending=True)
-        embeds_words = embeds_words[sorted_idx]
-
-        concat_visual_input = concat_visual_input[sorted_idx]
-
-        packed_input = nn.utils.rnn.pack_padded_sequence(
-            embeds_words.cpu(), sorted_prev_utt_lens.cpu(), batch_first=True
-        )
-        packed_input = packed_input.to(self.device)
-
-        # start LSTM encoder conditioned on the visual input
-        concat_visual_input = torch.stack(
-            (concat_visual_input, concat_visual_input), dim=0
-        )
-
-        # feed the previous utterance into the LSTM encoder
-        packed_outputs, hidden = self.lstm_encoder(
-            packed_input, hx=(concat_visual_input, concat_visual_input)
-        )
-
-        # re-pad sequence
-        outputs, _ = nn.utils.rnn.pad_packed_sequence(packed_outputs, batch_first=True)
-        # already concat forward backward (timestep t, same position)
-
-        # un-sort
-        _, reversed_idx = torch.sort(sorted_idx)
-        outputs = outputs[reversed_idx]
-
-        batch_out_hidden = hidden[0][:, reversed_idx]
-
-        # teacher forcing
-
-        # word prediction scores
-        predictions = torch.zeros(batch_size, decode_length, self.vocab_size).to(
-            self.device
-        )
-
-        # forward backward concatenation of encoder's last hidden states
-        decoder_hid = self.linear_dec(
-            torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
-        )
-
-        # decoder_hid=F.normalize(decoder_hid)
-
-        history_att = self.lin2att_hist(outputs)
-
-        # start decoder with the hidden states of the encoder
-        h1, c1 = decoder_hid, decoder_hid
-
-        # teacher forcing during training, decoder input: ground-truth subsequent utterance
-        target_utterance_embeds = self.embedding(utterance)
-
-        for l in range(decode_length):
-            # decoder takes target word embeddings
-            h1, c1 = self.lstm_decoder(target_utterance_embeds[:, l], hx=(h1, c1))
-
-            # use h1 in attention calculations over the history
-            h1_att = self.lin2att_hid(h1)
-
-            # attention calculation (previous utterance and current decoder state interacts)
-            attention_out = self.attention(self.tanh(history_att + h1_att.unsqueeze(1)))
-
-            # pad tokens in the previous utterance to mask them out
-            attention_out = attention_out.masked_fill_(masks, float("-inf"))
-
-            # final attention weights
-            att_weights = self.softmax(attention_out)
-
-            # encoder context representation
-            att_context_vector = (history_att * att_weights).sum(dim=1)
-
-            # projection to vocabulary size to predict the word to be generated
-            # decoder's current hidden state and encoder context vector
-            word_pred = self.lin2voc(torch.cat((h1, att_context_vector), dim=1))
-
-            predictions[:, l] = word_pred
-
-        return predictions
 
     def generate_hypothesis(
             self,
@@ -283,11 +149,9 @@ class SpeakerModel(nn.Module):
         if self.use_beam:
             hypos = self.beam_serach(decoder_hid, history_att, masks, model_params)
         else:
-            # todo: add nucleus sampling with sentence hist
             hypos = self.nucleus_sampling(
                 decoder_hid, history_att, masks, top_p=self.top_p, top_k=self.top_k
             )
-            # hypos1 = self.nucleus_sampling_hist(decoder_hid, history_att, masks, top_p=self.top_p, top_k=self.top_k)
 
         return hypos, model_params, decoder_hid
 
@@ -298,9 +162,12 @@ class SpeakerModel(nn.Module):
             visual_context: torch.Tensor,
             target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
-        # todo: need better name
 
         batch_size = prev_utterance.shape[0]
+
+        # standardize input
+        visual_context = standardize(visual_context)
+        target_img_feats = standardize(target_img_feats)
 
         visual_context_hid = self.relu(self.lin_viscontext(visual_context))
         target_img_hid = self.relu(self.linear_separate(target_img_feats))
@@ -356,14 +223,6 @@ class SpeakerModel(nn.Module):
         )
         decoder_hid = self.tanh(decoder_hid)
 
-        # sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
-        # sos_token=sos_token.repeat((batch_size,1))
-        # decoder_embeds = self.embedding(sos_token)
-        #
-        # decoder_embeds=decoder_embeds.squeeze(1)
-        #
-        # decoder_hid, _ = self.lstm_decoder(decoder_embeds, hx=(decoder_hid, decoder_hid))
-
         if decoder_hid.ndim == 1:
             decoder_hid = decoder_hid.unsqueeze(0)
 
@@ -376,6 +235,7 @@ class SpeakerModel(nn.Module):
         )
 
         return decoder_hid, history_att, model_params
+
 
     def nucleus_sampling(
             self,
@@ -395,6 +255,9 @@ class SpeakerModel(nn.Module):
 
         completed_sentences = []
         batch_size = decoder_hid.shape[0]
+
+        # standardize input
+        history_att = standardize(history_att)
 
         sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
         eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
@@ -429,7 +292,7 @@ class SpeakerModel(nn.Module):
             h1_att = self.lin2att_hid(h1)
             h1_att = h1_att.unsqueeze(1)
             attention_out = self.relu(history_att + h1_att)
-            attention_out = F.normalize(attention_out, p=2, dim=1)
+            attention_out = standardize(attention_out)
             attention_out = self.attention(attention_out)
 
             attention_out = attention_out.masked_fill_(masks, float("-inf"))

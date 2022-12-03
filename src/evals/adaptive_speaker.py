@@ -1,10 +1,13 @@
 import datetime
 from typing import List
 
+import lovely_tensors
 import numpy as np
 import pandas as pd
 import rich.progress
 import torch
+from rich.console import Console
+import lovely_tensors as lt
 import wandb
 from torch import nn
 from torch.utils.data import DataLoader
@@ -13,6 +16,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator, get_
                          load_wandb_checkpoint, mask_attn, parse_args,
                          set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance, SIM_CHECKPOINTS,
                          get_listener_check, get_simulator_check)
+from src.commons.data_utils import wandb2rich_table
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel,SimulatorModel,SpeakerModel
 from src.wandb_logging import ListenerLogger
@@ -436,6 +440,9 @@ def evaluate(
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
     ood_table = generate_ood_table(df, s, logger.domains, list_model.domain, sim_model.domain)
 
+    console = Console()
+    console.print(wandb2rich_table(ood_table))
+
     ##############################
     # METRICS
     ##############################
@@ -445,6 +452,9 @@ def evaluate(
     adapted_accs = [[y for y in x if y != -1] for x in adapted_accs]
     mean_s = np.mean([len(x) for x in adapted_accs])
     adapted_accs = np.mean([x[-1] for x in adapted_accs])
+
+    adapt_golden_imporv=adapted_accs-golden_accs
+    adapt_original_imporv=adapted_accs-original_accs
 
     sim_accs = [[y for y in x if y != -1] for x in sim_accs]
     sim_accs = np.mean([x[-1] for x in sim_accs])
@@ -466,8 +476,11 @@ def evaluate(
         loss=loss,
         mean_s=mean_s,
         sim_list_accs=sim_list_accs,
+        adapt_golden_imporv=adapt_golden_imporv,
+        adapt_original_imporv=adapt_original_imporv,
     )
 
+    console.print(metrics)
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
 
     return df
@@ -480,7 +493,7 @@ if __name__ == "__main__":
 
     common_p = parse_args("int")
     domain = common_p.train_domain
-
+    lt.monkey_patch()
     ##########################
     # LISTENER
     ##########################
@@ -617,7 +630,10 @@ if __name__ == "__main__":
     metric = common_p.metric
     sweep_config = wandb.config
 
-    logger.watch_model([sim_model], log_freq=10)
+
+    is_sweep= sweep_config._check_locked('adapt_lr')
+
+    #logger.watch_model([sim_model], log_freq=10)
 
     ###################################
     ##  Get speaker dataloader
@@ -816,14 +832,16 @@ if __name__ == "__main__":
     )
 
     ### saving df
-    file_name = "tmp.csv"
-    df.to_csv(file_name)
 
-    logger.log_artifact(
-        file_name,
-        f"adaptive_speak_test_out_domain_{domain}",
-        "csv",
-        metadata=sim_p,
-    )
+    if not is_sweep:
+        file_name = "tmp.csv"
+        df.to_csv(file_name)
+
+        logger.log_artifact(
+            file_name,
+            f"adaptive_speak_test_out_domain_{domain}",
+            "csv",
+            metadata=sim_p,
+        )
 
     logger.on_train_end({}, epoch_id=0)
