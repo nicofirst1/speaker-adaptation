@@ -10,21 +10,19 @@ metric:
 project: speaker-influence-sweep
 
 parameters:
+
+
     adapt_lr:
-        distribution: uniform
-        max: 1
-        min: 0.001
+        distribution: q_uniform
+        max: 0.01
+        min: 0.0001
+        q:   0.0001
 
     s_iter:
         distribution: int_uniform
         max: 25
         min: 3
 
-    model_type:
-        value : tom
-
-    adaptive_loss:
-        value: ce
 
     test_split:
         value : seen

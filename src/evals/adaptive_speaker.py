@@ -122,7 +122,7 @@ def evaluate(
         criterion: nn.CrossEntropyLoss,
         acc_estimator: AccuracyEstimator,
         split: str,
-        lr: float = 0.1,
+        adapt_lr: float = 0.1,
         s: int = 1,
 ) -> pd.DataFrame:
     """
@@ -135,7 +135,7 @@ def evaluate(
     list_model
     criterion
     split
-    lr
+    adapt_lr
     s
 
     Returns
@@ -240,7 +240,7 @@ def evaluate(
         ################################################
         # decoder_hid = normalize(decoder_hid)
         h0 = decoder_hid.clone().detach().requires_grad_(True)
-        optimizer = torch.optim.Adam([h0], lr=lr)
+        optimizer = torch.optim.Adam([h0], lr=adapt_lr)
         optimizer.zero_grad()
 
         # repeat for s interations
@@ -668,7 +668,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="in_domain_train",
-            lr=common_p.learning_rate,
+            adapt_lr=common_p.adapt_lr,
             s=common_p.s_iter,
         )
 
@@ -697,7 +697,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="in_domain_eval",
-            lr=common_p.learning_rate,
+            adapt_lr=common_p.adapt_lr,
             s=common_p.s_iter,
         )
 
@@ -726,7 +726,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="in_domain_test",
-            lr=common_p.learning_rate,
+            adapt_lr=common_p.adapt_lr,
             s=common_p.s_iter,
         )
 
@@ -755,7 +755,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="out_domain_train",
-            lr=common_p.learning_rate,
+            adapt_lr=common_p.adapt_lr,
             s=common_p.s_iter,
         )
 
@@ -783,7 +783,7 @@ if __name__ == "__main__":
             criterion=loss_f,
             acc_estimator=acc_estimator,
             split="out_domain_eval",
-            lr=common_p.learning_rate,
+            adapt_lr=common_p.adapt_lr,
             s=common_p.s_iter,
         )
 
@@ -811,7 +811,7 @@ if __name__ == "__main__":
         criterion=loss_f,
         acc_estimator=acc_estimator,
         split="out_domain_test",
-        lr=common_p.adapt_lr,
+        adapt_lr=common_p.adapt_lr,
         s=common_p.s_iter,
     )
 

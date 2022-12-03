@@ -17,9 +17,9 @@ source activate uvapb
 #create output directory
 common_args=(
 --seed 69
---attention_dim 128
---hidden_dim 128
---embedding_dim 128
+--attention_dim 1024
+--hidden_dim 1024
+--embedding_dim 1024
 --adapt_lr
 0.5
 --s_iter

@@ -77,7 +77,7 @@ SIM_CHECKPOINTS_1 = dict(
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v750",
     appliances="",
     indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v803",
+    outdoor="adaptive-speaker/sim-sweep/SimulatorModel:v407",
     vehicles="",
 )
 
