@@ -170,10 +170,6 @@ def evaluate(
             description=f"Evaluating on split {split}",
     ):
 
-        # filter out indomain data points
-        # if not in_domain:
-        #     if data["domain"][0] == list_model.domain:
-        #         continue
 
         ## extract data
         context_separate = data["separate_images"]
@@ -579,6 +575,12 @@ if __name__ == "__main__":
     sim_p = sim_check["args"]
     common_p.train_domain = domain
     common_p.device = device
+
+    # override common_p with sim_p
+    common_p.hidden_dim=sim_p.hidden_dim
+    common_p.attention_dim=sim_p.attention_dim
+    common_p.dropout_prob=sim_p.dropout_prob
+
 
     sim_model = SimulatorModel(
         len(list_vocab),
