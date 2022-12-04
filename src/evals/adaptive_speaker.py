@@ -440,8 +440,8 @@ def evaluate(
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
     ood_table = generate_ood_table(df, s, logger.domains, list_model.domain, sim_model.domain)
 
-    console = Console()
-    console.print(wandb2rich_table(ood_table))
+    # console = Console()
+    # console.print(wandb2rich_table(ood_table))
 
     ##############################
     # METRICS
@@ -480,7 +480,7 @@ def evaluate(
         adapt_original_imporv=adapt_original_imporv,
     )
 
-    console.print(metrics)
+    # console.print(metrics)
     logger.on_eval_end(metrics, list_domain=data_loader.dataset.domain, modality=split)
 
     return df
