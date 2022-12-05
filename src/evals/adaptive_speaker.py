@@ -1,4 +1,6 @@
 import datetime
+import random
+import string
 from typing import List
 
 import lovely_tensors
@@ -669,150 +671,7 @@ if __name__ == "__main__":
     )
 
     sim_model.eval()
-
-    if common_p.log_train:
-        ##################
-        # ID TRAIN
-        ##################
-        print(f"\nTrain split for domain {domain}")
-        df = evaluate(
-            train_dl_dom,
-            speaker_model,
-            sim_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="in_domain_train",
-            adapt_lr=common_p.adapt_lr,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_train_in_domain_{domain}",
-            "csv",
-            metadata=sim_p,
-        )
-
-        ##################
-        # ID EVAL
-        ##################
-
-        print(f"\nEval split for domain {domain}")
-        df = evaluate(
-            val_dl_dom,
-            speaker_model,
-            sim_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="in_domain_eval",
-            adapt_lr=common_p.adapt_lr,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_eval_in_domain_{domain}",
-            "csv",
-            metadata=sim_p,
-        )
-
-        ##################
-        # ID TEST
-        ##################
-
-        print(f"\nTest split for domain {domain}")
-        df = evaluate(
-            test_dl_dom,
-            speaker_model,
-            sim_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="in_domain_test",
-            adapt_lr=common_p.adapt_lr,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_test_in_domain_{domain}",
-            "csv",
-            metadata=sim_p,
-        )
-
-    if common_p.log_train:
-        ##################
-        # OOD TRAIN
-        ##################
-        print(f"\nTrain split for domain all")
-        df = evaluate(
-            train_dl_all,
-            speaker_model,
-            sim_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="out_domain_train",
-            adapt_lr=common_p.adapt_lr,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_train_out_domain_{domain}",
-            "csv",
-            metadata=sim_p,
-        )
-
-        ##################
-        # OOD EVAL
-        ##################
-        print(f"\nEval split for domain all")
-        df = evaluate(
-            val_dl_all,
-            speaker_model,
-            sim_model,
-            list_model,
-            list_vocab,
-            criterion=loss_f,
-            acc_estimator=acc_estimator,
-            split="out_domain_eval",
-            adapt_lr=common_p.adapt_lr,
-            s=common_p.s_iter,
-        )
-
-        ### saving df
-        file_name = "tmp.csv"
-        df.to_csv(file_name)
-
-        logger.log_artifact(
-            file_name,
-            f"adaptive_speak_eval_out_domain_{domain}",
-            "csv",
-            metadata=sim_p,
-        )
+    uid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
     ##################
     # OOD TEST
@@ -834,7 +693,7 @@ if __name__ == "__main__":
     ### saving df
 
     if not is_sweep:
-        file_name = "tmp.csv"
+        file_name = f"tmp_{uid}.csv"
         df.to_csv(file_name)
 
         logger.log_artifact(
