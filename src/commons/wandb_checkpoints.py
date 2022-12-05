@@ -24,7 +24,7 @@ LISTENER_CHK_DICT_1 = dict(
     vehicles="",
 )
 LISTENER_CHK_DICT_0 = dict(
-    all="",
+    all="adaptive-speaker/listener/ListenerModel_all:v209",
     appliances="",
     food="adaptive-speaker/listener/ListenerModel_food:v276",
     indoor="",
@@ -32,7 +32,7 @@ LISTENER_CHK_DICT_0 = dict(
     vehicles="",
 )
 LISTENER_CHK_DICT_05 = dict(
-    all="",
+    all="adaptive-speaker/listener/ListenerModel_all:v207",
     appliances="",
     food="adaptive-speaker/listener/ListenerModel_food:v275",
     indoor="",
