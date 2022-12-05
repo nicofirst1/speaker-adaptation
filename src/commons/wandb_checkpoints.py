@@ -62,7 +62,7 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 ########
 
 SIM_CHECKPOINTS = dict(
-    # epoch 83
+    
     all="",
     food="",
     appliances="",
@@ -72,7 +72,7 @@ SIM_CHECKPOINTS = dict(
 )
 
 SIM_CHECKPOINTS_1 = dict(
-    # epoch 83
+    
     all="",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v918",
     appliances="",
@@ -82,7 +82,7 @@ SIM_CHECKPOINTS_1 = dict(
 )
 
 SIM_CHECKPOINTS_05 = dict(
-    # epoch 83
+    
     all="",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v909",
     appliances="",
@@ -93,12 +93,12 @@ SIM_CHECKPOINTS_05 = dict(
 
 
 SIM_CHECKPOINTS_0 = dict(
-    # epoch 83
+    
     all="",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v866",
     appliances="",
     indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v844",
+    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v943",
     vehicles="",
 )
 
@@ -116,7 +116,7 @@ def get_simulator_check(domain, golden_data_percent):
 
 #
 # SIM_CHECKPOINTS = dict(
-#     # epoch 83
+#     
 #     all="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_all:v251",
 #     food="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_food:v97",
 #     appliances="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_appliances:v109",
