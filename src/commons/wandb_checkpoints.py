@@ -17,12 +17,14 @@ LISTENER_CHK_DICT = dict(
 # listeners checkpoint with various values of golden_data_percent
 LISTENER_CHK_DICT_1 = dict(
     all="adaptive-speaker/listener/ListenerModel_all:v199",
-    appliances="",
+    appliances="adaptive-speaker/listener/ListenerModel_appliances:v339",
     food="adaptive-speaker/listener/ListenerModel_food:v274",
-    indoor="",
+    indoor="adaptive-speaker/listener/ListenerModel_indoor:v331",
     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v520",
-    vehicles="",
+    vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v287",
 )
+
+
 LISTENER_CHK_DICT_0 = dict(
     all="adaptive-speaker/listener/ListenerModel_all:v209",
     appliances="",
@@ -42,14 +44,7 @@ LISTENER_CHK_DICT_05 = dict(
 
 
 def get_listener_check(domain, golden_data_percent):
-    if golden_data_percent == 0:
-        return LISTENER_CHK_DICT_0[domain]
-    elif golden_data_percent == 0.5:
-        return LISTENER_CHK_DICT_05[domain]
-    elif golden_data_percent == 1:
-        return LISTENER_CHK_DICT_1[domain]
-    else:
-        raise ValueError("golden_data_percent must be 0, 0.5, or 1")
+   return LISTENER_CHK_DICT_1[domain]
 
 
 ########
@@ -104,14 +99,7 @@ SIM_CHECKPOINTS_0 = dict(
 
 
 def get_simulator_check(domain, golden_data_percent):
-    if golden_data_percent == 0:
-        return SIM_CHECKPOINTS_0[domain]
-    elif golden_data_percent == 0.5:
-        return SIM_CHECKPOINTS_05[domain]
-    elif golden_data_percent == 1:
-        return SIM_CHECKPOINTS_1[domain]
-    else:
-        raise ValueError("golden_data_percent must be 0, 0.5, or 1")
+   return SIM_CHECKPOINTS_1[domain]
 
 
 #
