@@ -73,7 +73,7 @@ SIM_CHECKPOINTS = dict(
 
 SIM_CHECKPOINTS_1 = dict(
     
-    all="",
+    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v951",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v918",
     appliances="",
     indoor="",
@@ -83,7 +83,7 @@ SIM_CHECKPOINTS_1 = dict(
 
 SIM_CHECKPOINTS_05 = dict(
     
-    all="",
+    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v971",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v909",
     appliances="",
     indoor="",
@@ -94,7 +94,7 @@ SIM_CHECKPOINTS_05 = dict(
 
 SIM_CHECKPOINTS_0 = dict(
     
-    all="",
+    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v970",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v866",
     appliances="",
     indoor="",
