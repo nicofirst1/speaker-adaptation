@@ -24,23 +24,23 @@ LISTENER_CHK_DICT_1 = dict(
     vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v287",
 )
 
-
-LISTENER_CHK_DICT_0 = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v209",
-    appliances="",
-    food="adaptive-speaker/listener/ListenerModel_food:v276",
-    indoor="",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v417",
-    vehicles="",
-)
-LISTENER_CHK_DICT_05 = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v207",
-    appliances="",
-    food="adaptive-speaker/listener/ListenerModel_food:v275",
-    indoor="",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v405",
-    vehicles="",
-)
+#
+# LISTENER_CHK_DICT_0 = dict(
+#     all="adaptive-speaker/listener/ListenerModel_all:v209",
+#     appliances="",
+#     food="adaptive-speaker/listener/ListenerModel_food:v276",
+#     indoor="",
+#     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v417",
+#     vehicles="",
+# )
+# LISTENER_CHK_DICT_05 = dict(
+#     all="adaptive-speaker/listener/ListenerModel_all:v207",
+#     appliances="",
+#     food="adaptive-speaker/listener/ListenerModel_food:v275",
+#     indoor="",
+#     outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v405",
+#     vehicles="",
+# )
 
 
 def get_listener_check(domain, golden_data_percent):
@@ -70,32 +70,32 @@ SIM_CHECKPOINTS_1 = dict(
     
     all="adaptive-speaker/simulator-pretrain/SimulatorModel:v951",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v918",
-    appliances="",
-    indoor="",
+    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel:v1010",
+    indoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v1016",
     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v867",
-    vehicles="",
+    vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel:v1012",
 )
 
-SIM_CHECKPOINTS_05 = dict(
-    
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v971",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v909",
-    appliances="",
-    indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v870",
-    vehicles="",
-)
-
-
-SIM_CHECKPOINTS_0 = dict(
-    
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v970",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v866",
-    appliances="",
-    indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v943",
-    vehicles="",
-)
+# SIM_CHECKPOINTS_05 = dict(
+#
+#     all="adaptive-speaker/simulator-pretrain/SimulatorModel:v971",
+#     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v909",
+#     appliances="",
+#     indoor="",
+#     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v870",
+#     vehicles="",
+# )
+#
+#
+# SIM_CHECKPOINTS_0 = dict(
+#
+#     all="adaptive-speaker/simulator-pretrain/SimulatorModel:v970",
+#     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v866",
+#     appliances="",
+#     indoor="",
+#     outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v943",
+#     vehicles="",
+# )
 
 
 def get_simulator_check(domain, golden_data_percent):
