@@ -21,17 +21,15 @@ common_args=(
 --hidden_dim 1024
 --embedding_dim 1024
 --adapt_lr
-0.5
+0.75
 --s_iter
-20
+24
 --type_of_int
 domain
 --test_split
 seen
 --data_domain
 all
---golden_data_perc
-1
 )
 
 

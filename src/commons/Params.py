@@ -362,8 +362,8 @@ class InterpreterArguments(Params):
     #########################
 
     metric: Optional[str] = "accs"
-    s_iter: Optional[int] = 20
-    adapt_lr: Optional[float] = 0.5
+    s_iter: Optional[int] = 24
+    adapt_lr: Optional[float] = 0.75
     log_train: Optional[bool] = False
 
     def __init__(self):
