@@ -16,7 +16,7 @@ LISTENER_CHK_DICT = dict(
 
 # listeners checkpoint with various values of golden_data_percent
 LISTENER_CHK_DICT_1 = dict(
-    all="",
+    all="adaptive-speaker/listener/ListenerModel_all:v199",
     appliances="",
     food="adaptive-speaker/listener/ListenerModel_food:v274",
     indoor="",
