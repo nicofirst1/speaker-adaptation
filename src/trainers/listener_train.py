@@ -108,6 +108,7 @@ def evaluate(
 
     if not in_domain:
         domain_accuracy = get_domain_accuracy(aux['correct'], domains, logger.domains)
+        ood_ranks=[aux['ranks'][idx] for idx, d in enumerate(domains) if d!=list_model.domain]
         print(domain_accuracy)
 
     # normalize based on batches
@@ -119,6 +120,7 @@ def evaluate(
     metrics = dict(mrr=MRR, loss=loss, accuracy=accuracy, preds=torch.stack(aux["preds"]))
     if len(domain_accuracy) > 0:
         metrics["domain_accuracy"] = domain_accuracy
+        metrics['ood_mrr'] = np.sum([1 / r for r in ood_ranks]) / len(ood_ranks)
 
     # logger.log_datapoint(data, preds, modality="eval")
     # logger.log_viz_embeddings(data, modality="eval")
