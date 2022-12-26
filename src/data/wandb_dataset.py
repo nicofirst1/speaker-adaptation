@@ -1,10 +1,9 @@
 import numpy as np
 import torch
-
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
-from src.models import SpeakerModel, ListenerModel
+from src.models import ListenerModel, SpeakerModel
 from src.wandb_logging import ListenerLogger
 
 

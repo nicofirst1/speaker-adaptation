@@ -5,17 +5,9 @@
 ########
 # LIST
 ########
-LISTENER_CHK_DICT = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v184",
-    appliances="adaptive-speaker/listener/ListenerModel_appliances:v297",
-    food="adaptive-speaker/listener/ListenerModel_no_hist_food:v32",
-    indoor="adaptive-speaker/listener/ListenerModel_indoor:v293",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v274",
-    vehicles="adaptive-speaker/listener/ListenerModel_vehicles:v248",
-)
 
 # listeners checkpoint with various values of golden_data_percent
-LISTENER_CHK_DICT_1 = dict(
+LISTENER_CHK_DICT = dict(
     all="adaptive-speaker/listener/ListenerModel_all:v199",
     appliances="adaptive-speaker/listener/ListenerModel_appliances:v339",
     food="adaptive-speaker/listener/ListenerModel_food:v274",
@@ -25,33 +17,8 @@ LISTENER_CHK_DICT_1 = dict(
 )
 
 
-LISTENER_CHK_DICT_0 = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v209",
-    appliances="",
-    food="adaptive-speaker/listener/ListenerModel_food:v276",
-    indoor="",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v417",
-    vehicles="",
-)
-LISTENER_CHK_DICT_05 = dict(
-    all="adaptive-speaker/listener/ListenerModel_all:v207",
-    appliances="",
-    food="adaptive-speaker/listener/ListenerModel_food:v275",
-    indoor="",
-    outdoor="adaptive-speaker/listener/ListenerModel_outdoor:v405",
-    vehicles="",
-)
-
-
 def get_listener_check(domain, golden_data_percent):
-    if golden_data_percent == 1:
-        return LISTENER_CHK_DICT_1[domain]
-    elif golden_data_percent == 0.5:
-        return LISTENER_CHK_DICT_05[domain]
-    elif golden_data_percent == 0:
-        return LISTENER_CHK_DICT_0[domain]
-    else:
-        raise ValueError("Invalid golden_data_percent")
+    return LISTENER_CHK_DICT[domain]
 
 
 ########
@@ -60,21 +27,11 @@ def get_listener_check(domain, golden_data_percent):
 SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
 ########
-# INT
+# SIM
 ########
 
-SIM_CHECKPOINTS = dict(
-    
-    all="",
-    food="",
-    appliances="",
-    indoor="",
-    outdoor="",
-    vehicles="",
-)
 
-SIM_CHECKPOINTS_1 = dict(
-    
+SIM_CHECKPOINTS = dict(
     all="adaptive-speaker/simulator-pretrain/SimulatorModel:v951",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v918",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel:v1010",
@@ -83,50 +40,9 @@ SIM_CHECKPOINTS_1 = dict(
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel:v1012",
 )
 
-SIM_CHECKPOINTS_05 = dict(
-
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v971",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v909",
-    appliances="",
-    indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v870",
-    vehicles="",
-)
-
-
-SIM_CHECKPOINTS_0 = dict(
-
-    all="adaptive-speaker/simulator-pretrain/SimulatorModel:v970",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v866",
-    appliances="",
-    indoor="",
-    outdoor="adaptive-speaker/simulator-pretrain/SimulatorModel:v943",
-    vehicles="",
-)
-
 
 def get_simulator_check(domain, golden_data_percent):
-
-    if golden_data_percent == 1:
-        return SIM_CHECKPOINTS_1[domain]
-    elif golden_data_percent == 0.5:
-        return SIM_CHECKPOINTS_05[domain]
-    elif golden_data_percent == 0:
-        return SIM_CHECKPOINTS_0[domain]
-    else:
-        raise ValueError("Invalid golden_data_percent")
-
-
-#
-# SIM_CHECKPOINTS = dict(
-#     
-#     all="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_all:v251",
-#     food="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_food:v97",
-#     appliances="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_appliances:v109",
-#     indoor="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_indoor:v129",
-#     outdoor="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_outdoor:v242",
-#     vehicles="adaptive-speaker/simulator-pretrain/InterpreterModel_tom_vehicles:v205",
-# )
+    return SIM_CHECKPOINTS[domain]
 
 
 ########

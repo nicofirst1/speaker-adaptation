@@ -6,20 +6,19 @@ import numpy as np
 import rich.progress
 import torch
 import wandb
-from torch.utils.data import DataLoader
-
 from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          get_domain_accuracy, load_wandb_checkpoint, mask_attn,
-                         parse_args, speak2list_vocab, translate_utterance, set_seed)
+                         parse_args, set_seed, speak2list_vocab,
+                         translate_utterance)
 from src.data.dataloaders import Vocab
 from src.models.listener.ListenerModel import ListenerModel
 from src.models.speaker.SpeakerModel import SpeakerModel
-from src.models.speaker.SpeakerModelEce import SpeakerModelEce
 from src.wandb_logging import ListenerLogger, WandbLogger
+from torch.utils.data import DataLoader
 
 
 def log_table(
-        golden_metrics: Dict, gen_metrics: Dict, in_domain: Optional[bool] = True
+    golden_metrics: Dict, gen_metrics: Dict, in_domain: Optional[bool] = True
 ) -> wandb.Table:
     """
     Create and fill a wandb table for the generated,golden and difference metrics.
@@ -94,13 +93,13 @@ def dict_diff(golden_metrics: Dict, gen_metrics: Dict) -> Dict:
 
 
 def evaluate_trained_model(
-        dataloader: DataLoader,
-        list_model: torch.nn.Module,
-        translator,
-        domain: str,
-        logger: WandbLogger,
-        split: str,
-        speak_model: Optional[torch.nn.Module] = None,
+    dataloader: DataLoader,
+    list_model: torch.nn.Module,
+    translator,
+    domain: str,
+    logger: WandbLogger,
+    split: str,
+    speak_model: Optional[torch.nn.Module] = None,
 ):
     accuracies = []
     ranks = []
@@ -120,9 +119,9 @@ def evaluate_trained_model(
         modality += "_generated"
 
     for ii, data in rich.progress.track(
-            enumerate(dataloader),
-            total=len(dataloader),
-            description=f"Eval on domain '{domain}' with '{modality}' modality",
+        enumerate(dataloader),
+        total=len(dataloader),
+        description=f"Eval on domain '{domain}' with '{modality}' modality",
     ):
 
         # skip indomain samples
@@ -155,13 +154,12 @@ def evaluate_trained_model(
         context_concat = data["concat_context"]
         lengths = [utterance.shape[1]]
         targets = data["target"]
-        prev_hist = data["prev_histories"]
 
         max_length_tensor = utterance.shape[1]
         masks = mask_attn(lengths, max_length_tensor, list_model.device)
 
         # get listener output
-        out = list_model(utterance, context_separate, context_concat, prev_hist, masks)
+        out = list_model(utterance, context_separate, context_concat, masks)
 
         preds = torch.argmax(out, dim=1)
         correct = torch.eq(preds, targets).float().item()
@@ -212,7 +210,7 @@ def evaluate_trained_model(
 
 
 def generate_table_row(
-        domain: str, modality: str, table_columns: List, metrics: Dict
+    domain: str, modality: str, table_columns: List, metrics: Dict
 ) -> List:
     """
     Generate wandb table rows for the log_table function above
@@ -235,8 +233,8 @@ def generate_table_row(
         elif key in metrics.keys():
             data.append(metrics[key])
         elif (
-                "domain_accuracy" in metrics.keys()
-                and key in metrics["domain_accuracy"].keys()
+            "domain_accuracy" in metrics.keys()
+            and key in metrics["domain_accuracy"].keys()
         ):
             data.append(metrics["domain_accuracy"][key])
         elif key in metrics["aux"].keys():
@@ -253,7 +251,6 @@ if __name__ == "__main__":
 
     speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
 
-
     # load args
     speak_p = speak_check["args"]
     speak_p.vocab_file = "vocab.csv"
@@ -269,21 +266,26 @@ if __name__ == "__main__":
     # SPEAKER
     ####################################
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
-    speak_check=torch.load("/home/dizzi/Downloads/model_speaker_adpnucleus_base_3_bert_2022-11-10-23-38-31.pkl", map_location=device)
     speak_p = speak_check["args"]
 
     img_dim = 2048
-    speaker_model = SpeakerModelEce(
-        len(speak_vocab),
+
+    speaker_model = SpeakerModel(
+        speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
-        device
+        speak_p.attention_dim,
+        speak_p.beam_size,
+        speak_p.max_len,
+        speak_p.top_k,
+        speak_p.top_p,
+        device=device,
+        use_beam=speak_p.use_beam,
+    ).to(device)
 
-    )
-
-    speaker_model.load_state_dict(speak_check['model_state_dict'])
+    speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()

@@ -28,7 +28,7 @@ class EarlyStopping:
         self.max_patient = max_patient
         self.patient_couter = 0
 
-    def should_stop(self, metric_val) -> bool:
+    def should_stop(self, metric_val: float) -> bool:
 
         if self.comparison(self.best_metric, metric_val):
             # the metric has a value more acceptable than the stored one, saved and reset counter

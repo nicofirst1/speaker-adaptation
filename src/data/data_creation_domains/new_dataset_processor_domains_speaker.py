@@ -3,8 +3,8 @@ import json
 import pickle
 from collections import Counter, defaultdict
 
-from Vocab import Vocab
 from nltk import TweetTokenizer
+from Vocab import Vocab
 
 tweet_tokenizer = TweetTokenizer(preserve_case=False)
 min_freq = 0
@@ -75,7 +75,7 @@ def process_data(data, split):
                 visual_context_ids = sorted(visual_context_ids)  # SORTED VISUAL CONTEXT
 
                 utt_length = (
-                        len(tokenized_message) + 2
+                    len(tokenized_message) + 2
                 )  # WARNING!! ALREADY INCLUDING sos eos into the length
                 # utterance information
                 utterance = {

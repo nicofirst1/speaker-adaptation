@@ -1,5 +1,5 @@
 import sys
-from os.path import abspath, dirname, join
+from os.path import abspath, dirname
 from typing import Dict
 
 import numpy as np
@@ -7,16 +7,17 @@ import torch
 import torch.utils.data
 import wandb
 from rich.progress import track
-from torch import nn, optim
-from torch.utils.data import DataLoader
-
-from src.commons import (LISTENER_CHK_DICT, EarlyStopping, get_dataloaders,
-                         get_domain_accuracy, load_wandb_checkpoint, mask_attn,
-                         parse_args, save_model, SPEAKER_CHK, speak2list_vocab, translate_utterance, merge_dict)
+from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, EarlyStopping,
+                         get_dataloaders, get_domain_accuracy,
+                         load_wandb_checkpoint, mask_attn, merge_dict,
+                         parse_args, save_model, set_seed, speak2list_vocab,
+                         translate_utterance)
 from src.commons.data_utils import load_wandb_dataset
-from src.data.dataloaders import Vocab, AbstractDataset
+from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import ListenerModel, SpeakerModel
 from src.wandb_logging import DataLogger, ListenerLogger
+from torch import nn, optim
+from torch.utils.data import DataLoader
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
@@ -42,7 +43,7 @@ def get_prediction(data, use_golden, list_model, translator):
 
     max_length_tensor = utterances.shape[1]
     masks = mask_attn(lengths, max_length_tensor, list_args.device)
-    out = list_model(utterances, context_separate, context_concat, prev_hist, masks)
+    out = list_model(utterances, context_separate, context_concat, masks)
 
     targets = targets.to(list_args.device)
     loss = criterion(out, targets)
@@ -70,7 +71,6 @@ def get_prediction(data, use_golden, list_model, translator):
         images_ranked=images_ranked,
         accuracy=accuracy,
         correct=correct,
-
     )
 
     # logger.on_batch_end(loss, data, aux, batch_id=ii, modality=flag)
@@ -79,7 +79,12 @@ def get_prediction(data, use_golden, list_model, translator):
 
 
 def evaluate(
-        data_loader: DataLoader, list_model: torch.nn.Module, in_domain: bool, split: str, use_golden: Dict, translator
+    data_loader: DataLoader,
+    list_model: torch.nn.Module,
+    in_domain: bool,
+    split: str,
+    use_golden: Dict,
+    translator,
 ):
     """
     Evaluate model on either in/out_domain dataloader
@@ -96,9 +101,8 @@ def evaluate(
     flag += "in_domain" if in_domain else "out_domain"
 
     for ii, data in track(
-            enumerate(data_loader),
-            total=len(data_loader),
-            description=f"{flag}"):
+        enumerate(data_loader), total=len(data_loader), description=f"{flag}"
+    ):
         loss, aux = get_prediction(data, use_golden[ii], list_model, translator)
         losses_eval.append(loss.item())
         domains += data["domain"]
@@ -107,8 +111,10 @@ def evaluate(
     aux = merge_dict(auxs)
 
     if not in_domain:
-        domain_accuracy = get_domain_accuracy(aux['correct'], domains, logger.domains)
-        ood_ranks=[aux['ranks'][idx] for idx, d in enumerate(domains) if d!=list_model.domain]
+        domain_accuracy = get_domain_accuracy(aux["correct"], domains, logger.domains)
+        ood_ranks = [
+            aux["ranks"][idx] for idx, d in enumerate(domains) if d != list_model.domain
+        ]
         print(domain_accuracy)
 
     # normalize based on batches
@@ -117,10 +123,12 @@ def evaluate(
     accuracy = np.mean(aux["accuracy"])
     MRR = np.sum([1 / r for r in aux["ranks"]]) / len(aux["ranks"])
 
-    metrics = dict(mrr=MRR, loss=loss, accuracy=accuracy, preds=torch.stack(aux["preds"]))
+    metrics = dict(
+        mrr=MRR, loss=loss, accuracy=accuracy, preds=torch.stack(aux["preds"])
+    )
     if len(domain_accuracy) > 0:
         metrics["domain_accuracy"] = domain_accuracy
-        metrics['ood_mrr'] = np.sum([1 / r for r in ood_ranks]) / len(ood_ranks)
+        metrics["ood_mrr"] = np.sum([1 / r for r in ood_ranks]) / len(ood_ranks)
 
     # logger.log_datapoint(data, preds, modality="eval")
     # logger.log_viz_embeddings(data, modality="eval")
@@ -139,15 +147,13 @@ if __name__ == "__main__":
     domain = list_args.train_domain
 
     # for reproducibilty
-    torch.manual_seed(list_args.seed)
-    np.random.seed(list_args.seed)
+    set_seed(list_args.seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
     # print("Loading the vocab...")
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
     vocab_size = len(list_vocab)
-    # print(f'vocab size {vocab_size}')
 
     logger = ListenerLogger(
         vocab=list_vocab,
@@ -168,10 +174,8 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(
-        SPEAKER_CHK,
-        device,
-        datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
+
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -324,20 +328,26 @@ if __name__ == "__main__":
         subset_size=list_args.subset_size,
     )
 
-
     def rnd():
         return torch.FloatTensor(1).uniform_(0, 1)
 
-
     # define percentage of data to be used
     use_golden_train = {k: rnd() for k in range(len(speak_train_dl))}
-    use_golden_train = {k: (v < list_args.golden_data_perc).item() for k, v in use_golden_train.items()}
+    use_golden_train = {
+        k: (v < list_args.golden_data_perc).item() for k, v in use_golden_train.items()
+    }
 
     use_golden_val_domain = {k: rnd() for k in range(len(speak_val_dl_domain))}
-    use_golden_val_domain = {k: (v < list_args.golden_data_perc).item() for k, v in use_golden_val_domain.items()}
+    use_golden_val_domain = {
+        k: (v < list_args.golden_data_perc).item()
+        for k, v in use_golden_val_domain.items()
+    }
 
     use_golden_val_all = {k: rnd() for k in range(len(speak_val_dl_all))}
-    use_golden_val_all = {k: (v < list_args.golden_data_perc).item() for k, v in use_golden_val_all.items()}
+    use_golden_val_all = {
+        k: (v < list_args.golden_data_perc).item()
+        for k, v in use_golden_val_all.items()
+    }
 
     if list_args.log_data:
         # log dataset once
@@ -365,7 +375,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp)
@@ -387,19 +397,20 @@ if __name__ == "__main__":
         speak_val_dl_domain.dataset.randomize_target_location()
         speak_val_dl_all.dataset.randomize_target_location()
 
-
         ###################################
         ##  TRAIN LOOP
         ###################################
 
         for i, data in track(
-                enumerate(speak_train_dl),
-                total=len(speak_train_dl),
-                description=f"Training epoch {epoch}",
+            enumerate(speak_train_dl),
+            total=len(speak_train_dl),
+            description=f"Training epoch {epoch}",
         ):
             optimizer.zero_grad()
 
-            loss, aux = get_prediction(data, use_golden_train[i], listener_model, translator)
+            loss, aux = get_prediction(
+                data, use_golden_train[i], listener_model, translator
+            )
 
             loss.backward()
             optimizer.step()
@@ -433,12 +444,23 @@ if __name__ == "__main__":
 
             print(f'\nEval on domain "{domain}"')
             current_accuracy, current_loss, current_MRR = evaluate(
-                speak_val_dl_domain, listener_model, in_domain=True, split="eval", use_golden=use_golden_val_domain,
-                translator=translator)
+                speak_val_dl_domain,
+                listener_model,
+                in_domain=True,
+                split="eval",
+                use_golden=use_golden_val_domain,
+                translator=translator,
+            )
 
             print(f"\nEval on all domains")
-            evaluate(speak_val_dl_all, listener_model, in_domain=False, split="eval", use_golden=use_golden_val_all,
-                     translator=translator)
+            evaluate(
+                speak_val_dl_all,
+                listener_model,
+                in_domain=False,
+                split="eval",
+                use_golden=use_golden_val_all,
+                translator=translator,
+            )
             if epoch % 2 == 0:
                 save_model(
                     model=listener_model,

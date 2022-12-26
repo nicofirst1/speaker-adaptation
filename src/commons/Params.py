@@ -12,13 +12,13 @@ from rich.console import Console
 console = Console()
 
 
-def parse_args(mode):
+def parse_args(mode: str):
     if mode == "speak":
         parser = SpeakerArguments()
     elif mode == "list":
         parser = ListenerArguments()
-    elif mode == "int":
-        parser = InterpreterArguments()
+    elif mode == "sim" or mode == "int":
+        parser = SimulatorArguments()
 
     return parser
 
@@ -324,7 +324,7 @@ class ListenerArguments(Params):
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
 
 
-class InterpreterArguments(Params):
+class SimulatorArguments(Params):
     """
     Arguments for simulator
     """
@@ -367,7 +367,7 @@ class InterpreterArguments(Params):
     log_train: Optional[bool] = False
 
     def __init__(self):
-        super(InterpreterArguments, self).__init__()
+        super(SimulatorArguments, self).__init__()
 
         if self.sim_domain == "":
             self.sim_domain = self.train_domain
@@ -377,14 +377,14 @@ class InterpreterArguments(Params):
         self.__post_init__()
 
     def __post_init__(self):
-        super(InterpreterArguments, self).__post_init__()
+        super(SimulatorArguments, self).__post_init__()
 
         self.vocab_file = join(self.data_path, self.vocab_file)
         self.vectors_file = join(self.data_path, self.vectors_file)
         self.img2dom_file = join(self.data_path, "img2dom.json")
 
     def check_parameters(self):
-        super(InterpreterArguments, self).check_parameters()
+        super(SimulatorArguments, self).check_parameters()
         valis_metr = ["accs", "loss"]
         assert (
                 self.metric in valis_metr
@@ -399,6 +399,14 @@ class InterpreterArguments(Params):
             assert (
                     self.embed_dim == 768
             ), f"With scratch embeddings size must be equal to 768, got '{self.embed_dim}'"
+
+
+class InterpreterArguments(SimulatorArguments):
+    """
+    Deprecated
+    """
+    def __init__(self):
+        super(InterpreterArguments, self).__init__()
 
 
 class SpeakerArguments(Params):

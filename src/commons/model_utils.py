@@ -7,19 +7,18 @@ import numpy as np
 import torch
 import torchviz
 import wandb
-
 from src.commons.Params import Params
 from src.data.dataloaders import Vocab
 from src.wandb_logging import WandbLogger
 
 
-def set_seed(seed):
+def set_seed(seed: int):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
 
 def mask_attn(
-        actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
+    actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
 ) -> torch.Tensor:
     """
     Maske attention function
@@ -38,7 +37,7 @@ def mask_attn(
     for n in range(len(actual_num_tokens)):
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (
-                max_num_tokens - actual_num_tokens[n]
+            max_num_tokens - actual_num_tokens[n]
         )
 
         masks.append(mask)
@@ -78,7 +77,7 @@ def speak2list_vocab(speak_v: Vocab, list_v: Vocab) -> Dict:
 
 
 def get_domain_accuracy(
-        accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+    accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:accuracy for all the domains in 'all_domains:
@@ -117,15 +116,15 @@ def get_domain_accuracy(
 
 
 def save_model(
-        model: torch.nn.Module,
-        model_type: str,
-        epoch: int,
-        accuracy: float,
-        optimizer: torch.optim.Optimizer,
-        args: Params,
-        timestamp: str,
-        logger: WandbLogger,
-        **kwargs,
+    model: torch.nn.Module,
+    model_type: str,
+    epoch: int,
+    accuracy: float,
+    optimizer: torch.optim.Optimizer,
+    args: Params,
+    timestamp: str,
+    logger: WandbLogger,
+    **kwargs,
 ):
     """
     Save model in torch and wandb
@@ -274,8 +273,21 @@ def translate_utterance(speak2list_v, device):
     return translate
 
 
-def standardize(tensor):
+def standardize(tensor: torch.Tensor) -> torch.Tensor:
     """
     Standardizes a tensor
     """
     return (tensor - tensor.mean()) / tensor.std()
+
+
+def change2random(tensor: torch.Tensor) -> torch.Tensor:
+    """
+    debug function
+    """
+    if tensor.dtype == torch.int64:
+        t = torch.randint(0, 1000, tensor.shape)
+
+    else:
+        t = torch.rand(tensor.shape)
+
+    return t.to(tensor.device)

@@ -1,6 +1,5 @@
-from typing import List
-
 import torch
+from src.commons import standardize
 from torch import nn
 
 
@@ -15,15 +14,15 @@ def linear(input_dim, output_dim):
 
 class SimulatorModel(nn.Module):
     def __init__(
-            self,
-            vocab_size,
-            embedding_dim,
-            hidden_dim,
-            img_dim,
-            att_dim,
-            dropout_prob,
-            domain,
-            device,
+        self,
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        att_dim,
+        dropout_prob,
+        domain,
+        device,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -72,26 +71,6 @@ class SimulatorModel(nn.Module):
 
         self.softmax = nn.Softmax(dim=1)
 
-    @staticmethod
-    def standardize(tensor):
-        """
-        Standardizes a tensor
-        """
-        return (tensor - tensor.mean()) / tensor.std()
-
-    @staticmethod
-    def change2random(tensor):
-        """
-        Standardizes a tensor
-        """
-        if tensor.dtype == torch.int64:
-            t = torch.randint(0, 1000, tensor.shape)
-
-        else:
-            t = torch.rand(tensor.shape)
-
-        return t.to(tensor.device)
-
     def init_sequential(self, input_dim, num_layers, use_leaky=False, end_dim=-1):
         """
         Initializes the sequential layers of the model
@@ -127,7 +106,7 @@ class SimulatorModel(nn.Module):
 
         # utterance representations are processed
         input_reps = self.lin_emb2hid(representations)
-        input_reps = self.standardize(input_reps)
+        input_reps = standardize(input_reps)
 
         repeated_context = projected_context.unsqueeze(1)
 
@@ -138,7 +117,7 @@ class SimulatorModel(nn.Module):
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_att = self.att_linear_1(mm_reps)
         outputs_att = self.lrelu(outputs_att)
-        outputs_att = self.standardize(outputs_att)
+        outputs_att = standardize(outputs_att)
         outputs_att = self.att_linear_2(outputs_att)
 
         # mask pads so that no attention is paid to them (with -inf)
@@ -164,50 +143,49 @@ class SimulatorModel(nn.Module):
         # utterance representations are processed
         input_reps = self.lin_emb2hid(speaker_embeds)
         # input_reps = F.normalize(input_reps, p=2, dim=1)
-        input_reps = self.standardize(input_reps)
+        input_reps = standardize(input_reps)
 
         # multimodal utterance representations
         mm_reps = input_reps * projected_context
 
         mm_reps = self.lin_mm(mm_reps)
-        mm_reps = self.standardize(mm_reps)
+        mm_reps = standardize(mm_reps)
 
         return mm_reps
 
     def forward(
-            self,
-            speaker_embeds: torch.Tensor,
-            speaker_utterances: torch.Tensor,
-            separate_images: torch.Tensor,
-            visual_context: torch.Tensor,
-            prev_hist: List,
-            masks: torch.Tensor,
+        self,
+        speaker_embeds: torch.Tensor,
+        speaker_utterances: torch.Tensor,
+        separate_images: torch.Tensor,
+        visual_context: torch.Tensor,
+        masks: torch.Tensor,
     ):
         """
         @param speaker_embeds: utterances coming from the speaker embeddings
         @param separate_images: image feature vectors for all 6 images in the context separately
         @param visual_context: concatenation of 6 images in the context
-        @param prev_hist: contains histories for 6 images separately (if exists for a given image)
         @param masks: attention mask for pad tokens
         """
         speaker_utterances = speaker_utterances.to(self.device)
         separate_images = separate_images.to(self.device)
         visual_context = visual_context.to(self.device)
 
-        visual_context = self.standardize(visual_context)
-        separate_images = self.standardize(separate_images)
-        speaker_embeds = self.standardize(speaker_embeds)
-
+        visual_context = standardize(visual_context)
+        separate_images = standardize(separate_images)
+        speaker_embeds = standardize(speaker_embeds)
 
         # visual context is processed
         projected_context = self.lin_context(visual_context)
-        projected_context = self.standardize(projected_context)
+        projected_context = standardize(projected_context)
 
         # utterance representations are processed
         utt_out = self.utterance_forward(speaker_utterances, projected_context, masks)
         embeds_out = self.embeds_forward(speaker_embeds, projected_context)
 
-
+        #################
+        # visual context
+        #################
 
         batch_size = speaker_utterances.shape[0]
 
@@ -215,7 +193,7 @@ class SimulatorModel(nn.Module):
         separate_images = self.dropout(separate_images)
         separate_images = self.linear_separate(separate_images)
         separate_images = self.relu(separate_images)
-        separate_images = self.standardize(separate_images)
+        separate_images = standardize(separate_images)
 
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance

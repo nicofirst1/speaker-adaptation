@@ -1,12 +1,11 @@
 import random
 from typing import Any, Dict, Optional
 
-import PIL.Image
 import numpy as np
+import PIL.Image
 import torch
 import wandb
 from PIL import ImageOps
-
 from src.data.dataloaders import imgid2path, load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
 
@@ -215,7 +214,7 @@ class ListenerLogger(WandbLogger):
             if isinstance(v, list) and len(v) > 0:
                 try:
                     num_bins = max(v) if max(v) > 0 else 1
-                    logs[k] = wandb.Histogram(v, num_bins=num_bins+1)
+                    logs[k] = wandb.Histogram(v, num_bins=num_bins + 1)
                 except TypeError:
                     h = np.histogram(v)
                     logs[k] = wandb.Histogram(np_histogram=h)

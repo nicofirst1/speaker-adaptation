@@ -3,29 +3,27 @@ import random
 import string
 from typing import List
 
-import lovely_tensors
+import lovely_tensors as lt
 import numpy as np
 import pandas as pd
 import rich.progress
 import torch
-from rich.console import Console
-import lovely_tensors as lt
 import wandb
+from src.commons import (SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
+                         get_listener_check, get_simulator_check,
+                         load_wandb_checkpoint, mask_attn, mask_oov_embeds,
+                         parse_args, set_seed, speak2list_vocab,
+                         translate_utterance)
+from src.data.dataloaders import Vocab
+from src.models import ListenerModel, SimulatorModel, SpeakerModel
+from src.wandb_logging import ListenerLogger
 from torch import nn
 from torch.utils.data import DataLoader
 
-from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
-                         load_wandb_checkpoint, mask_attn, parse_args,
-                         set_seed, mask_oov_embeds, speak2list_vocab, translate_utterance, SIM_CHECKPOINTS,
-                         get_listener_check, get_simulator_check)
-from src.commons.data_utils import wandb2rich_table
-from src.data.dataloaders import Vocab
-from src.models import ListenerModel,SimulatorModel,SpeakerModel
-from src.wandb_logging import ListenerLogger
 
-
-def generate_ood_table(df: pd.DataFrame, s_iter: int, domain: List[str], list_domain: str,
-                       sim_domain: str) -> wandb.Table:
+def generate_ood_table(
+    df: pd.DataFrame, s_iter: int, domain: List[str], list_domain: str, sim_domain: str
+) -> wandb.Table:
     rows = []
     columns = [
         "listener domain",
@@ -120,16 +118,16 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 
 
 def evaluate(
-        data_loader: DataLoader,
-        speak_model: SpeakerModel,
-        sim_model: SimulatorModel,
-        list_model: ListenerModel,
-        list_vocab: Vocab,
-        criterion: nn.CrossEntropyLoss,
-        acc_estimator: AccuracyEstimator,
-        split: str,
-        adapt_lr: float = 0.1,
-        s: int = 1,
+    data_loader: DataLoader,
+    speak_model: SpeakerModel,
+    sim_model: SimulatorModel,
+    list_model: ListenerModel,
+    list_vocab: Vocab,
+    criterion: nn.CrossEntropyLoss,
+    acc_estimator: AccuracyEstimator,
+    split: str,
+    adapt_lr: float = 0.1,
+    s: int = 1,
 ) -> pd.DataFrame:
     """
     Perform evaluation of given split
@@ -171,11 +169,10 @@ def evaluate(
 
     target_domain = []
     for ii, data in rich.progress.track(
-            enumerate(data_loader),
-            total=len(data_loader),
-            description=f"Evaluating on split {split}",
+        enumerate(data_loader),
+        total=len(data_loader),
+        description=f"Evaluating on split {split}",
     ):
-
 
         ## extract data
         context_separate = data["separate_images"]
@@ -184,7 +181,6 @@ def evaluate(
         context_concat = data["concat_context"]
         target_img_feats = data["target_img_feats"]
         targets = data["target"]
-        prev_hist = data["prev_histories"]
         golden_utt_ids = data["utterance"]
 
         max_length_tensor = prev_utterance.shape[1]
@@ -198,7 +194,7 @@ def evaluate(
         masks = mask_attn(lengths, max_length_tensor, device)
 
         golden_list_out = list_model(
-            golden_utt_ids, context_separate, context_concat, prev_hist, masks
+            golden_utt_ids, context_separate, context_concat, masks
         )
         golden_list_out.squeeze(dim=0)
         golden_acc = torch.argmax(golden_list_out.squeeze(dim=-1), dim=1)
@@ -232,7 +228,7 @@ def evaluate(
         masks = mask_attn(lengths, max_length_tensor, device)
 
         list_out = list_model(
-            utterance, context_separate, context_concat, prev_hist, masks
+            utterance, context_separate, context_concat, masks
         )
         original_list_out = list_out.squeeze(dim=0)
 
@@ -265,14 +261,14 @@ def evaluate(
         while i < s:
             set_seed(seed)
 
-            sim_out = sim_model(h0, utterance, context_separate, context_concat, prev_hist, masks)
+            sim_out = sim_model(
+                h0, utterance, context_separate, context_concat, masks
+            )
             s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
             # compute loss and perform backprop
             loss = criterion(sim_out, targets)
-            aux = acc_estimator(
-                sim_out, targets, list_out, data["domain"], is_adaptive=True
-            )
+            aux = acc_estimator(sim_out, targets, list_out, data["domain"])
             loss.backward()
             optimizer.step()
 
@@ -293,7 +289,7 @@ def evaluate(
             masks = mask_attn(lengths, max_length_tensor, device)
 
             list_out = list_model(
-                utterance, context_separate, context_concat, prev_hist, masks
+                utterance, context_separate, context_concat, masks
             )
             s_adapted_list_outs[i] = list_out.squeeze(dim=0).tolist()
 
@@ -440,7 +436,9 @@ def evaluate(
     )
 
     # hypo_table = generate_hypo_table(table_data, target_domain, s)
-    ood_table = generate_ood_table(df, s, logger.domains, list_model.domain, sim_model.domain)
+    ood_table = generate_ood_table(
+        df, s, logger.domains, list_model.domain, sim_model.domain
+    )
 
     # console = Console()
     # console.print(wandb2rich_table(ood_table))
@@ -455,8 +453,8 @@ def evaluate(
     mean_s = np.mean([len(x) for x in adapted_accs])
     adapted_accs = np.mean([x[-1] for x in adapted_accs])
 
-    adapt_golden_imporv=adapted_accs-golden_accs
-    adapt_original_imporv=adapted_accs-original_accs
+    adapt_golden_imporv = adapted_accs - golden_accs
+    adapt_original_imporv = adapted_accs - original_accs
 
     sim_accs = [[y for y in x if y != -1] for x in sim_accs]
     sim_accs = np.mean([x[-1] for x in sim_accs])
@@ -493,14 +491,17 @@ if __name__ == "__main__":
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
 
-    common_p = parse_args("int")
+    common_p = parse_args("sim")
     domain = common_p.train_domain
     lt.monkey_patch()
+
     ##########################
     # LISTENER
     ##########################
 
-    list_checkpoint=get_listener_check(common_p.train_domain, common_p.golden_data_perc)
+    list_checkpoint = get_listener_check(
+        common_p.train_domain, common_p.golden_data_perc
+    )
     list_checkpoint, _ = load_wandb_checkpoint(list_checkpoint, device)
     list_args = list_checkpoint["args"]
 
@@ -541,8 +542,13 @@ if __name__ == "__main__":
     # mask OOV words in the vocab
 
     with torch.no_grad():
-        list_model.embeddings = mask_oov_embeds(list_model.embeddings, list_vocab, domain,
-                                                replace_token=common_p.mask_oov_embed, data_path=common_p.data_path)
+        list_model.embeddings = mask_oov_embeds(
+            list_model.embeddings,
+            list_vocab,
+            domain,
+            replace_token=common_p.mask_oov_embed,
+            data_path=common_p.data_path,
+        )
 
     ##########################
     # SPEAKER
@@ -577,11 +583,11 @@ if __name__ == "__main__":
     speaker_model = speaker_model.eval()
 
     ##########################
-    # INTERPRETER
+    # SIMULATOR
     ##########################
 
     if common_p.force_resume_url == "":
-        check=get_simulator_check(common_p.sim_domain, common_p.golden_data_perc)
+        check = get_simulator_check(common_p.sim_domain, common_p.golden_data_perc)
     else:
         check = common_p.force_resume_url
     sim_check, _ = load_wandb_checkpoint(check, device)
@@ -592,10 +598,9 @@ if __name__ == "__main__":
     common_p.device = device
 
     # override common_p with sim_p
-    common_p.hidden_dim=sim_p.hidden_dim
-    common_p.attention_dim=sim_p.attention_dim
-    common_p.dropout_prob=sim_p.dropout_prob
-
+    common_p.hidden_dim = sim_p.hidden_dim
+    common_p.attention_dim = sim_p.attention_dim
+    common_p.dropout_prob = sim_p.dropout_prob
 
     sim_model = SimulatorModel(
         len(list_vocab),
@@ -632,10 +637,7 @@ if __name__ == "__main__":
     metric = common_p.metric
     sweep_config = wandb.config
 
-
-    is_sweep= sweep_config._check_locked('adapt_lr')
-
-    #logger.watch_model([sim_model], log_freq=10)
+    is_sweep = sweep_config._check_locked("adapt_lr")
 
     ###################################
     ##  Get speaker dataloader
@@ -644,7 +646,9 @@ if __name__ == "__main__":
     # need batchsize =1 for generating hypothesis
     sim_p.batch_size = 1
     common_p.batch_size = 1
-    train_dl_dom, test_dl_dom, val_dl_dom = get_dataloaders(common_p, speak_vocab, domain)
+    train_dl_dom, test_dl_dom, val_dl_dom = get_dataloaders(
+        common_p, speak_vocab, domain
+    )
     train_dl_all, test_dl_all, val_dl_all = get_dataloaders(
         common_p, speak_vocab, domain="all"
     )
@@ -657,9 +661,7 @@ if __name__ == "__main__":
     ###################################
 
     loss_f = nn.CrossEntropyLoss(reduction=common_p.reduction)
-    acc_estimator = AccuracyEstimator(
-        domain, all_domains=logger.domains
-    )
+    acc_estimator = AccuracyEstimator(domain, all_domains=logger.domains)
 
     ###################################
     ##  EVAL LOOP
@@ -667,11 +669,11 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     sim_model.eval()
-    uid = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    uid = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
     ##################
     # OOD TEST

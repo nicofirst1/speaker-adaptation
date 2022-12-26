@@ -1,4 +1,3 @@
-import copy
 import json
 import os
 import pickle
@@ -12,16 +11,16 @@ from torch.utils.data import Dataset
 
 class AbstractDataset(Dataset):
     def __init__(
-            self,
-            split: str,
-            data_dir: str,
-            chain_file: str,
-            utterances_file: str,
-            vectors_file: str,
-            orig_ref_file: str,
-            img2dom_file: str,
-            subset_size: int = -1,
-            image_size: int = 2048,
+        self,
+        split: str,
+        data_dir: str,
+        chain_file: str,
+        utterances_file: str,
+        vectors_file: str,
+        orig_ref_file: str,
+        img2dom_file: str,
+        subset_size: int = -1,
+        image_size: int = 2048,
     ):
         """
         Abstract dataclass that implements the main loading pipeline
@@ -90,8 +89,7 @@ class AbstractDataset(Dataset):
         """
 
         for dp in self.data.values():
-
-            #old_dp=copy.deepcopy(dp)
+            # old_dp=copy.deepcopy(dp)
 
             new_target_index = np.random.randint(0, 5)
             old_target = dp["target"][0]
@@ -106,8 +104,7 @@ class AbstractDataset(Dataset):
 
             # torch.all(dp['separate_images']==old_dp['separate_images'],dim=1)
 
-
-            dp["concat_context"]= torch.reshape( dp["separate_images"], (-1,))
+            dp["concat_context"] = torch.reshape(dp["separate_images"], (-1,))
 
             dp["target"] = [new_target_index]
 
@@ -198,7 +195,7 @@ class AbstractDataset(Dataset):
                     im_counter += 1
 
                     if (
-                            game_id in self.img2chain[im]
+                        game_id in self.img2chain[im]
                     ):  # was there a linguistic chain for this image in this game
                         temp_chain = self.img2chain[im][game_id]
 
@@ -310,7 +307,7 @@ class AbstractDataset(Dataset):
                     elif key == "speak_utterance":
 
                         padded = sample[key] + [0] * (
-                                max_speak_length - len(sample[key])
+                            max_speak_length - len(sample[key])
                         )
 
                     elif key == "prev_utterance":
@@ -318,12 +315,12 @@ class AbstractDataset(Dataset):
                         if len(sample[key]) == 0:
                             # OTHERWISE pack_padded wouldn't work
                             padded = [NOHS] + [0] * (
-                                    max_prevutt_length - 1
+                                max_prevutt_length - 1
                             )  # SPECIAL TOKEN FOR NO HIST
 
                         else:
                             padded = sample[key] + [0] * (
-                                    max_prevutt_length - len(sample[key])
+                                max_prevutt_length - len(sample[key])
                             )
 
                         # print('prevutt', padded)

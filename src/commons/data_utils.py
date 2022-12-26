@@ -1,20 +1,20 @@
 import argparse
 import copy
 import os.path
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import rich.progress, rich.table
+import rich.progress
+import rich.table
 import torch
 import wandb
 from PIL import Image, ImageDraw, ImageFont
-from torch.utils.data import DataLoader
-
 from src.commons.model_utils import load_wandb_file
 from src.commons.wandb_checkpoints import DATASET_CHK
 from src.data.dataloaders import (AbstractDataset, ListenerDataset,
                                   SpeakerDataset, SpeakerUttDataset, Vocab)
 from src.wandb_logging import WandbLogger
+from torch.utils.data import DataLoader
 
 
 def show_img(data, id2path, split_name, hypo="", idx=-1):
@@ -58,11 +58,11 @@ def show_img(data, id2path, split_name, hypo="", idx=-1):
 
 
 def get_dataloaders(
-        args: argparse.Namespace,
-        vocab: Vocab,
-        domain: str = None,
-        unary_val_bs: Optional[bool] = True,
-        splits: Optional[List[str]] = ["train", "val", "test"],
+    args: argparse.Namespace,
+    vocab: Vocab,
+    domain: str = None,
+    unary_val_bs: Optional[bool] = True,
+    splits: Optional[List[str]] = ["train", "val", "test"],
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Load dataloaders based on args. Can be either the speaker or the listener
@@ -148,15 +148,15 @@ def get_dataloaders(
 
 
 def load_wandb_dataset(
-        split: str,
-        domain: str,
-        load_params: Dict,
-        listener_vocab: Vocab,
-        speaker_model: torch.nn.Module,
-        dataloader: DataLoader,
-        logger: WandbLogger,
-        subset_size: Optional[int] = -1,
-        test_split: Optional[str] = "all",
+    split: str,
+    domain: str,
+    load_params: Dict,
+    listener_vocab: Vocab,
+    speaker_model: torch.nn.Module,
+    dataloader: DataLoader,
+    logger: WandbLogger,
+    subset_size: Optional[int] = -1,
+    test_split: Optional[str] = "all",
 ) -> DataLoader:
     """
     Load speaker augmented dataset from wandb, if not preset generate it and upload it
@@ -222,11 +222,11 @@ def load_wandb_dataset(
 
 
 def speaker_augmented_dataloader(
-        dataloader: DataLoader,
-        listener_vocab: Vocab,
-        speak_model: torch.nn.Module,
-        split_name: str,
-        load_params: Dict,
+    dataloader: DataLoader,
+    listener_vocab: Vocab,
+    speak_model: torch.nn.Module,
+    split_name: str,
+    load_params: Dict,
 ) -> DataLoader:
     """
     Augment the canon dataloader with speaker generated utterances and embeddings
@@ -240,9 +240,9 @@ def speaker_augmented_dataloader(
     new_data = copy.deepcopy(dataloader.dataset.data)
 
     for ii, data in rich.progress.track(
-            enumerate(dataloader),
-            total=len(dataloader),
-            description=f"Generating hypothesis for split '{split_name}'",
+        enumerate(dataloader),
+        total=len(dataloader),
+        description=f"Generating hypothesis for split '{split_name}'",
     ):
         # get datapoints
         target_img_feats = data["target_img_feats"]
@@ -273,7 +273,7 @@ def speaker_augmented_dataloader(
     # check if present
     dp = next(iter(new_dataset)).keys()
     assert (
-            "speak_utterance" in dp and "speak_h1embed" in dp
+        "speak_utterance" in dp and "speak_h1embed" in dp
     ), "dataloader update did not work"
 
     dataloader = torch.utils.data.DataLoader(new_dataset, **load_params)
@@ -290,13 +290,13 @@ def wandb2rich_table(table: wandb.Table) -> rich.table.Table:
     for col in table.columns:
         rich_table.add_column(col)
 
-    rows=table.data
+    rows = table.data
 
     # sort rows based on the third column
     rows.sort(key=lambda x: x[2], reverse=False)
 
     for row in rows:
-        r=[str(x) for x in row]
+        r = [str(x) for x in row]
 
         rich_table.add_row(*r)
 

@@ -5,11 +5,10 @@ import PIL.Image
 import torch
 import wandb
 from PIL import ImageOps
-from torch import nn
-
 from src.data.dataloaders import imgid2path
 from src.data.dataloaders.AbstractDataset import load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
+from torch import nn
 
 
 class SpeakerLogger(WandbLogger):

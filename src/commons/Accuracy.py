@@ -1,3 +1,5 @@
+from typing import Dict, List
+
 import torch
 from torch.nn import functional as F
 
@@ -5,7 +7,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class AccuracyEstimator(torch.nn.Module):
-    def __init__(self, list_domain, all_domains):
+    """"""
+
+    def __init__(self, list_domain: str, all_domains: List[str]):
+        """
+        Initialize the AccuracyEstimator class.
+
+        :param list_domain: listener domains
+        :param all_domains: list of all domains
+        """
         super().__init__()
 
         self.list_domain = list_domain
@@ -16,7 +26,23 @@ class AccuracyEstimator(torch.nn.Module):
         self.idx2domain = {idx: d for idx, d in self.domain2idx.items()}
         self.kl_div = torch.nn.KLDivLoss(reduction="batchmean")
 
-    def forward(self, preds, targets, list_out, domains, is_adaptive=False):
+    def forward(
+        self,
+        preds: torch.Tensor,
+        targets: torch.Tensor,
+        list_out: torch.Tensor,
+        domains: List[str],
+    ) -> Dict[str, object]:
+        """
+        Calculate accuracies for different types of settings
+         given batch_size (bs) the dimensions are as follows:
+
+        :param preds: predictions made by the simulator [bs, 6, 1]
+        :param targets: true targets [bs, 1]
+        :param list_out: predictions made by the listener [bs, 6, 1]
+        :param domains: list of domains for each data sample [bs]
+        :return: accuracies for different domains
+        """
         preds = preds.to("cpu")
         targets = targets.to("cpu")
         list_out = list_out.to("cpu")
@@ -25,12 +51,12 @@ class AccuracyEstimator(torch.nn.Module):
         targets = targets.squeeze()
         list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
         list_target_accuracy = torch.eq(list_preds, targets)
+
+        # get negative and positive listener predictions
         neg_idx = torch.ne(list_preds, targets)
         pos_idx = torch.eq(list_preds, targets)
 
-        # with bce the simulator has a binary output,
-        # so the making of the aux dict with the accuracies differs
-
+        # get simulator predictions
         sim_preds = torch.argmax(preds.squeeze(dim=-1), dim=1)
 
         # estimate kl divergence and kolmogorov-smirnov test
@@ -57,10 +83,12 @@ class AccuracyEstimator(torch.nn.Module):
             sim_preds[pos_idx],
         )
 
+        # cast to list
         list_target_accuracy_dom = list_target_accuracy.tolist()
         sim_list_accuracy_dom = sim_list_accuracy.tolist()
         sim_target_accuracy_dom = sim_target_accuracy.tolist()
 
+        # get per domain metrics
         d = [domains[idx] for idx in range(len(domains)) if neg_idx[idx]]
         sim_list_neg_accuracy_dom = (sim_list_neg_accuracy, d)
 
@@ -93,17 +121,14 @@ class AccuracyEstimator(torch.nn.Module):
             sim_target_accuracy=sim_target_accuracy,
             sim_list_neg_accuracy=sim_list_neg_accuracy,
             sim_list_pos_accuracy=sim_list_pos_accuracy,
-
             # preds
             list_preds=list_preds,
             sim_preds=sim_preds,
             neg_pred_len=len(list_neg_preds),
             pos_pred_len=len(list_pos_preds),
-
             # distributions
             list_dist=list_dist,
             sim_dist=pred_dist,
-
             # domain specific
             list_target_accuracy_dom=list_target_accuracy_dom,
             sim_list_accuracy_dom=sim_list_accuracy_dom,
@@ -113,7 +138,6 @@ class AccuracyEstimator(torch.nn.Module):
             domains=domains,
             # divergence stats
             kl_div=kl_div,
-
         )
 
         return aux

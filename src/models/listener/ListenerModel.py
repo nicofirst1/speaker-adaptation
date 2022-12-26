@@ -1,20 +1,19 @@
-from typing import List
-
 import torch
 import torch.nn as nn
+from src.commons import standardize
 
 
 class ListenerModel(nn.Module):
     def __init__(
-            self,
-            vocab_size,
-            embedding_dim,
-            hidden_dim,
-            img_dim,
-            att_dim,
-            dropout_prob,
-            domain,
-            device,
+        self,
+        vocab_size,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        att_dim,
+        dropout_prob,
+        domain,
+        device,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -90,29 +89,19 @@ class ListenerModel(nn.Module):
             ll.bias.data.fill_(0)
             ll.weight.data.uniform_(-0.1, 0.1)
 
-    @staticmethod
-    def standardize(tensor):
-        """
-        Standardizes a tensor
-        """
-        return (tensor - tensor.mean()) / tensor.std()
-
     def forward(
-            self,
-            text: torch.Tensor,
-            separate_images: torch.Tensor,
-            visual_context: torch.Tensor,
-            prev_hist: List,
-            masks: torch.Tensor,
+        self,
+        text: torch.Tensor,
+        separate_images: torch.Tensor,
+        visual_context: torch.Tensor,
+        masks: torch.Tensor,
     ):
 
         """
         @param text: utterances to be converted into embeddings
         @param separate_images: image feature vectors for all 6 images in the context separately
         @param visual_context: concatenation of 6 images in the context
-        @param prev_hist: contains histories for 6 images separately (if exists for a given image)
         @param masks: attention mask for pad tokens
-        @param device: device to which the tensors are moved
         """
 
         text = text.to(self.device)
@@ -128,14 +117,14 @@ class ListenerModel(nn.Module):
         # utterance representations are processed
         representations = self.dropout(representations)
         input_reps = self.lrelu(self.lin_emb2hid(representations))
-        input_reps = self.standardize(input_reps)
+        input_reps = standardize(input_reps)
 
         # [32,33,512]
 
         # visual context is processed
         visual_context = self.dropout(visual_context)
         projected_context = self.relu(self.lin_context(visual_context))
-        projected_context = self.standardize(projected_context)
+        projected_context = standardize(projected_context)
         repeated_context = projected_context.unsqueeze(1).repeat(
             1, input_reps.shape[1], 1
         )
@@ -148,7 +137,7 @@ class ListenerModel(nn.Module):
         # attention over the multimodal utterance representations (tokens and visual context interact)
         outputs_att = self.att_linear_1(mm_reps)
         outputs_att = self.relu(outputs_att)
-        outputs_att = self.standardize(outputs_att)
+        outputs_att = standardize(outputs_att)
         outputs_att = self.att_linear_2(outputs_att)
         # outputs_att = self.relu(outputs_att)
 
@@ -167,7 +156,7 @@ class ListenerModel(nn.Module):
         separate_images = self.linear_separate(separate_images)
 
         separate_images = self.relu(separate_images)
-        separate_images = self.standardize(separate_images)
+        separate_images = standardize(separate_images)
 
         # dot product between the candid ate images and
         # the final multimodal representation of the input utterance

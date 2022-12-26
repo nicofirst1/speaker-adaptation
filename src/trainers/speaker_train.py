@@ -1,5 +1,4 @@
 import copy
-import os
 import sys
 from os.path import abspath, dirname
 
@@ -8,40 +7,29 @@ import rich.progress
 import torch.utils.data
 from bert_score import score
 from nlgeval import NLGEval
-from torch import nn, optim
-
 from src.commons import (SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, mask_attn, parse_args,
-                         save_model)
+                         save_model, set_seed)
 from src.data.dataloaders import Vocab
 from src.models.speaker.SpeakerModel import SpeakerModel
 from src.wandb_logging import SpeakerLogger
+from torch import nn, optim
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import datetime
 
-if not os.path.isdir("saved_models"):
-    os.mkdir("saved_models")
-
-if not os.path.isdir("speaker_outputs"):
-    os.mkdir("speaker_outputs")
-
-
-# beam search
-# topk
-# topp
-
 # built via modifying https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning/blob/master/eval.py
 
 
-def eval_beam_histatt(
-        split_data_loader,
-        model,
-        args,
-        nlgeval_obj,
-        logger,
-        split: str,
+def evaluation(
+    split_data_loader,
+    model,
+    args,
+    nlgeval_obj,
+    logger,
+    split: str,
+    vocab: Vocab,
 ):
     """
     Evaluation
@@ -58,9 +46,9 @@ def eval_beam_histatt(
     hypotheses = []
 
     for i, data in rich.progress.track(
-            enumerate(split_data_loader),
-            total=len(split_data_loader),
-            description=f"Processing {split}...",
+        enumerate(split_data_loader),
+        total=len(split_data_loader),
+        description=f"Processing {split}...",
     ):
         # print(i)
 
@@ -127,7 +115,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
@@ -136,8 +124,7 @@ if __name__ == "__main__":
 
     # for reproducibility
     seed = speak_p.seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    set_seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
@@ -246,7 +233,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp_tr = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
@@ -263,9 +250,9 @@ if __name__ == "__main__":
         out = []
 
         for i, data in rich.progress.track(
-                enumerate(training_loader),
-                total=len(training_loader),
-                description=f"Train epoch {epoch}",
+            enumerate(training_loader),
+            total=len(training_loader),
+            description=f"Train epoch {epoch}",
         ):
             # load infos from datapoint
             utterances_text_ids = data["utterance"]
@@ -284,16 +271,10 @@ if __name__ == "__main__":
 
             out = model(
                 utterance=utterances_text_ids,
-                lengths=lengths,
                 prev_utterance=prev_utterance_ids,
                 prev_utt_lengths=prev_lengths,
-                visual_context_sep=context_separate,
                 visual_context=context_concat,
                 target_img_feats=target_img_feats,
-                targets=targets,
-                prev_hist=prev_hist,
-                prev_hist_len=prev_hist_lens,
-                normalize=normalize,
                 masks=masks,
             )
 
@@ -346,22 +327,24 @@ if __name__ == "__main__":
             isTest = False
             print("\nEVALUATION\n")
 
-            current_score, metrics_dict = eval_beam_histatt(
+            current_score, metrics_dict = evaluation(
                 split_data_loader=val_loader,
                 model=model,
                 args=speak_p,
                 nlgeval_obj=nlge,
                 logger=logger,
                 split="eval",
+                vocab=vocab,
             )
 
-            eval_beam_histatt(
+            evaluation(
                 split_data_loader=test_loader,
                 model=model,
                 args=speak_p,
                 nlgeval_obj=nlge,
                 logger=logger,
                 split="test",
+                vocab=vocab,
             )
             if not speak_p.is_test:
                 save_model(

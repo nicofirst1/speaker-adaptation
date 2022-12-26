@@ -3,8 +3,8 @@ import json
 import pickle
 from collections import Counter, defaultdict
 
-from Vocab import Vocab
 from nltk import TweetTokenizer
+from Vocab import Vocab
 
 tweet_tokenizer = TweetTokenizer(preserve_case=False)
 min_freq = 0

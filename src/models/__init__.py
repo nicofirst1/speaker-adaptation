@@ -6,5 +6,4 @@ __all__ = [
     "SpeakerModel",
     "ListenerModel",
     "SimulatorModel",
-
 ]

@@ -47,6 +47,12 @@ class Vocab:
 
         return encoded
 
+    def batch_decode(self, encoded_ids: torch.Tensor) -> List[str]:
+
+        batch_size = encoded_ids.shape[0]
+
+        return [self.decode(encoded_ids[i]) for i in range(batch_size)]
+
     def decode(self, encoded_ids: torch.Tensor) -> str:
 
         decodes = " ".join([self.index2word[t.item()] for t in encoded_ids])
