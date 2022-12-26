@@ -1,30 +1,47 @@
 name: uvapb
 channels:
+  - conda-forge
+  - bioconda
+  - dhealth
   - defaults
 dependencies:
-  - ca-certificates=2022.4.26
-  - libffi=3.3
-  - ncurses=6.3
-  - openssl=1.1.1o
-  - pip=21.2.4
-  - python=3.9.0
-  - readline=8.1.2
-  - setuptools=61.2.0
-  - sqlite=3.38.3
-  - tk=8.6.11
-  - tzdata=2022a
-  - wheel=0.37.1
-  - xz=5.2.5
-  - zlib=1.2.12
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - ca-certificates=2022.4.26=h06a4308_0
+  - ld_impl_linux-64=2.38=h1181459_1
+  - libffi=3.3=he6710b0_2
+  - libgcc-ng=11.2.0=h1234567_1
+  - libgomp=11.2.0=h1234567_1
+  - libstdcxx-ng=11.2.0=h1234567_1
+  - ncurses=6.3=h5eee18b_3
+  - openssl=1.1.1o=h7f8727e_0
+  - pip=21.2.4=py39h06a4308_0
+  - python=3.9.0=hdb3f193_2
+  - readline=8.1.2=h7f8727e_1
+  - setuptools=61.2.0=py39h06a4308_0
+  - sqlite=3.38.3=hc218d9a_0
+  - tk=8.6.11=h1ccaba5_1
+  - tzdata=2022a=hda174b7_0
+  - wheel=0.37.1=pyhd3eb1b0_0
+  - xz=5.2.5=h7f8727e_1
+  - zlib=1.2.12=h5eee18b_3
   - pip:
+    - asttokens==2.2.1
+    - backcall==0.2.0
     - bert-score==0.3.11
+    - blis==0.7.9
+    - catalogue==2.0.8
     - certifi==2021.10.8
     - charset-normalizer==2.0.12
     - click==8.1.3
     - commonmark==0.9.1
     - cycler==0.11.0
+    - cymem==2.0.7
     - cython==0.29.28
+    - decorator==5.1.1
     - docker-pycreds==0.4.0
+    - executing==1.2.0
+    - fastcore==1.5.27
     - filelock==3.6.0
     - fonttools==4.33.3
     - gensim==3.8.3
@@ -32,21 +49,40 @@ dependencies:
     - gitpython==3.1.27
     - huggingface-hub==0.4.0
     - idna==3.3
+    - ipython==8.7.0
+    - jedi==0.18.2
+    - jinja2==3.1.2
     - joblib==1.1.0
     - jsonref==0.2
     - kiwisolver==1.4.2
+    - langcodes==3.3.0
+    - lovely-numpy==0.2.7
+    - lovely-tensors==0.1.13
+    - markupsafe==2.1.1
     - matplotlib==3.5.1
+    - matplotlib-inline==0.1.6
+    - murmurhash==1.0.9
     - numpy==1.22.3
     - packaging==21.3
     - pandas==1.4.2
+    - parso==0.8.3
     - pathtools==0.1.2
+    - pathy==0.10.1
+    - pexpect==4.8.0
+    - pickleshare==0.7.5
     - pillow==9.1.0
+    - preshed==3.0.8
     - promise==2.3
+    - prompt-toolkit==3.0.36
     - protobuf==3.19.4
     - psutil==5.9.0
+    - ptyprocess==0.7.0
+    - pure-eval==0.2.2
+    - pydantic==1.8.2
     - pygments==2.12.0
     - pyparsing==3.0.7
     - python-dateutil==2.8.2
+    - python-graphviz==0.20.1
     - pytz==2022.1
     - pyyaml==6.0
     - regex==2022.3.2
@@ -61,19 +97,28 @@ dependencies:
     - six==1.16.0
     - smart-open==6.0.0
     - smmap==5.0.0
+    - spacy==3.3.1
+    - spacy-legacy==3.0.10
+    - spacy-loggers==1.0.4
+    - srsly==2.4.5
+    - stack-data==0.6.2
     - termcolor==1.1.0
     - theano==1.0.5
+    - thinc==8.0.17
     - threadpoolctl==3.1.0
     - tokenizers==0.11.6
     - torch==1.11.0
     - torchvision==0.12.0
+    - torchviz==0.0.2
     - tqdm==4.64.0
+    - traitlets==5.8.0
     - transformers==4.17.0
+    - typer==0.4.2
     - typing-extensions==4.1.1
     - urllib3==1.26.8
     - wandb==0.12.14
+    - wasabi==0.10.1
+    - wcwidth==0.2.5
     - xdg==5.1.1
     - yaspin==2.1.0
-    - spacy==3.3.1
-    - torchviz==0.0.2
-prefix: /home/brandizzi/anaconda3/envs/uvapb
+prefix: /home/dizzi/anaconda3/envs/uvapb
