@@ -1,12 +1,12 @@
 from .Accuracy import AccuracyEstimator
+from .EarlyStopping import EarlyStopping
+from .Params import parse_args
 from .data_utils import (get_dataloaders, load_wandb_dataset,
                          speaker_augmented_dataloader, wandb2rich_table)
-from .EarlyStopping import EarlyStopping
-from .model_utils import (draw_grad_graph, get_domain_accuracy, hypo2utterance,
+from .model_utils import (draw_grad_graph, get_domain_accuracy, get_domain_mrr, hypo2utterance,
                           load_wandb_checkpoint, mask_attn, merge_dict,
                           save_model, set_seed, speak2list_vocab, standardize,
                           translate_utterance)
-from .Params import parse_args
 from .vocab_utils import mask_oov_embeds
 from .wandb_checkpoints import *
 
@@ -28,6 +28,7 @@ __all__ = [
     "speak2list_vocab",
     "translate_utterance",
     "standardize",
+    "get_domain_mrr",
     # wandb checkpoints
     "LISTENER_CHK_DICT",
     "SPEAKER_CHK",

@@ -115,6 +115,45 @@ def get_domain_accuracy(
     return domain_accs
 
 
+
+def get_domain_mrr(
+    ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+) -> Dict[str, float]:
+    """
+    Return a dict of domain:mrr for all the domains in 'all_domains:
+    Parameters
+    ----------
+    ranks : tensor of boolean values to map the correct prediction of index i
+    domains : tensor of string, domains for prediction of index i
+    all_domains : list of all possible domains
+
+    Returns
+    -------
+        dictionary mapping domain->accuracy
+    """
+    assert len(ranks) == len(domains)
+
+    domain_accs = {d: 0 for d in all_domains}
+    domain_accs["all"] = 0
+
+    # add all the correct guesses
+    for idx in range(len(domains)):
+        dom = domains[idx]
+        domain_accs[dom] += 1 / ranks[idx]
+        domain_accs["all"] += 1 / ranks[idx]
+
+    # count number of domains
+    c = Counter(domains)
+
+    # divide by number of domain's sample
+    for k, v in c.items():
+        domain_accs[k] /= v
+
+    domain_accs["all"] /= len(ranks)
+
+    return domain_accs
+
+
 def save_model(
     model: torch.nn.Module,
     model_type: str,

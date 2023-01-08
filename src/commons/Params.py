@@ -94,7 +94,7 @@ class Params:
     vectors_file: Optional[str] = "vectors.json"
 
     sweep_file: Optional[str] = ""
-    test_split: Optional[str] = "all"
+    test_split: Optional[str] = "seen"
 
     ############################################
     # Listener
