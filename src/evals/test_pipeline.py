@@ -440,11 +440,11 @@ if __name__ == "__main__":
 
     logger = ListenerLogger(
         vocab=list_vocab,
-        opts=vars(list_args),
+        opts=vars(common_p),
         group=list_args.train_domain,
         train_logging_step=1,
         val_logging_step=1,
-        project="speaker-list-dom",
+        project="test_pipeline",
         tags=common_args.tags,
     )
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
