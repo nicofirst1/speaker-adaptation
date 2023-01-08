@@ -28,7 +28,7 @@ food
 
 
 
-trainers_file="${HOME}/pb_speaker_adaptation/src/evals/speaker_listener_domains.py"
+trainers_file="${HOME}/pb_speaker_adaptation/src/evals/test_pipeline.py"
 
 #running the actual code
 echo "Starting the process..."
