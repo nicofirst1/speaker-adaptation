@@ -35,24 +35,20 @@ def gen_list_table(
 
     """
 
-
     ### datapoint table
 
     table_columns = ["list_domain", "golden_acc",
-                         "golden_mrr", "gen_acc", "gen_mrr"]
-
-
+                     "golden_mrr", "gen_acc", "gen_mrr"]
 
     # define table data rows
-    data=[cur_domain]
-    data+=[ golden_metrics['list_accuracy'], golden_metrics['list_mrr'], gen_metrics['list_accuracy'], gen_metrics['list_mrr']]
-
-
-
+    data = [cur_domain]
+    data += [golden_metrics['list_accuracy'], golden_metrics['list_mrr'], gen_metrics['list_accuracy'],
+             gen_metrics['list_mrr']]
 
     # create table and log
     table = wandb.Table(columns=table_columns, data=[data])
     return table
+
 
 def gen_sim_table(
         golden_metrics: Dict, gen_metrics: Dict, cur_domain: str
@@ -70,17 +66,44 @@ def gen_sim_table(
 
     """
 
-
-
-    table_columns = ["list_domain", "sim_list_acc", "sim_list_pos_acc", "sim_list_neg_acc", "sim_target_acc", "list_target_acc" ]
-
+    table_columns = ["list_domain", "sim_list_acc", "sim_list_pos_acc", "sim_list_neg_acc", "sim_target_acc",
+                     "list_target_acc"]
 
     # define table data rows
-    data=[cur_domain]
-    data+=[ gen_metrics['sim_accuracy'], gen_metrics['sim_pos_accuracy'], gen_metrics['sim_neg_accuracy'], gen_metrics['sim_trg_acc'], gen_metrics['list_accuracy']]
+    data = [cur_domain]
+    data += [gen_metrics['sim_accuracy'], gen_metrics['sim_pos_accuracy'], gen_metrics['sim_neg_accuracy'],
+             gen_metrics['sim_trg_acc'], gen_metrics['list_accuracy']]
+
+    # create table and log
+    table = wandb.Table(columns=table_columns, data=[data])
+    return table
 
 
+def gen_list_domain_table(
+        ind_gen: Dict,ood_gen: Dict, cur_domain: str
+) -> wandb.Table:
+    """
+    Create and fill a wandb table for the generated,golden and difference metrics.
+    Parameters
+    ----------
+    golden_metrics : metrics for speaker generated utterances
+    gen_metrics : metrics for the golden captions
+    in_domain: true, if the metrics come from an in domain setting
 
+    Returns
+    -------
+
+    """
+
+    ood_gen=ood_gen['domain_list_accuracy']
+    ood_gen[dom]=ind_gen['list_accuracy']
+    ood_gen.pop("all")
+    ood_gen=sorted(list(ood_gen.items()))
+
+    table_columns = ["list_domain"]+list(map(lambda x: x[0], ood_gen))
+
+    # define table data rows
+    data = [cur_domain] + list(map(lambda x: x[1], ood_gen))
 
     # create table and log
     table = wandb.Table(columns=table_columns, data=[data])
@@ -121,13 +144,14 @@ def evaluate_and_log(listener: ListenerModel, speaker: SpeakerModel, simulator: 
     l_table = gen_list_table(golden_metrics, gen_metrics, cur_domain)
     s_table = gen_sim_table(golden_metrics, gen_metrics, cur_domain)
 
-
     l_label = f"{split}_IND_list" if in_domain else f"{split}_OOD_list"
     s_label = f"{split}_IND_sim" if in_domain else f"{split}_OOD_sim"
 
     logs = {l_label: l_table, s_label: s_table}
 
     logger.log_to_wandb(logs, commit=True)
+
+    return gen_metrics, golden_metrics
 
 
 def evaluate_trained_model(
@@ -466,7 +490,7 @@ if __name__ == "__main__":
             list_args, speak_vocab, list_args.train_domain
         )
 
-        evaluate_and_log(listener=list_model, speaker=speaker_model, data_loader=test_loader, logger=logger,
+        ind_gen, _=evaluate_and_log(listener=list_model, speaker=speaker_model, data_loader=test_loader, logger=logger,
                          split="test", translator=translator, simulator=sim_model, cur_domain=dom)
 
         ########################
@@ -474,7 +498,11 @@ if __name__ == "__main__":
         ########################
         _, test_loader, val_loader = get_dataloaders(list_args, speak_vocab, "all")
 
-        evaluate_and_log(listener=list_model, speaker=speaker_model, data_loader=test_loader, logger=logger,
+        ood_gen,_=evaluate_and_log(listener=list_model, speaker=speaker_model, data_loader=test_loader, logger=logger,
                          split="test", translator=translator, simulator=sim_model, cur_domain=dom)
+
+
+        table=gen_list_domain_table(ind_gen, ood_gen, dom)
+        logger.log_to_wandb(dict(list_domain=table), commit=True)
 
         logger.wandb_close()
