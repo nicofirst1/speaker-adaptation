@@ -3,6 +3,7 @@ import re
 from typing import List
 
 import torch
+from nltk import TweetTokenizer
 
 
 class Vocab:
@@ -12,6 +13,8 @@ class Vocab:
         self.word2index = {}
         self.index2word = {}
         self.word2count = {}
+        self.tokenizer = TweetTokenizer(preserve_case=False)
+
 
         for t in ["<pad>", "<unk>", "<sos>", "<eos>"]:
             self.index2word[len(self.word2index)] = t
@@ -31,21 +34,41 @@ class Vocab:
             ] = "<nohs>"  # special token placeholder for no prev utt
             self.word2index["<nohs>"] = len(self)  # len(vocab) updated (depends on w2i)
 
+
     def encode(self, text: List[str], add_special_tokens=False) -> torch.Tensor:
+        """
+        Encode a list of strings to a list of indices.
+        Parameters
+        ----------
+        text : List[str] - list of strings to encode
+        add_special_tokens : bool - whether to add special tokens to the beginning and end of the sequence
 
+        Returns - torch.Tensor - tensor of indices
+        -------
+        """
+
+        # remove empty strings
         text = [t for t in text if t]
-        encoded = [self.word2index[t] for t in text]
 
-        if add_special_tokens:
-            encoded.append(self.word2index["<eos>"])
-            encoded.insert(
-                0,
-                self.word2index["<sos>"],
-            )
+        encoded=[]
+        # tokenize and convert to indices
+        for sent in text:
+            tok= self.tokenizer.tokenize(sent)
+            tok=[self.word2index[t] for t in tok]
+            if add_special_tokens:
+                tok = [self.word2index["<sos>"]] + tok + [self.word2index["<eos>"]]
+            tok=torch.as_tensor(tok)
+            encoded.append(tok)
 
-        encoded = torch.as_tensor(encoded)
+        # add padding
+        max_len = max([len(e) for e in encoded])
+        padded = torch.zeros(len(encoded), max_len, dtype=torch.long)
 
-        return encoded
+        for i, e in enumerate(encoded):
+            padded[i, : len(e)] = e
+
+
+        return padded
 
     def batch_decode(self, encoded_ids: torch.Tensor) -> List[str]:
 
@@ -56,8 +79,8 @@ class Vocab:
     def decode(self, encoded_ids: torch.Tensor) -> str:
 
         decodes = " ".join([self.index2word[t.item()] for t in encoded_ids])
-        rg = r" <[a-z]+>"
-        decodes = re.sub(rg, "", decodes)
+        rg = r"<[a-z]+>"
+        decodes = re.sub(rg, "", decodes).strip()
         return decodes
 
     def __len__(self):

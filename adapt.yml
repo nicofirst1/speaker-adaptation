@@ -1,4 +1,4 @@
-name: uvapb
+name: adapt
 channels:
   - conda-forge
   - bioconda
@@ -121,4 +121,3 @@ dependencies:
     - wcwidth==0.2.5
     - xdg==5.1.1
     - yaspin==2.1.0
-prefix: /home/dizzi/anaconda3/envs/uvapb

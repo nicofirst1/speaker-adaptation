@@ -68,6 +68,7 @@ def get_dataloaders(
     Load dataloaders based on args. Can be either the speaker or the listener
     Parameters
     ----------
+    splits
     args
     vocab
     domain : only used whit listener dataset.
@@ -124,7 +125,7 @@ def get_dataloaders(
     }
 
     load_params_test = {
-        "batch_size": args_copy.batch_size,
+        "batch_size": 1,
         "shuffle": False,
         "collate_fn": AbstractDataset.get_collate_fn(
             args.device, vocab["<sos>"], vocab["<eos>"], vocab["<nohs>"]

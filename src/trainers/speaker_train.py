@@ -7,35 +7,40 @@ import rich.progress
 import torch.utils.data
 from bert_score import score
 from nlgeval import NLGEval
+from torch import nn, optim
+from torch.utils.data import DataLoader
+
 from src.commons import (SPEAKER_CHK, EarlyStopping, get_dataloaders,
                          load_wandb_checkpoint, mask_attn, parse_args,
                          save_model, set_seed)
 from src.data.dataloaders import Vocab
 from src.models.speaker.SpeakerModel import SpeakerModel
 from src.wandb_logging import SpeakerLogger
-from torch import nn, optim
 
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
 import datetime
 
-# built via modifying https://github.com/sgrvinod/a-PyTorch-Tutorial-to-Image-Captioning/blob/master/eval.py
-
 
 def evaluation(
-    split_data_loader,
-    model,
-    args,
-    nlgeval_obj,
-    logger,
-    split: str,
-    vocab: Vocab,
+        split_data_loader: DataLoader,
+        model: SpeakerModel,
+        args,
+        nlgeval_obj,
+        logger: SpeakerLogger,
+        split: str,
+        vocab: Vocab,
 ):
     """
-    Evaluation
-
-    :param beam_size: beam size at which to generate captions for evaluation
-    :return: Official MSCOCO evaluator scores - bleu4, cider, rouge, meteor
+    Evaluate the model on the given split
+    :param split_data_loader: DataLoader for the split
+    :param model: Model to evaluate
+    :param args: Arguments
+    :param nlgeval_obj: NLGEval object
+    :param logger: WandbLogger object
+    :param split: Split name
+    :param vocab: Vocabulary object
+    :return: None
     """
 
     # Lists to store references (true captions), and hypothesis (prediction) for each image
@@ -46,15 +51,12 @@ def evaluation(
     hypotheses = []
 
     for i, data in rich.progress.track(
-        enumerate(split_data_loader),
-        total=len(split_data_loader),
-        description=f"Processing {split}...",
+            enumerate(split_data_loader),
+            total=len(split_data_loader),
+            description=f"Processing {split}...",
     ):
-        # print(i)
-
-        ref = data["reference_chain"][
-            0
-        ]  # batch size 1  # full set of references for a single instance
+        # batch size 1  # full set of references for a single instance
+        ref = data["reference_chain"][0]
 
         prev_utterance = data["prev_utterance"]
         prev_utt_lengths = data["prev_length"]
@@ -64,8 +66,9 @@ def evaluation(
         hypo, model_params, _ = model.generate_hypothesis(
             prev_utterance, prev_utt_lengths, visual_context, target_img_feats
         )
+        dec_hypo = vocab.decode(hypo[0])
         references.append(ref)
-        hypotheses.append(hypo)
+        hypotheses.append(dec_hypo)
 
     # Calculate scores
     metrics_dict = nlgeval_obj.compute_metrics(references, hypotheses)
@@ -97,16 +100,15 @@ def evaluation(
         hypotheses=hypo,
     )
 
-    logger.on_eval_end(logs, model_params, model_out, data, split)
-    logger.log_datapoint(data, preds=[hypo], modality=split)
+    logger.on_eval_end(logs, model_out, data, split)
 
     if args.metric == "cider":
         selected_metric_score = metrics_dict["CIDEr"]
-        print(round(selected_metric_score, 5))
 
     elif args.metric == "bert":
         selected_metric_score = Fs.mean().item()
-        print(round(selected_metric_score, 5))
+
+    print(f"{args.metric} value: {selected_metric_score}")
 
     return selected_metric_score, metrics_dict
 
@@ -115,12 +117,11 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
     print("code starts", timestamp)
 
     speak_p = parse_args("speak")
-    print(speak_p)
 
     # for reproducibility
     seed = speak_p.seed
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     print("Loading the vocab...")
     vocab = Vocab(speak_p.vocab_file, is_speaker=True)
 
-    training_loader, test_loader, val_loader = get_dataloaders(speak_p, vocab)
+    training_loader, _, val_loader = get_dataloaders(speak_p, vocab, unary_val_bs=True)
 
     img_dim = 2048
 
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     att_dim = speak_p.attention_dim
 
     metric = speak_p.metric
-    nlge = NLGEval(no_skipthoughts=True, no_glove=True)
+    nlge = NLGEval(no_skipthoughts=True, no_glove=True, metrics_to_omit=['METEOR'])
 
     shuffle = speak_p.shuffle
     normalize = speak_p.normalize
@@ -233,7 +234,7 @@ if __name__ == "__main__":
 
     t = datetime.datetime.now()
     timestamp_tr = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     print("training starts", timestamp_tr)
@@ -250,9 +251,9 @@ if __name__ == "__main__":
         out = []
 
         for i, data in rich.progress.track(
-            enumerate(training_loader),
-            total=len(training_loader),
-            description=f"Train epoch {epoch}",
+                enumerate(training_loader),
+                total=len(training_loader),
+                description=f"Train epoch {epoch}",
         ):
             # load infos from datapoint
             utterances_text_ids = data["utterance"]
@@ -324,7 +325,6 @@ if __name__ == "__main__":
             model.eval()
 
             isValidation = True
-            isTest = False
             print("\nEVALUATION\n")
 
             current_score, metrics_dict = evaluation(
@@ -337,15 +337,6 @@ if __name__ == "__main__":
                 vocab=vocab,
             )
 
-            evaluation(
-                split_data_loader=test_loader,
-                model=model,
-                args=speak_p,
-                nlgeval_obj=nlge,
-                logger=logger,
-                split="test",
-                vocab=vocab,
-            )
             if not speak_p.is_test:
                 save_model(
                     model=model,

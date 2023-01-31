@@ -17,7 +17,7 @@ def parse_args(mode: str):
         parser = SpeakerArguments()
     elif mode == "list":
         parser = ListenerArguments()
-    elif mode == "sim" or mode == "int":
+    elif mode == "sim":
         parser = SimulatorArguments()
 
     return parser
@@ -25,8 +25,7 @@ def parse_args(mode: str):
 
 def get_working_dir():
     pwd = os.getcwd()
-    pwd = pwd.split("pb_speaker_adaptation")[0]
-    pwd = join(pwd, "pb_speaker_adaptation")
+    pwd = pwd.split("src")[0]
     return pwd
 
 
@@ -430,7 +429,7 @@ class SpeakerArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
-    metric: Optional[str] = "cider"
+    metric: Optional[str] = "cider" #"bert
 
     # if true use beam search, else nucleus sampling
     use_beam: Optional[bool] = False
@@ -438,6 +437,8 @@ class SpeakerArguments(Params):
     top_p: Optional[float] = 0.9
     # nucleus sampling top k
     top_k: Optional[float] = 0.0
+    # use prev utterances in forward pass
+    use_prev_utterances: Optional[bool] = False
 
     def __init__(self):
         super(SpeakerArguments, self).__init__()

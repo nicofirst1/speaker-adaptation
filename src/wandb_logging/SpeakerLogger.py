@@ -5,10 +5,11 @@ import PIL.Image
 import torch
 import wandb
 from PIL import ImageOps
+from torch import nn
+
 from src.data.dataloaders import imgid2path
 from src.data.dataloaders.AbstractDataset import load_imgid2domain
 from src.wandb_logging.WandbLogger import WandbLogger
-from torch import nn
 
 
 class SpeakerLogger(WandbLogger):
@@ -181,15 +182,12 @@ class SpeakerLogger(WandbLogger):
     def on_eval_end(
             self,
             metrics: Dict[str, Any],
-            model_params: Dict[str, Any],
-            model_out: Dict[str, Any],
-            data_point: Dict[str, Any],
-            split: str,
+            epoch_id: int,
     ):
 
         # get and log domain accuracy table
 
-        logs = {f"{split}/{k}": v for k, v in metrics.items()}
+        logs = {f"eval/{k}": v for k, v in metrics.items()}
 
         self.log_to_wandb(logs, commit=False)
 

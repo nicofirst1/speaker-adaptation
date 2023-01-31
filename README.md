@@ -4,7 +4,7 @@
 ## Installation
 
 ### Conda env
-You can either instal by coopying the conda yaml file with the following command:
+You can either install by copying the conda yaml file with the following command:
 
 ```bash
 conda env create -f uvapb.yml

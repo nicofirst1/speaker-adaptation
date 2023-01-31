@@ -3,24 +3,27 @@ from typing import Dict, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from src.commons import mask_attn, standardize
 
 
 class SpeakerModel(nn.Module):
     def __init__(
-        self,
-        vocab,
-        embedding_dim,
-        hidden_dim,
-        img_dim,
-        dropout_prob,
-        attention_dim,
-        beam_k,
-        max_len,
-        top_k,
-        top_p,
-        device,
-        use_beam=False,
+            self,
+            vocab,
+            embedding_dim,
+            hidden_dim,
+            img_dim,
+            dropout_prob,
+            attention_dim,
+            beam_k,
+            max_len,
+            top_k,
+            top_p,
+            device,
+            use_beam=False,
+            use_prev_utterances=False,
+
     ):
         super().__init__()
         self.vocab = vocab
@@ -34,6 +37,7 @@ class SpeakerModel(nn.Module):
         self.top_k = top_k
         self.top_p = top_p
         self.use_beam = use_beam
+        self.use_prev_utterances = use_prev_utterances
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -118,11 +122,11 @@ class SpeakerModel(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def generate_hypothesis(
-        self,
-        prev_utterance: torch.Tensor,
-        prev_utt_lengths: torch.Tensor,
-        visual_context: torch.Tensor,
-        target_img_feats: torch.Tensor,
+            self,
+            prev_utterance: torch.Tensor,
+            prev_utt_lengths: torch.Tensor,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
     ) -> Tuple[str, Dict, torch.Tensor]:
         """
         Generate an hypothesis (natural language sentence) based on the current output
@@ -154,11 +158,11 @@ class SpeakerModel(nn.Module):
         return hypos, model_params, decoder_hid
 
     def partial_forward(
-        self,
-        prev_utterance: torch.Tensor,
-        prev_utt_lengths: torch.Tensor,
-        visual_context: torch.Tensor,
-        target_img_feats: torch.Tensor,
+            self,
+            prev_utterance: torch.Tensor,
+            prev_utt_lengths: torch.Tensor,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
 
         batch_size = prev_utterance.shape[0]
@@ -173,6 +177,15 @@ class SpeakerModel(nn.Module):
         concat_visual_input = self.relu(
             self.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
         )
+
+        if not self.use_prev_utterances:
+            # here we need to get rid of all prev_utterances, do so by filling an empty torch tensor
+            pad_val = self.vocab.word2index["<pad>"]
+            nohs_val = self.vocab.word2index["<nohs>"]
+
+            empty_utt = torch.full(prev_utterance.shape, pad_val)
+            empty_utt[:, 0] = nohs_val
+            prev_utterance = empty_utt.to(self.device)
 
         embeds_words = self.embedding(prev_utterance)  # b, l, d
 
@@ -235,13 +248,13 @@ class SpeakerModel(nn.Module):
         return decoder_hid, history_att, model_params
 
     def nucleus_sampling(
-        self,
-        decoder_hid,
-        history_att,
-        masks,
-        top_k=0,
-        top_p=0.0,
-        filter_value=-float("Inf"),
+            self,
+            decoder_hid,
+            history_att,
+            masks,
+            top_k=0,
+            top_p=0.0,
+            filter_value=-float("Inf"),
     ):
         """Filter a distribution using top-k and/or nucleus (top-p) filtering
         Args:
@@ -308,7 +321,7 @@ class SpeakerModel(nn.Module):
             if top_k > 0:
                 # Remove all tokens with a probability less than the last token of the top-k
                 indices_to_remove = (
-                    word_pred < torch.topk(word_pred, top_k)[0][..., -1, None]
+                        word_pred < torch.topk(word_pred, top_k)[0][..., -1, None]
                 )
                 word_pred[indices_to_remove] = filter_value
 
@@ -323,8 +336,8 @@ class SpeakerModel(nn.Module):
 
                 # Shift the indices to the right to keep also the first token above the threshold
                 sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
-                    ..., :-1
-                ].clone()
+                                                    ..., :-1
+                                                    ].clone()
                 sorted_indices_to_remove[..., 0] = 0
 
                 # scatter sorted tensors to original indexing
@@ -370,7 +383,7 @@ class SpeakerModel(nn.Module):
                 idx = idx[0]
                 # pad from index to max length with pad token
                 completed_sentences[i][idx:] = torch.tensor([self.vocab["<pad>"]]) * (
-                    self.max_len - len(x)
+                        self.max_len - len(x)
                 )
 
         last_idx = torch.nonzero(completed_sentences)[:, -1]
@@ -381,11 +394,11 @@ class SpeakerModel(nn.Module):
         return completed_sentences
 
     def beam_serach(
-        self,
-        decoder_hid: torch.Tensor,
-        history_att: torch.Tensor,
-        masks: torch.Tensor,
-        model_params: Optional[Dict] = {},
+            self,
+            decoder_hid: torch.Tensor,
+            history_att: torch.Tensor,
+            masks: torch.Tensor,
+            model_params: Optional[Dict] = {},
     ) -> str:
         completed_sentences = []
         completed_scores = []
@@ -456,7 +469,7 @@ class SpeakerModel(nn.Module):
 
             # self.vocab - 1 to exclude <NOHS>
             sentence_index = top_words // (
-                len(self.vocab) - 1
+                    len(self.vocab) - 1
             )  # which sentence it will be added to
             word_index = top_words % (len(self.vocab) - 1)  # predicted word
 
@@ -526,11 +539,11 @@ class SpeakerModel(nn.Module):
             self.vocab.index2word[w]
             for w in best_seq
             if w
-            not in [
-                self.vocab.word2index["<sos>"],
-                self.vocab.word2index["<eos>"],
-                self.vocab.word2index["<pad>"],
-            ]
+               not in [
+                   self.vocab.word2index["<sos>"],
+                   self.vocab.word2index["<eos>"],
+                   self.vocab.word2index["<pad>"],
+               ]
         ]
         # remove sos and pads # I want to check eos
         hypothesis_string = " ".join(hypothesis)
@@ -545,13 +558,13 @@ class SpeakerModel(nn.Module):
         return hypothesis_string
 
     def forward(
-        self,
-        utterance,
-        prev_utterance,
-        prev_utt_lengths,
-        visual_context,
-        target_img_feats,
-        masks,
+            self,
+            utterance,
+            prev_utterance,
+            prev_utt_lengths,
+            visual_context,
+            target_img_feats,
+            masks,
     ):
 
         """
