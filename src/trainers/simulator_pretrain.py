@@ -189,7 +189,7 @@ def main():
     img_dim = 2048
     global common_p
 
-    common_p = parse_args("int")
+    common_p = parse_args("sim")
     domain = common_p.train_domain
 
     # for reproducibility
