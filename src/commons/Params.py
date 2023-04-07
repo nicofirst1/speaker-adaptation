@@ -281,6 +281,7 @@ class ListenerArguments(Params):
     utterances_file: Optional[str] = "ids_utterances.pickle"
     chains_file: Optional[str] = "text_chains.json"
     orig_ref_file: Optional[str] = "text_utterances.pickle"
+    mask_oov_embed: Optional[str] = "unk"
 
     #########################
     #   Model

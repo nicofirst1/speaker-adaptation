@@ -330,3 +330,18 @@ def change2random(tensor: torch.Tensor) -> torch.Tensor:
         t = torch.rand(tensor.shape)
 
     return t.to(tensor.device)
+
+def to_concat_context(separate_images: torch.Tensor) -> torch.Tensor:
+    """
+    Concatenate context images into one image
+    Parameters
+    ----------
+    separate_images : [batch_size, context_size, features]
+
+    Returns
+    -------
+    concatenated_images : [batch_size,  context_size * features]
+    """
+    batch_size, context_size, features = separate_images.shape
+    concatenated_images = separate_images.view(batch_size, -1)
+    return concatenated_images.to(separate_images.device)
