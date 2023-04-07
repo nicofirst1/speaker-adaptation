@@ -78,6 +78,10 @@ class Vocab:
 
     def decode(self, encoded_ids: torch.Tensor) -> str:
 
+
+        if len(encoded_ids.shape) == 0:
+            encoded_ids = encoded_ids.unsqueeze(0)
+
         decodes = " ".join([self.index2word[t.item()] for t in encoded_ids])
         rg = r"<[a-z]+>"
         decodes = re.sub(rg, "", decodes).strip()

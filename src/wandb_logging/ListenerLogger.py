@@ -211,7 +211,7 @@ class ListenerLogger(WandbLogger):
                 v = logs[k]
 
             # transform list into histograms
-            if isinstance(v, list) and len(v) > 0:
+            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], (int, float)):
                 try:
                     num_bins = max(v) if max(v) > 0 else 1
                     logs[k] = wandb.Histogram(v, num_bins=num_bins + 1)

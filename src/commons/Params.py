@@ -40,6 +40,7 @@ class Params:
     ############################################
     # Number of epochs for training
     epochs: Optional[int] = 60
+    episodes: Optional[int] = 100
     batch_size: Optional[int] = 32
     learning_rate: Optional[float] = 0.0001
 

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from src.commons import standardize
+from src.commons import standardize, to_concat_context
 
 
 class ListenerModel(nn.Module):
@@ -93,7 +93,6 @@ class ListenerModel(nn.Module):
         self,
         text: torch.Tensor,
         separate_images: torch.Tensor,
-        visual_context: torch.Tensor,
         masks: torch.Tensor,
     ):
 
@@ -106,7 +105,7 @@ class ListenerModel(nn.Module):
 
         text = text.to(self.device)
         separate_images = separate_images.to(self.device)
-        visual_context = visual_context.to(self.device)
+        visual_context = to_concat_context(separate_images)
         masks = masks.to(self.device)
 
         representations = self.embeddings(text)
