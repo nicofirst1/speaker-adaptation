@@ -1,6 +1,7 @@
 import datetime
 from typing import Dict, Tuple
 
+import lovely_tensors as lt
 import numpy as np
 import rich.progress
 import torch
@@ -25,12 +26,18 @@ global list_vocab
 
 
 def normalize_aux(aux, logger, all_domains, max_targets=3):
+    batch_size = len(aux["target_id"][0])
     aux["loss"] = np.mean(aux["loss"])
     aux["policy_loss"] = np.mean(aux["policy_loss"])
     aux["list_loss"] = np.mean(aux["list_loss"])
-    aux["list_acc"] = np.mean(aux["list_acc"])
+    aux["list_acc"] = np.mean(aux["list_acc"]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
-    aux['log_probs']=torch.stack(aux['log_probs']).mean(dim=0).numpy()
+    aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).mean(dim=0).numpy()
+    aux['dec_log_probs'] = torch.stack(aux['dec_log_probs']).mean(dim=0).mean(dim=0).numpy()
+
+    # remove nans from log probs
+    aux['enc_log_probs'] = np.nan_to_num(aux['enc_log_probs'])
+    aux['dec_log_probs'] = np.nan_to_num(aux['dec_log_probs'])
 
     # get max targets random ids in range of targets
     target_ids = np.random.choice(range(len(aux["target_id"])), max_targets)
@@ -39,6 +46,10 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
     for i in target_ids:
         t_id = aux["target_id"][i]
         utt = aux["utterance"][i]
+
+        jdx = np.random.choice(range(len(t_id)))
+        t_id = t_id[jdx]
+        utt = utt[jdx]
 
         t_id = logger.img_id2path[t_id]
 
@@ -70,15 +81,8 @@ def get_predictions(
     context_separate = data["image_set"]
     target = data["target_index"]
     image_ids = data["image_ids"]
-
-    target_img_feat = context_separate[target]
-
-    target_id = image_ids[target]
-
-    # simulate batch size of 1
-    context_separate = context_separate.unsqueeze(0)
-    target_img_feat = target_img_feat.unsqueeze(0)
-    target = target.unsqueeze(0)
+    target_id = data["target_id"]
+    target_img_feat = data["target_img_feat"]
 
     hypos, model_params, _ = speak_model.generate_hypothesis(context_separate, target_img_feat)
 
@@ -99,16 +103,21 @@ def get_predictions(
     list_loss = loss_f(list_out, target).mean()
 
     bs = baseline.predict(list_loss.detach())
-    logits = model_params['logits'].squeeze()
-    log_probs = torch.log_softmax(logits, dim=-1)
+    enc_logits = model_params['encoder_logits']
+    dec_logits = model_params['decoder_logits']
+    enc_log_probs = torch.log_softmax(enc_logits, dim=-1)
+    dec_log_probs = torch.log_softmax(dec_logits, dim=-1)
 
-    policy_loss = (list_loss.detach() - bs) * log_probs
+    if common_p.use_enc_logits:
+        policy_loss = (list_loss.detach() - bs) * enc_log_probs
+    else:
+        policy_loss = (list_loss.detach() - bs) * dec_log_probs
     policy_loss = policy_loss.mean()
 
     loss = list_loss + policy_loss
 
     baseline.update(list_loss.detach())
-    dec_utt = list_vocab.decode(utterance.squeeze())
+    dec_utt = list_vocab.batch_decode(utterance.squeeze())
 
     aux = dict(
         loss=loss.detach().cpu().item(),
@@ -116,9 +125,11 @@ def get_predictions(
         policy_loss=policy_loss.detach().cpu().item(),
         list_loss=list_loss.detach().cpu().item(),
         baseline=bs.detach().cpu().item(),
-        log_probs=log_probs.detach().cpu().squeeze(),
         utterance=dec_utt,
         target_id=target_id,
+        enc_log_probs=enc_log_probs.detach().cpu().squeeze(),
+        dec_log_probs=dec_log_probs.detach().cpu().squeeze(),
+
     )
 
     return loss, aux
@@ -149,7 +160,7 @@ def evaluate(
             total=episodes,
             description=f"evaluating '{split}' split...",
     ):
-        data = data_loader[idx]
+        data = next(iter(data_loader))
         loss, aux = get_predictions(
             data, list_model, speak_model, loss_f, translator, baseline
         )
@@ -175,11 +186,14 @@ def get_kwargs(split, common_p):
         "image_size": common_p.image_size,
         "img2dom_file": common_p.img2dom_file,
         "data_dir": common_p.data_path,
+        "batch_size": common_p.batch_size,
     }
     return kwargs
 
 
 def main():
+    lt.monkey_patch()
+
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
     global common_p
@@ -228,7 +242,6 @@ def main():
     list_args = list_checkpoint["args"]
 
     # update list args
-    list_args.batch_size = 1  # hypotesis generation does not support batch
     list_args.device = device
     list_args.reset_paths()
 
@@ -322,7 +335,7 @@ def main():
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([speaker_model])
+    logger.watch_model([speaker_model], log_freq=100)
 
     ###################################
     ##  Get  dataloader
@@ -331,10 +344,20 @@ def main():
     data_domain = common_p.data_domain
 
     kwargs = get_kwargs("train", common_p)
-    dataset_train = EcDataset(**kwargs)
+    dataset = EcDataset(**kwargs)
+    dataloader_train = DataLoader(
+        dataset,
+        batch_size=common_p.batch_size,
+        collate_fn=dataset.get_collate_fn(),
+    )
 
     kwargs = get_kwargs("val", common_p)
-    dataset_eval = EcDataset(**kwargs)
+    dataset = EcDataset(**kwargs)
+    dataloader_eval = DataLoader(
+        dataset,
+        batch_size=common_p.batch_size,
+        collate_fn=dataset.get_collate_fn(),
+    )
 
     speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
     translator = translate_utterance(speak2list_v, device)
@@ -355,6 +378,8 @@ def main():
         auxs = []
 
         speaker_model.train()
+        dataloader_train.dataset.randomize_data()
+        dataloader_eval.dataset.randomize_data()
 
         # torch.enable_grad()
         ###################################
@@ -369,7 +394,7 @@ def main():
         ):
             optimizer.zero_grad()
 
-            data = dataset_train[idx]
+            data = next(iter(dataloader_train))
 
             # get datapoints
             loss, aux = get_predictions(
@@ -389,13 +414,15 @@ def main():
             optimizer.step()
 
         aux = merge_dict(auxs)
+        aux['lr'] = optimizer.param_groups[0]['lr']
+
         normalize_aux(aux, logger, all_domains=logger.domains)
         logger.on_eval_end(
             aux, list_domain=data_domain, modality="train"
         )
 
         print(
-            f"Train loss {aux['loss']:.6f}, accuracy {aux['list_acc'] * 100:.2f} "
+            f"Train loss {aux['loss']:.6f}, accuracy {aux['list_acc'] * 100:.2f}% "
         )
 
         ###################################
@@ -407,7 +434,7 @@ def main():
 
             print(f"\nEvaluation")
             aux = evaluate(
-                dataset_eval,
+                dataloader_eval,
                 speaker_model,
                 list_model,
                 translator,
@@ -422,7 +449,7 @@ def main():
             scheduler.step(eval_accuracy)
 
             print(
-                f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f} "
+                f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f}% "
             )
             logger.on_eval_end(
                 aux, list_domain=data_domain, modality="eval"

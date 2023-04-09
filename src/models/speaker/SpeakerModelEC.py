@@ -1,10 +1,10 @@
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.commons import mask_attn, standardize, to_concat_context
+from src.commons import standardize, to_concat_context
 
 
 class SpeakerModelEC(nn.Module):
@@ -139,17 +139,16 @@ class SpeakerModelEC(nn.Module):
         """
 
         decoder_hid, history_att, model_params = self.partial_forward(
-              visual_context, target_img_feats
+            visual_context, target_img_feats
         )
 
         model_params["history_att"] = history_att
 
-
-
-        hypos = self.nucleus_sampling(
+        hypos, dec_logits = self.nucleus_sampling(
             decoder_hid, history_att, top_p=self.top_p, top_k=self.top_k
         )
 
+        model_params["decoder_logits"] = dec_logits
 
         return hypos, model_params, decoder_hid
 
@@ -159,30 +158,28 @@ class SpeakerModelEC(nn.Module):
             target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
 
-
-
         batch_size = visual_context.shape[0]
 
         # standardize input
-        visual_context=to_concat_context(visual_context)
+        visual_context = to_concat_context(visual_context)
         visual_context = standardize(visual_context)
         target_img_feats = standardize(target_img_feats)
 
         visual_context_hid = self.relu(self.lin_viscontext(visual_context))
         target_img_hid = self.relu(self.linear_separate(target_img_feats))
 
-        concat_visual_input = self.relu(
-            self.linear_hid(torch.cat((visual_context_hid, target_img_hid), dim=1))
-        )
+        concat_visual_input = torch.cat((visual_context_hid, target_img_hid), dim=1)
+
+        concat_visual_input = self.relu(self.linear_hid(concat_visual_input))
 
         # here we need to get rid of all prev_utterances, do so by filling an empty torch tensor
         pad_val = self.vocab.word2index["<pad>"]
         nohs_val = self.vocab.word2index["<nohs>"]
 
-        empty_utt = torch.full((batch_size,self.vocab_size), pad_val)
+        empty_utt = torch.full((batch_size, self.vocab_size), pad_val)
         empty_utt[:, 0] = nohs_val
         prev_utterance = empty_utt.to(self.device)
-        prev_utt_lengths = torch.tensor([1]).to(self.device)
+        prev_utt_lengths = torch.ones(batch_size).to(self.device)
 
         embeds_words = self.embedding(prev_utterance)  # b, l, d
 
@@ -213,8 +210,9 @@ class SpeakerModelEC(nn.Module):
         # re-pad sequence
         outputs, _ = nn.utils.rnn.pad_packed_sequence(packed_outputs, batch_first=True)
         # already concat forward backward
+        outputs = outputs.squeeze(1)
 
-        logit=self.hid2voc(outputs)
+        logit = self.hid2voc(outputs)
 
         # un-sort
         _, reversed_idx = torch.sort(sorted_idx)
@@ -242,7 +240,7 @@ class SpeakerModelEC(nn.Module):
             embeds_words=embeds_words,
             target_img_hid=target_img_hid,
             visual_context_hid=visual_context_hid,
-            logits=logit,
+            encoder_logits=logit,
         )
 
         return decoder_hid, history_att, model_params
@@ -253,7 +251,7 @@ class SpeakerModelEC(nn.Module):
             history_att,
             top_k=0,
             top_p=0.0,
-            filter_value=-float("Inf"),
+            filter_value=0,
     ):
         """Filter a distribution using top-k and/or nucleus (top-p) filtering
         Args:
@@ -281,12 +279,14 @@ class SpeakerModelEC(nn.Module):
         gen_len = 0
 
         decoder_input = sos_token  # beam_k sos copies
+        dec_logits = torch.zeros((self.max_len, batch_size, self.vocab_size)).to(self.device)
+        eos_mask = torch.zeros((self.max_len + 1, batch_size)).to(self.device)
 
         while True:
 
             # EOS?
 
-            if gen_len > self.max_len:
+            if gen_len >= self.max_len:
                 break  # very long sentence generated
 
             # generate
@@ -298,26 +298,13 @@ class SpeakerModelEC(nn.Module):
             decoder_embeds = decoder_embeds.squeeze(1)
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
 
-            h1_att = self.lin2att_hid(h1)
-            h1_att = h1_att.unsqueeze(1)
-            attention_out = self.relu(history_att + h1_att)
-            attention_out = standardize(attention_out)
-            attention_out = self.attention(attention_out)
+            h1_att = torch.cat((h1, history_att), dim=1)
+            dec_logit = self.lin2voc(h1_att)
+            dec_logits[gen_len] = dec_logit
 
-            masks = torch.zeros_like(attention_out).bool()
-            attention_out = attention_out.masked_fill_(masks, float("-inf"))
-
-            att_weights = self.softmax(attention_out)
-
-            att_context_vector = (history_att * att_weights).sum(dim=1)
-
-            word_pred = F.log_softmax(
-                self.lin2voc(torch.cat((h1, att_context_vector), dim=1)),
-                dim=1,
-            )
+            word_pred = F.softmax(self.lin2voc(h1_att), dim=1, )
 
             word_pred = word_pred.squeeze()
-
 
             top_k = min(top_k, word_pred.size(-1))  # Safety check
             if top_k > 0:
@@ -328,18 +315,15 @@ class SpeakerModelEC(nn.Module):
                 word_pred[indices_to_remove] = filter_value
 
             if top_p > 0.0:
-                sorted_logits, sorted_indices = torch.sort(word_pred, descending=True)
-                cumulative_probs = torch.cumsum(
-                    F.softmax(sorted_logits, dim=-1), dim=-1
-                )
+                sorted_log_probs, sorted_indices = torch.sort(word_pred, descending=True)
+                sorted_probs = torch.exp(sorted_log_probs)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
 
                 # Remove tokens with cumulative probability above the threshold
                 sorted_indices_to_remove = cumulative_probs > top_p
 
                 # Shift the indices to the right to keep also the first token above the threshold
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
-                                                    ..., :-1
-                                                    ].clone()
+                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
                 sorted_indices_to_remove[..., 0] = 0
 
                 # scatter sorted tensors to original indexing
@@ -353,15 +337,23 @@ class SpeakerModelEC(nn.Module):
                     )
                 word_pred = word_pred.masked_fill(indices_to_remove, filter_value)
 
-            probabilities = F.softmax(word_pred, dim=-1)
-            next_token = torch.multinomial(probabilities, 1)
+
+            next_token = torch.multinomial(word_pred, 1)
             # next_token = next_token.squeeze()
             decoder_input = next_token
 
             word_index = next_token % (len(self.vocab) - 1)  # predicted word
             completed_sentences.append(word_index)
 
-            if (word_index == eos_token).all():
+            eos_idxs = word_index == eos_token
+            # get index of eos
+            idx = eos_idxs.nonzero(as_tuple=True)[0]
+            if len(idx) > 0:
+                # normalize logit
+                for i in idx:
+                    eos_mask[gen_len + 1:, i] = 1
+
+            if eos_mask[gen_len + 1].all():
                 break
 
             gen_len += 1
@@ -375,252 +367,29 @@ class SpeakerModelEC(nn.Module):
         if completed_sentences.ndim == 1:
             completed_sentences = completed_sentences.unsqueeze(0)
 
-        for i in range(len(completed_sentences)):
-            x = completed_sentences[i]
+        # truncate
+        eos_mask=eos_mask[:self.max_len,:]
+        eos_mask = eos_mask[:gen_len + 1, :]
+        dec_logits = dec_logits[:gen_len + 1, :, :]
 
-            # get index of eos
-            idx = (x == self.vocab["<eos>"]).nonzero(as_tuple=True)[0]
-            # if found
-            if len(idx) > 0:
-                idx = idx[0]
-                # pad from index to max length with pad token
-                completed_sentences[i][idx:] = torch.tensor([self.vocab["<pad>"]]) * (
-                        self.max_len - len(x)
-                )
+        # for each column of the mask get the index of the first 1
+        eos_idxs = torch.argmax(eos_mask, dim=0)
+        # change values zero with max_len
+        eos_idxs[eos_idxs == 0] = self.max_len
 
-        last_idx = torch.nonzero(completed_sentences)[:, -1]
-        if len(last_idx) > 0:
-            last_idx = torch.max(last_idx) + 1
-            completed_sentences = completed_sentences[:, :last_idx]
+        # convert to mask
+        eos_mask = eos_mask.bool()
 
+        # apply mask to complete_sentences
+        completed_sentences = completed_sentences.masked_fill(eos_mask.T, self.vocab["<pad>"])
+        dec_logits[eos_mask,:] =0
 
-        return completed_sentences
+        # sum and normalize logits
+        dec_logits = dec_logits.sum(0)
 
-    def beam_serach(
-            self,
-            decoder_hid: torch.Tensor,
-            history_att: torch.Tensor,
-            masks: torch.Tensor,
-            model_params: Optional[Dict] = {},
-    ) -> str:
-        completed_sentences = []
-        completed_scores = []
-        empty_count = 0
-        beam_k = self.beam_k
+        for idx in range(len(eos_idxs)):
+            dec_logits[idx,:] = dec_logits[idx,:] / eos_idxs[idx]
 
-        sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
-        eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
 
-        decoder_hid = decoder_hid.expand(beam_k, -1)
 
-        # multiple copies of the decoder
-        h1, c1 = decoder_hid, decoder_hid
-
-        # ***** beam search *****
-
-        gen_len = 0
-
-        decoder_input = sos_token.expand(beam_k, 1)  # beam_k sos copies
-
-        gen_sentences_k = decoder_input  # all start off with sos now
-
-        top_scores = torch.zeros(beam_k, 1).to(self.device)  # top-k generation scores
-
-        while True:
-
-            # EOS?
-
-            if gen_len > self.max_len:
-                break  # very long sentence generated
-
-            # generate
-
-            # sos segment eos
-            # base self with visual input
-
-            decoder_embeds = self.embedding(decoder_input).squeeze(1)
-
-            h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
-
-            h1_att = self.lin2att_hid(h1)
-
-            attention_out = self.attention(self.tanh(history_att + h1_att.unsqueeze(1)))
-
-            attention_out = attention_out.masked_fill_(masks, float("-inf"))
-
-            att_weights = self.softmax(attention_out)
-
-            att_context_vector = (history_att * att_weights).sum(dim=1)
-
-            word_pred = F.log_softmax(
-                self.lin2voc(torch.cat((h1, att_context_vector), dim=1)), dim=1
-            )
-
-            word_pred = top_scores.expand_as(word_pred) + word_pred
-
-            if gen_len == 0:
-                # all same
-
-                # static std::tuple<Tensor, Tensor> at::topk(const Tensor &self, int64_t k,
-                # int64_t dim = -1, bool largest = true, bool sorted = true)
-
-                top_scores, top_words = word_pred[0].topk(beam_k, 0, True, True)
-
-            else:
-                # unrolled
-                top_scores, top_words = word_pred.view(-1).topk(beam_k, 0, True, True)
-
-            # self.vocab - 1 to exclude <NOHS>
-            sentence_index = top_words // (
-                    len(self.vocab) - 1
-            )  # which sentence it will be added to
-            word_index = top_words % (len(self.vocab) - 1)  # predicted word
-
-            gen_len += 1
-
-            # add the newly generated word to the sentences
-            gen_sentences_k = torch.cat(
-                (gen_sentences_k[sentence_index], word_index.unsqueeze(1)), dim=1
-            )
-
-            # there could be incomplete sentences
-            incomplete_sents_inds = [
-                inc
-                for inc in range(len(gen_sentences_k))
-                if eos_token not in gen_sentences_k[inc]
-            ]
-
-            complete_sents_inds = list(
-                set(range(len(word_index))) - set(incomplete_sents_inds)
-            )
-
-            # save the completed sentences
-            if len(complete_sents_inds) > 0:
-                completed_sentences.extend(
-                    gen_sentences_k[complete_sents_inds].tolist()
-                )
-                completed_scores.extend(top_scores[complete_sents_inds])
-
-                beam_k -= len(
-                    complete_sents_inds
-                )  # fewer, because we closed at least 1 beam
-
-            if beam_k == 0:
-                break
-
-            # continue generation for the incomplete sentences
-            gen_sentences_k = gen_sentences_k[incomplete_sents_inds]
-
-            # use the ongoing hidden states of the incomplete sentences
-            h1, c1 = (
-                h1[sentence_index[incomplete_sents_inds]],
-                c1[sentence_index[incomplete_sents_inds]],
-            )
-
-            top_scores = top_scores[incomplete_sents_inds].unsqueeze(1)
-            decoder_input = word_index[incomplete_sents_inds]
-            decoder_hid = decoder_hid[incomplete_sents_inds]
-
-        if len(completed_scores) == 0:
-            empty_count += 1
-            # print('emptyseq', empty_count)
-
-            # all incomplete here
-
-            completed_sentences.extend(
-                (gen_sentences_k[incomplete_sents_inds].tolist())
-            )
-            completed_scores.extend(top_scores[incomplete_sents_inds])
-
-        sorted_scores, sorted_indices = torch.sort(
-            torch.tensor(completed_scores), descending=True
-        )
-
-        best_seq = completed_sentences[sorted_indices[0]]
-
-        hypothesis = [
-            self.vocab.index2word[w]
-            for w in best_seq
-            if w
-               not in [
-                   self.vocab.word2index["<sos>"],
-                   self.vocab.word2index["<eos>"],
-                   self.vocab.word2index["<pad>"],
-               ]
-        ]
-        # remove sos and pads # I want to check eos
-        hypothesis_string = " ".join(hypothesis)
-
-        model_params.update(
-            dict(
-                att_context_vector=att_context_vector,
-                decoder_embeds=decoder_embeds,
-            )
-        )
-
-        return hypothesis_string
-
-    def forward(
-            self,
-            utterance,
-            prev_utterance,
-            prev_utt_lengths,
-            visual_context,
-            target_img_feats,
-            masks,
-    ):
-
-        """
-        @param utterance: ground-truth subsequent utterance converted into indices using the reduced vocabulary,
-        which will be fed into the decoder during teacher forcing
-        @param prev_utterance: if exists, the previous utterance for the image, if not <nohs>
-        @param prev_utt_lengths: length of the previous utterance
-        @param visual_context: concatenation of 6 images in the context
-        @param target_img_feats: features of the image for which we will generate a new utterance
-        @param masks: masks for pad tokens
-        """
-
-        batch_size = utterance.shape[0]  # effective batch size
-        decode_length = utterance.shape[1] - 1  # teacher forcing (except eos)
-
-        decoder_hid, history_att, model_params = self.partial_forward(
-            prev_utterance, prev_utt_lengths, visual_context, target_img_feats
-        )
-
-        # word prediction scores
-        predictions = torch.zeros(batch_size, decode_length, self.vocab_size).to(
-            self.device
-        )
-
-        # start decoder with the hidden states of the encoder
-        h1, c1 = decoder_hid, decoder_hid
-
-        # teacher forcing during training, decoder input: ground-truth subsequent utterance
-        target_utterance_embeds = self.embedding(utterance)
-
-        for l in range(decode_length):
-            # decoder takes target word embeddings
-            h1, c1 = self.lstm_decoder(target_utterance_embeds[:, l], hx=(h1, c1))
-
-            # use h1 in attention calculations over the history
-            h1_att = self.lin2att_hid(h1)
-
-            # attention calculation (previous utterance and current decoder state interacts)
-            attention_out = self.attention(self.tanh(history_att + h1_att.unsqueeze(1)))
-
-            # pad tokens in the previous utterance to mask them out
-            attention_out = attention_out.masked_fill_(masks, float("-inf"))
-
-            # final attention weights
-            att_weights = self.softmax(attention_out)
-
-            # encoder context representation
-            att_context_vector = (history_att * att_weights).sum(dim=1)
-
-            # projection to vocabulary size to predict the word to be generated
-            # decoder's current hidden state and encoder context vector
-            word_pred = self.lin2voc(torch.cat((h1, att_context_vector), dim=1))
-
-            predictions[:, l] = word_pred
-
-        return predictions
+        return completed_sentences, dec_logits

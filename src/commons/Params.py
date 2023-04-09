@@ -44,6 +44,10 @@ class Params:
     batch_size: Optional[int] = 32
     learning_rate: Optional[float] = 0.0001
 
+    # Emergent communication finetune
+    episodes: Optional[int] = 100
+    use_enc_logits: Optional[bool] = False
+
     # Set to true for disabling wandb logging
     debug: Optional[bool] = False
     tags: Optional[str] = ""
