@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical, Multinomial
-from src.commons import standardize, to_concat_context
+from src.commons import standardize, to_concat_context, set_seed
+
 class TemperatureSampler:
     """
     ## Sampler with Temperature
@@ -41,8 +42,6 @@ class SpeakerModelEC(nn.Module):
             top_k,
             top_p,
             device,
-            use_beam=False,
-            use_prev_utterances=False,
 
     ):
         super().__init__()
@@ -55,8 +54,6 @@ class SpeakerModelEC(nn.Module):
         self.max_len = max_len
         self.top_k = top_k
         self.top_p = top_p
-        self.use_beam = use_beam
-        self.use_prev_utterances = use_prev_utterances
 
         self.embedding_dim = embedding_dim
         self.hidden_dim = hidden_dim
@@ -105,7 +102,7 @@ class SpeakerModelEC(nn.Module):
         )  # 2 because of BiLSTM
 
         # project to vocabulary size
-        self.dec_hid2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
+        self.lin2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
         self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size )
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
@@ -132,7 +129,7 @@ class SpeakerModelEC(nn.Module):
             self.linear_hid,
             self.linear_dec,
             self.linear_separate,
-            self.dec_hid2voc,
+            self.lin2voc,
             self.enc_hid2voc,
             self.lin_viscontext,
             self.lin_mm,
@@ -197,10 +194,10 @@ class SpeakerModelEC(nn.Module):
         pad_val = self.vocab.word2index["<pad>"]
         nohs_val = self.vocab.word2index["<nohs>"]
 
-        empty_utt = torch.full((batch_size, self.vocab_size), pad_val)
+        empty_utt = torch.full((batch_size, 1), pad_val)
         empty_utt[:, 0] = nohs_val
         prev_utterance = empty_utt.to(self.device)
-        prev_utt_lengths = torch.ones(batch_size).to(self.device)
+        prev_utt_lengths = torch.as_tensor([1]*batch_size).to(self.device)
 
         embeds_words = self.embedding(prev_utterance)  # b, l, d
 
@@ -297,8 +294,9 @@ class SpeakerModelEC(nn.Module):
         gen_len = 0
 
         decoder_input = sos_token  # beam_k sos copies
-        dec_logits = torch.zeros((self.max_len, batch_size, self.dec_hid2voc.out_features)).to(self.device)
+        dec_logits = torch.zeros((self.max_len, batch_size, self.lin2voc.out_features)).to(self.device)
         eos_mask = torch.zeros((self.max_len +1, batch_size)).to(self.device)
+
 
         while True:
 
@@ -312,10 +310,10 @@ class SpeakerModelEC(nn.Module):
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
 
             h1_att = torch.cat((h1, history_att), dim=-1)
-            dec_logit = self.dec_hid2voc(h1_att)
+            dec_logit = self.lin2voc(h1_att)
             dec_logits[gen_len] = dec_logit
 
-            word_pred = F.softmax(self.dec_hid2voc(h1_att), dim=1, )
+            word_pred = F.softmax(dec_logit, dim=1, )
 
             word_pred = word_pred.squeeze()
 

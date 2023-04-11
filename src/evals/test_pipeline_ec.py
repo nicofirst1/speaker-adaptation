@@ -1,6 +1,7 @@
 import copy
 import os
 from typing import Dict, List, Optional
+import lovely_tensors as lt
 
 import numpy as np
 import rich.progress
@@ -16,6 +17,7 @@ from src.data.dataloaders import Vocab
 from src.models.listener.ListenerModel import ListenerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
 from src.models.speaker.SpeakerModel import SpeakerModel
+from src.models.speaker.SpeakerModelEC import SpeakerModelEC
 from src.wandb_logging import ListenerLogger
 
 
@@ -80,7 +82,7 @@ def gen_sim_table(
 
 
 def gen_list_domain_table(
-        ind_gen: Dict,ood_gen: Dict, cur_domain: str
+        ind_gen: Dict, ood_gen: Dict, cur_domain: str
 ) -> wandb.Table:
     """
     Create and fill a wandb table for the generated,golden and difference metrics.
@@ -95,12 +97,12 @@ def gen_list_domain_table(
 
     """
 
-    ood_gen=ood_gen['domain_list_accuracy']
-    ood_gen[dom]=ind_gen['list_accuracy']
+    ood_gen = ood_gen['domain_list_accuracy']
+    ood_gen[dom] = ind_gen['list_accuracy']
     ood_gen.pop("all")
-    ood_gen=sorted(list(ood_gen.items()))
+    ood_gen = sorted(list(ood_gen.items()))
 
-    table_columns = ["list_domain"]+list(map(lambda x: x[0], ood_gen))
+    table_columns = ["list_domain"] + list(map(lambda x: x[0], ood_gen))
 
     # define table data rows
     data = [cur_domain] + list(map(lambda x: x[1], ood_gen))
@@ -110,26 +112,14 @@ def gen_list_domain_table(
     return table
 
 
-
-def evaluate_and_log(listener: ListenerModel, speaker: SpeakerModel, simulator: SimulatorModel, logger: ListenerLogger,
+def evaluate_and_log(listener: ListenerModel, speaker: SpeakerModel, speaker_ec: SpeakerModelEC,
+                     simulator: SimulatorModel, logger: ListenerLogger,
                      cur_domain: str, data_loader: DataLoader, translator, split: str):
-    print(f"{split} on '{cur_domain}' domain with golden caption ")
-    golden_metrics = evaluate_trained_model(
-        dataloader=data_loader,
-        list_model=listener,
-        sim_model=simulator,
-        translator=translator,
-        domain=dom,
-        logger=logger,
-        split=split,
-    )
-
-    print(golden_metrics)
-
     print(f"{split} on '{cur_domain}' domain")
     gen_metrics = evaluate_trained_model(
         dataloader=data_loader,
         speak_model=speaker,
+        speak_model_ec=speaker_ec,
         list_model=listener,
         sim_model=simulator,
         translator=translator,
@@ -141,17 +131,7 @@ def evaluate_and_log(listener: ListenerModel, speaker: SpeakerModel, simulator: 
 
     in_domain = cur_domain == data_loader.dataset.domain
 
-    l_table = gen_list_table(golden_metrics, gen_metrics, cur_domain)
-    s_table = gen_sim_table(golden_metrics, gen_metrics, cur_domain)
-
-    l_label = f"{split}_IND_list" if in_domain else f"{split}_OOD_list"
-    s_label = f"{split}_IND_sim" if in_domain else f"{split}_OOD_sim"
-
-    logs = {l_label: l_table, s_label: s_table}
-
-    logger.log_to_wandb(logs, commit=True)
-
-    return gen_metrics, golden_metrics
+    return gen_metrics
 
 
 def evaluate_trained_model(
@@ -162,7 +142,8 @@ def evaluate_trained_model(
         domain: str,
         logger: ListenerLogger,
         split: str,
-        speak_model: Optional[torch.nn.Module] = None,
+        speak_model: Optional[SpeakerModel] = None,
+        speak_model_ec: Optional[SpeakerModelEC] = None,
 ):
     list_accuracies = []
     sim_accuracies = []
@@ -202,14 +183,22 @@ def evaluate_trained_model(
         if speak_model is not None:
             # generate hypo with speaker
             target_img_feats = data["target_img_feats"]
+            context_separate = data["separate_images"]
             prev_utterance = data["prev_utterance"]
             prev_utt_lengths = data["prev_length"]
             visual_context = data["concat_context"]
 
             # generate hypo with speaker
-            utterance, _, decoder_hid = speak_model.generate_hypothesis(
-                prev_utterance, prev_utt_lengths, visual_context, target_img_feats
-            )
+            # utterance, mp, decoder_hid = speak_model.generate_hypothesis(
+            #     prev_utterance, prev_utt_lengths, visual_context, target_img_feats
+            # )
+
+            utterance_ec, mp_ec, decoder_hid_ec = speak_model_ec.generate_hypothesis(context_separate, target_img_feats
+                                                                        )
+
+            utterance=utterance_ec
+            decoder_hid=decoder_hid_ec
+            mp=mp_ec
 
             hypo = [speak_vocab.decode(sent) for sent in utterance][0]
             translator(utterance)
@@ -230,7 +219,7 @@ def evaluate_trained_model(
         masks = mask_attn(lengths, max_length_tensor, list_model.device)
 
         # get listener output
-        list_out = list_model(utterance, context_separate, context_concat, masks)
+        list_out = list_model(utterance, context_separate, masks)
         list_out = list_out.squeeze(-1)
         list_preds = torch.argmax(list_out, dim=1)
         list_correct = torch.eq(list_preds, targets).float().item()
@@ -337,6 +326,7 @@ def generate_table_row(
 
 if __name__ == "__main__":
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    lt.monkey_patch()
 
     common_args = parse_args("list")
 
@@ -374,13 +364,31 @@ if __name__ == "__main__":
         speak_p.top_p,
         device=device,
         use_beam=speak_p.use_beam,
-        use_prev_utterances=False,
     ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"])
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()
+
+    speaker_model_ec = SpeakerModelEC(
+        speak_vocab,
+        speak_p.embedding_dim,
+        speak_p.hidden_dim,
+        img_dim,
+        speak_p.dropout_prob,
+        speak_p.attention_dim,
+        speak_p.sampler_temp,
+        speak_p.max_len,
+        speak_p.top_k,
+        speak_p.top_p,
+        device=device,
+    ).to(device)
+
+    speaker_model_ec.load_state_dict(speak_check["model_state_dict"], strict=False)
+    speaker_model_ec = speaker_model_ec.to(device)
+
+    speaker_model_ec = speaker_model_ec.eval()
 
     ####################################
     # LISTENER
@@ -483,27 +491,12 @@ if __name__ == "__main__":
         list_model.eval()
 
         ########################
-        #  IN DOMAIN
-        ########################
-
-        # get dataloaders
-        train_loader, test_loader, val_loader = get_dataloaders(
-            list_args, speak_vocab, list_args.train_domain
-        )
-
-        ind_gen, _=evaluate_and_log(listener=list_model, speaker=speaker_model, data_loader=test_loader, logger=logger,
-                         split="test", translator=translator, simulator=sim_model, cur_domain=dom)
-
-        ########################
         #  OOD
         ########################
         _, test_loader, val_loader = get_dataloaders(list_args, speak_vocab, "all")
 
-        ood_gen,_=evaluate_and_log(listener=list_model, speaker=speaker_model, data_loader=test_loader, logger=logger,
-                         split="test", translator=translator, simulator=sim_model, cur_domain=dom)
-
-
-        table=gen_list_domain_table(ind_gen, ood_gen, dom)
-        logger.log_to_wandb(dict(list_domain=table), commit=True)
+        ood_gen, _ = evaluate_and_log(listener=list_model, speaker=speaker_model, speaker_ec=speaker_model_ec,
+                                      data_loader=test_loader, logger=logger,
+                                      split="test", translator=translator, simulator=sim_model, cur_domain=dom)
 
         logger.wandb_close()
