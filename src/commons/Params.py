@@ -47,6 +47,7 @@ class Params:
     # Emergent communication finetune
     episodes: Optional[int] = 100
     use_enc_logits: Optional[bool] = False
+    entropy_loss_weight: Optional[float] = 0.5
 
     # Set to true for disabling wandb logging
     debug: Optional[bool] = False

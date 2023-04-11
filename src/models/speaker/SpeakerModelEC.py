@@ -84,8 +84,8 @@ class SpeakerModelEC(nn.Module):
         )  # 2 because of BiLSTM
 
         # project to vocabulary size
-        self.lin2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
-        self.hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size)
+        self.dec_hid2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size + 1)
+        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size + 1)
 
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
@@ -112,7 +112,7 @@ class SpeakerModelEC(nn.Module):
             self.linear_hid,
             self.linear_dec,
             self.linear_separate,
-            self.lin2voc,
+            self.dec_hid2voc,
             self.lin_viscontext,
             self.lin_mm,
             self.lin2att_hist,
@@ -212,7 +212,7 @@ class SpeakerModelEC(nn.Module):
         # already concat forward backward
         outputs = outputs.squeeze(1)
 
-        logit = self.hid2voc(outputs)
+        logit = self.enc_hid2voc(outputs)
 
         # un-sort
         _, reversed_idx = torch.sort(sorted_idx)
@@ -279,8 +279,8 @@ class SpeakerModelEC(nn.Module):
         gen_len = 0
 
         decoder_input = sos_token  # beam_k sos copies
-        dec_logits = torch.zeros((self.max_len, batch_size, self.vocab_size)).to(self.device)
-        eos_mask = torch.zeros((self.max_len + 1, batch_size)).to(self.device)
+        dec_logits = torch.zeros((self.max_len, batch_size, self.vocab_size+1)).to(self.device)
+        eos_mask = torch.zeros((self.max_len , batch_size)).to(self.device)
 
         while True:
 
@@ -299,10 +299,10 @@ class SpeakerModelEC(nn.Module):
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
 
             h1_att = torch.cat((h1, history_att), dim=1)
-            dec_logit = self.lin2voc(h1_att)
+            dec_logit = self.dec_hid2voc(h1_att)
             dec_logits[gen_len] = dec_logit
 
-            word_pred = F.softmax(self.lin2voc(h1_att), dim=1, )
+            word_pred = F.softmax(dec_logit, dim=1, )
 
             word_pred = word_pred.squeeze()
 
@@ -385,11 +385,14 @@ class SpeakerModelEC(nn.Module):
         dec_logits[eos_mask,:] =0
 
         # sum and normalize logits
+        dec_logits= F.normalize(dec_logits, p=2, dim=0)
         dec_logits = dec_logits.sum(0)
 
-        for idx in range(len(eos_idxs)):
-            dec_logits[idx,:] = dec_logits[idx,:] / eos_idxs[idx]
+        # for idx in range(len(eos_idxs)):
+        #     dec_logits[idx,:] = dec_logits[idx,:] / eos_idxs[idx]
+        #
 
-
+        # dec_logits=torch.matmul(dec_logits, self.embedding.weight)
+        # dec_logits = F.normalize(dec_logits, p=2, dim=-1)
 
         return completed_sentences, dec_logits

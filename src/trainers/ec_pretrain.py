@@ -7,9 +7,10 @@ import rich.progress
 import torch
 import wandb
 from torch import nn, optim
+from torch.distributions import Categorical
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
-
+import torch.nn.functional as F
 from src.commons import (SPEAKER_CHK, EarlyStopping,
                          get_listener_check, load_wandb_checkpoint,
                          mask_attn, mask_oov_embeds,
@@ -30,6 +31,8 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
     aux["loss"] = np.mean(aux["loss"])
     aux["policy_loss"] = np.mean(aux["policy_loss"])
     aux["list_loss"] = np.mean(aux["list_loss"])
+    aux["entropy_loss"] = np.mean(aux["entropy_loss"])
+    list_acc=aux["list_acc"]
     aux["list_acc"] = np.mean(aux["list_acc"]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
     aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).mean(dim=0).numpy()
@@ -108,27 +111,39 @@ def get_predictions(
     enc_log_probs = torch.log_softmax(enc_logits, dim=-1)
     dec_log_probs = torch.log_softmax(dec_logits, dim=-1)
 
+    # try to implement entropy loss here
+    # https://github.com/facebookresearch/EGG/blob/18d72d86cf9706e7ad82f94719b56accd288e59a/egg/zoo/compo_vs_generalization_ood/archs.py#L144
+
     if common_p.use_enc_logits:
         policy_loss = (list_loss.detach() - bs) * enc_log_probs
+        distr= Categorical(logits=enc_logits)
     else:
         policy_loss = (list_loss.detach() - bs) * dec_log_probs
+        distr= Categorical(logits=dec_logits)
+
     policy_loss = policy_loss.mean()
 
-    loss = list_loss + policy_loss
+    entropy=distr.entropy()
+    entropy_loss=- entropy.mean()
+
+    loss = list_loss + policy_loss + entropy_loss * common_p.entropy_loss_weight
 
     baseline.update(list_loss.detach())
     dec_utt = list_vocab.batch_decode(utterance.squeeze())
 
     aux = dict(
         loss=loss.detach().cpu().item(),
-        list_acc=list_acc,
         policy_loss=policy_loss.detach().cpu().item(),
         list_loss=list_loss.detach().cpu().item(),
+        entropy_loss=entropy_loss.detach().cpu().item(),
         baseline=bs.detach().cpu().item(),
+
         utterance=dec_utt,
         target_id=target_id,
+        list_acc=list_acc,
         enc_log_probs=enc_log_probs.detach().cpu().squeeze(),
         dec_log_probs=dec_log_probs.detach().cpu().squeeze(),
+
 
     )
 
@@ -193,6 +208,8 @@ def get_kwargs(split, common_p):
 
 def main():
     lt.monkey_patch()
+
+
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     img_dim = 2048
