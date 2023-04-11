@@ -48,6 +48,8 @@ class Params:
     episodes: Optional[int] = 100
     use_enc_logits: Optional[bool] = False
     entropy_loss_weight: Optional[float] = 0.5
+    policy_loss_weight: Optional[float] = 0.5
+    sampler_temp: Optional[float] = 1.0
 
     # Set to true for disabling wandb logging
     debug: Optional[bool] = False
@@ -113,7 +115,6 @@ class Params:
     ############################################
 
     # beam search size
-    beam_size: Optional[int] = 5
     # max length for prediction
     max_len: Optional[int] = 30
 

@@ -3,9 +3,29 @@ from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torch.distributions import Categorical, Multinomial
 from src.commons import standardize, to_concat_context
+class TemperatureSampler:
+    """
+    ## Sampler with Temperature
+    """
+    def __init__(self, temperature: float = 1.0):
+        """
+        :param temperature: is the temperature to sample with
+        """
+        self.temperature = temperature
 
+    def __call__(self, logits: torch.Tensor):
+        """
+        Sample from logits
+        """
+
+        # Create a categorical distribution with temperature adjusted logits
+        dist = Categorical(logits=logits / self.temperature)
+
+
+        # Sample
+        return dist.sample()
 
 class SpeakerModelEC(nn.Module):
     def __init__(
@@ -16,7 +36,7 @@ class SpeakerModelEC(nn.Module):
             img_dim,
             dropout_prob,
             attention_dim,
-            beam_k,
+            sampler_temp,
             max_len,
             top_k,
             top_p,
@@ -32,7 +52,6 @@ class SpeakerModelEC(nn.Module):
         vocab_len = len(vocab) - 1
 
         self.vocab_size = vocab_len
-        self.beam_k = beam_k
         self.max_len = max_len
         self.top_k = top_k
         self.top_p = top_p
@@ -44,6 +63,8 @@ class SpeakerModelEC(nn.Module):
         self.img_dim = img_dim
         self.dropout_prob = dropout_prob
         self.device = device
+
+        self.sampler = TemperatureSampler(temperature=sampler_temp)
 
         # attention over encoder steps
         self.attention_dim = attention_dim
@@ -84,9 +105,8 @@ class SpeakerModelEC(nn.Module):
         )  # 2 because of BiLSTM
 
         # project to vocabulary size
-        self.dec_hid2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size + 1)
-        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size + 1)
-
+        self.dec_hid2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
+        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size )
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
         self.attention = nn.Linear(self.attention_dim, 1)
@@ -113,6 +133,7 @@ class SpeakerModelEC(nn.Module):
             self.linear_dec,
             self.linear_separate,
             self.dec_hid2voc,
+            self.enc_hid2voc,
             self.lin_viscontext,
             self.lin_mm,
             self.lin2att_hist,
@@ -145,7 +166,7 @@ class SpeakerModelEC(nn.Module):
         model_params["history_att"] = history_att
 
         hypos, dec_logits = self.nucleus_sampling(
-            decoder_hid, history_att, top_p=self.top_p, top_k=self.top_k
+            decoder_hid, history_att, top_p=self.top_p
         )
 
         model_params["decoder_logits"] = dec_logits
@@ -249,9 +270,7 @@ class SpeakerModelEC(nn.Module):
             self,
             decoder_hid,
             history_att,
-            top_k=0,
             top_p=0.0,
-            filter_value=0,
     ):
         """Filter a distribution using top-k and/or nucleus (top-p) filtering
         Args:
@@ -274,72 +293,51 @@ class SpeakerModelEC(nn.Module):
         # multiple copies of the decoder
         h1, c1 = decoder_hid, decoder_hid
 
-        # ***** beam search *****
 
         gen_len = 0
 
         decoder_input = sos_token  # beam_k sos copies
-        dec_logits = torch.zeros((self.max_len, batch_size, self.vocab_size+1)).to(self.device)
-        eos_mask = torch.zeros((self.max_len , batch_size)).to(self.device)
+        dec_logits = torch.zeros((self.max_len, batch_size, self.dec_hid2voc.out_features)).to(self.device)
+        eos_mask = torch.zeros((self.max_len +1, batch_size)).to(self.device)
 
         while True:
 
-            # EOS?
 
             if gen_len >= self.max_len:
                 break  # very long sentence generated
 
-            # generate
-
-            # sos segment eos
-            # base self with visual input
 
             decoder_embeds = self.embedding(decoder_input)
             decoder_embeds = decoder_embeds.squeeze(1)
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
 
-            h1_att = torch.cat((h1, history_att), dim=1)
+            h1_att = torch.cat((h1, history_att), dim=-1)
             dec_logit = self.dec_hid2voc(h1_att)
             dec_logits[gen_len] = dec_logit
 
-            word_pred = F.softmax(dec_logit, dim=1, )
+            word_pred = F.softmax(self.dec_hid2voc(h1_att), dim=1, )
 
             word_pred = word_pred.squeeze()
 
-            top_k = min(top_k, word_pred.size(-1))  # Safety check
-            if top_k > 0:
-                # Remove all tokens with a probability less than the last token of the top-k
-                indices_to_remove = (
-                        word_pred < torch.topk(word_pred, top_k)[0][..., -1, None]
-                )
-                word_pred[indices_to_remove] = filter_value
 
             if top_p > 0.0:
-                sorted_log_probs, sorted_indices = torch.sort(word_pred, descending=True)
-                sorted_probs = torch.exp(sorted_log_probs)
+                sorted_probs, sorted_indices = torch.sort(word_pred,dim=-1, descending=True)
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
 
                 # Remove tokens with cumulative probability above the threshold
-                sorted_indices_to_remove = cumulative_probs > top_p
-
-                # Shift the indices to the right to keep also the first token above the threshold
-                sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-                sorted_indices_to_remove[..., 0] = 0
-
-                # scatter sorted tensors to original indexing
-                if sorted_indices.dim() == 1:
-                    indices_to_remove = sorted_indices_to_remove.scatter(
-                        0, sorted_indices, sorted_indices_to_remove
-                    )
-                else:
-                    indices_to_remove = sorted_indices_to_remove.scatter(
-                        1, sorted_indices, sorted_indices_to_remove
-                    )
-                word_pred = word_pred.masked_fill(indices_to_remove, filter_value)
+                nucleus = cumulative_probs < top_p
 
 
-            next_token = torch.multinomial(word_pred, 1)
-            # next_token = next_token.squeeze()
+                nucleus = torch.cat([nucleus.new_ones(nucleus.shape[:-1] + (1,)), nucleus[..., :-1]], dim=-1)
+                sorted_log_probs = torch.log(sorted_probs)
+                sorted_log_probs[~nucleus] = float('-inf')
+
+                sampled_sorted_indexes = self.sampler(sorted_log_probs)
+                next_token = sorted_indices.gather(-1, sampled_sorted_indexes.unsqueeze(-1))
+                next_token.squeeze(-1)
+
+
+
             decoder_input = next_token
 
             word_index = next_token % (len(self.vocab) - 1)  # predicted word
@@ -349,6 +347,7 @@ class SpeakerModelEC(nn.Module):
             # get index of eos
             idx = eos_idxs.nonzero(as_tuple=True)[0]
             if len(idx) > 0:
+
                 # normalize logit
                 for i in idx:
                     eos_mask[gen_len + 1:, i] = 1
@@ -386,7 +385,7 @@ class SpeakerModelEC(nn.Module):
 
         # sum and normalize logits
         dec_logits= F.normalize(dec_logits, p=2, dim=0)
-        dec_logits = dec_logits.sum(0)
+        #dec_logits = dec_logits.sum(0)
 
         # for idx in range(len(eos_idxs)):
         #     dec_logits[idx,:] = dec_logits[idx,:] / eos_idxs[idx]
