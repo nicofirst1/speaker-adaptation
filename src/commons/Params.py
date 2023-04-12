@@ -49,6 +49,8 @@ class Params:
     use_enc_logits: Optional[bool] = False
     entropy_loss_weight: Optional[float] = 0.5
     policy_loss_weight: Optional[float] = 0.5
+    list_loss_weight: Optional[float] = 1.0
+    adversarial_loss_weight: Optional[float] = 1
     sampler_temp: Optional[float] = 1.0
     attack_eps: Optional[float] = 0.7
     attack_steps: Optional[float] = 10

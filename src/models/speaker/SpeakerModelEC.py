@@ -3,13 +3,16 @@ from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Categorical, Multinomial
-from src.commons import standardize, to_concat_context, set_seed
+from torch.distributions import Categorical
+
+from src.commons import standardize, to_concat_context
+
 
 class TemperatureSampler:
     """
     ## Sampler with Temperature
     """
+
     def __init__(self, temperature: float = 1.0):
         """
         :param temperature: is the temperature to sample with
@@ -24,9 +27,9 @@ class TemperatureSampler:
         # Create a categorical distribution with temperature adjusted logits
         dist = Categorical(logits=logits / self.temperature)
 
-
         # Sample
         return dist.sample()
+
 
 class SpeakerModelEC(nn.Module):
     def __init__(
@@ -103,7 +106,7 @@ class SpeakerModelEC(nn.Module):
 
         # project to vocabulary size
         self.lin2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
-        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size )
+        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size)
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
         self.attention = nn.Linear(self.attention_dim, 1)
@@ -197,7 +200,7 @@ class SpeakerModelEC(nn.Module):
         empty_utt = torch.full((batch_size, 1), pad_val)
         empty_utt[:, 0] = nohs_val
         prev_utterance = empty_utt.to(self.device)
-        prev_utt_lengths = torch.as_tensor([1]*batch_size).to(self.device)
+        prev_utt_lengths = torch.as_tensor([1] * batch_size).to(self.device)
 
         embeds_words = self.embedding(prev_utterance)  # b, l, d
 
@@ -290,20 +293,16 @@ class SpeakerModelEC(nn.Module):
         # multiple copies of the decoder
         h1, c1 = decoder_hid, decoder_hid
 
-
         gen_len = 0
 
         decoder_input = sos_token  # beam_k sos copies
         dec_logits = torch.zeros((self.max_len, batch_size, self.lin2voc.out_features)).to(self.device)
         eos_mask = torch.zeros((self.max_len +1, batch_size)).to(self.device)
 
-
         while True:
-
 
             if gen_len >= self.max_len:
                 break  # very long sentence generated
-
 
             decoder_embeds = self.embedding(decoder_input)
             decoder_embeds = decoder_embeds.squeeze(1)
@@ -317,14 +316,12 @@ class SpeakerModelEC(nn.Module):
 
             word_pred = word_pred.squeeze()
 
-
             if top_p > 0.0:
-                sorted_probs, sorted_indices = torch.sort(word_pred,dim=-1, descending=True)
+                sorted_probs, sorted_indices = torch.sort(word_pred, dim=-1, descending=True)
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
 
                 # Remove tokens with cumulative probability above the threshold
                 nucleus = cumulative_probs < top_p
-
 
                 nucleus = torch.cat([nucleus.new_ones(nucleus.shape[:-1] + (1,)), nucleus[..., :-1]], dim=-1)
                 sorted_log_probs = torch.log(sorted_probs)
@@ -333,8 +330,6 @@ class SpeakerModelEC(nn.Module):
                 sampled_sorted_indexes = self.sampler(sorted_log_probs)
                 next_token = sorted_indices.gather(-1, sampled_sorted_indexes.unsqueeze(-1))
                 next_token.squeeze(-1)
-
-
 
             decoder_input = next_token
 
@@ -365,7 +360,7 @@ class SpeakerModelEC(nn.Module):
             completed_sentences = completed_sentences.unsqueeze(0)
 
         # truncate
-        eos_mask=eos_mask[:self.max_len,:]
+        eos_mask = eos_mask[:self.max_len, :]
         eos_mask = eos_mask[:gen_len + 1, :]
         dec_logits = dec_logits[:gen_len + 1, :, :]
 
@@ -379,11 +374,11 @@ class SpeakerModelEC(nn.Module):
 
         # apply mask to complete_sentences
         completed_sentences = completed_sentences.masked_fill(eos_mask.T, self.vocab["<pad>"])
-        dec_logits[eos_mask,:] =0
+        dec_logits[eos_mask, :] = 0
 
         # sum and normalize logits
-        dec_logits= F.normalize(dec_logits, p=2, dim=0)
-        #dec_logits = dec_logits.sum(0)
+        # dec_logits= F.normalize(dec_logits, p=2, dim=0)
+        # dec_logits = dec_logits.sum(0)
 
         # for idx in range(len(eos_idxs)):
         #     dec_logits[idx,:] = dec_logits[idx,:] / eos_idxs[idx]

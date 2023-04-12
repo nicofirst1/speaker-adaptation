@@ -36,7 +36,7 @@ class AttackModule(nn.Module):
         self.acc_change = Counter()
         self.utterance_id_change = {x: [0, 0] for x in range(self.steps)}
 
-    def fgsm_attack(self, inputs: torch.Tensor, data_grad: torch.Tensor) -> torch.Tensor:
+    def nucleus_attack(self, inputs: torch.Tensor, data_grad: torch.Tensor) -> torch.Tensor:
         """
         inputs: the embeddings given by the original utterances [batch size, seq len, embedding size]
         data_grad: the gradient relative to the embeddings [batch size, seq len, embedding size]
@@ -44,7 +44,6 @@ class AttackModule(nn.Module):
         return: perturbed inputs
         """
 
-        orig_data_grad = torch.clone(data_grad)
 
         ############################
         # Filter on seq len
@@ -65,23 +64,41 @@ class AttackModule(nn.Module):
         # Apply the mask
         data_grad[~mask] = 0
 
-        ############################
-        # Filter on grad value
-        ############################
-        # Calculate mean and std for the remaining gradients
-        remaining_gradients = data_grad[mask]
-        mean = torch.mean(remaining_gradients)
-        std = torch.std(remaining_gradients)
+        # ############################
+        # # Filter on grad value
+        # ############################
+        # # Calculate mean and std for the remaining gradients
+        # remaining_gradients = data_grad[mask]
+        # mean = torch.mean(remaining_gradients)
+        # std = torch.std(remaining_gradients)
+        #
+        # # Create a mask based on the range: mean ± std * alpha
+        # lower_bound = mean - std * self.std_mult
+        # upper_bound = mean + std * self.std_mult
+        # second_mask = (remaining_gradients <= lower_bound) | (remaining_gradients >= upper_bound)
+        #
+        # # Apply the second mask
+        # mask2 = torch.clone(mask)
+        # mask[mask2] = second_mask.view(-1)
+        # data_grad[~mask] = 0
 
-        # Create a mask based on the range: mean ± std * alpha
-        lower_bound = mean - std * self.std_mult
-        upper_bound = mean + std * self.std_mult
-        second_mask = (remaining_gradients < lower_bound) | (remaining_gradients > upper_bound)
+        ############################
+        # get perturbed inputs
+        ############################
 
-        # Apply the second mask
-        mask2 = torch.clone(mask)
-        mask[mask2] = second_mask.view(-1)
-        data_grad[~mask] = 0
+        # Collect the element-wise sign of the data gradient
+        sign_data_grad = data_grad.sign()
+        # Create the perturbed image by adjusting each pixel of the input image
+        perturbed_inp = inputs + self.eps * sign_data_grad
+        # Return the perturbed image
+        return perturbed_inp
+    def fgsm_attack(self, inputs: torch.Tensor, data_grad: torch.Tensor) -> torch.Tensor:
+        """
+        inputs: the embeddings given by the original utterances [batch size, seq len, embedding size]
+        data_grad: the gradient relative to the embeddings [batch size, seq len, embedding size]
+
+        return: perturbed inputs
+        """
 
         ############################
         # get perturbed inputs
@@ -141,7 +158,7 @@ class AttackModule(nn.Module):
             else:
                 itx = 1
 
-            perturbed_emb = self.fgsm_attack(in_data, data_grad)
+            perturbed_emb = self.nucleus_attack(in_data, data_grad)
             perturbed_batch = []
 
             # get perturbed utterance
@@ -162,7 +179,7 @@ class AttackModule(nn.Module):
                 perturbed_batch.append(perturbed_utts)
 
             perturbed_batch = torch.as_tensor(perturbed_batch).to(self.model.device)
-            cng = ((perturbed_batch - utterance) > 0).sum() / len(utterance)
+            cng = ((perturbed_batch - utterance) > 0).sum() / utterance.shape[1]
             cng = cng.item()
             self.utterance_id_change[st][0] += cng
             self.utterance_id_change[st][1] += 1
@@ -195,6 +212,9 @@ class AttackModule(nn.Module):
         same_sim_len = dict(self.same_sim_len)
         acc_change = dict(self.acc_change)
 
+        if len(most_similar) == 0:
+            return res
+
         # get weighted average
         weighted_sim = np.array(list(most_similar.values())) * np.array(list(most_similar.keys()))
         weighted_sim = np.sum(weighted_sim) / np.sum(list(most_similar.values()))
@@ -203,12 +223,12 @@ class AttackModule(nn.Module):
         weighted_sim_len = np.array(list(same_sim_len.values())) * np.array(list(same_sim_len.keys()))
         weighted_sim_len = np.sum(weighted_sim_len) / np.sum(list(same_sim_len.values()))
 
-        weighted_acc_change = np.array(list(acc_change.values())) * np.array(list(acc_change.keys()))
-        weighted_acc_change = np.sum(weighted_acc_change) / np.sum(list(acc_change.values()))
+        weighted_acc_change = np.array(list(acc_change.keys())) / np.array(list(acc_change.values()))
+        weighted_acc_change = weighted_acc_change.mean()
 
-        res['weighted_sim'] = weighted_sim
-        res['weighted_sim_len'] = weighted_sim_len
-        res['weighted_acc_change'] = weighted_acc_change
+        res['avg_token_similarity'] = weighted_sim
+        res['avg_num_similar_tokens'] = weighted_sim_len
+        res['avg_acc_change'] = weighted_acc_change
 
         # make numpy NumpyHistogram
         hist_sim = np.histogram(list(most_similar.keys()), weights=list(most_similar.values()), bins=100)
@@ -225,16 +245,17 @@ class AttackModule(nn.Module):
         self.same_sim_len = Counter()
         self.acc_change = Counter()
 
-        res['hist_sim'] = hist_sim
-        res['hist_sim_len'] = hist_sim_len
+        res['hist_token_similarity'] = hist_sim
+        res['hist_num_similar_tokens'] = hist_sim_len
         res['hist_acc_change'] = hist_acc_change
 
         # add utterance id change
-        self.utterance_id_change = {k: v[0] / v[1] for k, v in self.utterance_id_change.items()}
-        utt_change_hist = wandb.Histogram(list(self.utterance_id_change.values()))
-        weighted_utt_change=np.array(list(most_similar.values())) * np.array(list(most_similar.keys()))
+        utterance_id_change = {k: v[0] / v[1] for k, v in self.utterance_id_change.items()}
+        utt_change_hist = wandb.Histogram(list(utterance_id_change.values()))
+        weighted_utt_change= sum(key * weight for key, weight in utterance_id_change.items()) / sum(utterance_id_change.values())
 
-        res['utt_change_hist'] = utt_change_hist
+        res['avg_change_step'] = weighted_utt_change
+        res['hist_change_step'] = utt_change_hist
 
         self.utterance_id_change = {x: [0, 0] for x in range(self.steps)}
 

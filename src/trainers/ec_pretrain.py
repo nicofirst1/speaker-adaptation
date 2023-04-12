@@ -27,7 +27,7 @@ global common_p
 global list_vocab
 
 
-def normalize_aux(aux, logger, all_domains, max_targets=3):
+def normalize_aux(aux, logger, epoch, max_targets=2):
     batch_size = len(aux["target_id"][0])
     aux["loss"] = np.mean(aux["loss"])
     aux["policy_loss"] = np.mean(aux["policy_loss"])
@@ -36,15 +36,21 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
     aux["adversarial_loss"] = np.mean(aux["adversarial_loss"])
     aux["weighted_policy_loss"] = np.mean(aux["weighted_policy_loss"])
     aux["weighted_entropy_loss"] = np.mean(aux["weighted_entropy_loss"])
+    aux["weighted_list_loss"] = np.mean(aux["weighted_list_loss"])
+    aux["weighted_adversarial_loss"] = np.mean(aux["weighted_adversarial_loss"])
+
     aux["perplexity"] = np.mean(aux["perplexity"])
 
     list_acc = aux["list_acc"]
     aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
     aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).numpy()
-    dec = [x.mean(dim=0) for x in aux['dec_log_probs']]
-    dec = [x for x in dec if x.dim != 0]
-    aux['dec_log_probs'] = torch.stack(dec).mean(dim=0).numpy()
+    dec = [x.mean(dim=0) for x in aux['dec_log_probs'] if x.size(0) > 0]
+    try:
+        dec = torch.stack(dec).mean(dim=0).numpy()
+    except RuntimeError:
+        dec = np.zeros_like(aux['enc_log_probs'])
+    aux['dec_log_probs'] = dec
 
     # remove nans from log probs
     aux['enc_log_probs'] = np.nan_to_num(aux['enc_log_probs'])
@@ -54,7 +60,7 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
     target_ids = np.random.choice(range(len(aux["target_id"])), max_targets)
 
     idx = 0
-    table_columns = ["img_id", "utterance", "perturbed_utterance", "img", "was correct?"]
+    table_columns = ["epch", "img_id", "utterance", "perturbed_utterance", "img", "was correct?"]
     table_values = []
     for i in target_ids:
         t_id = aux["target_id"][i]
@@ -70,13 +76,19 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
 
         t_id = logger.img_id2path[t_id]
 
-        img = wandb.Image(t_id)
+        img_orig = wandb.Image(t_id, caption=utt)
 
-        table_values.append([idx, utt, perb_utt, img, la])
+        # table_values.append([epoch, idx, utt, perb_utt, img, la])
+
+        aux[f"img_{idx}"] = img_orig
+
+        if perb_utt != "-":
+            img_pert = wandb.Image(t_id, caption=perb_utt)
+            aux[f"perturbed_img_{idx}"] = img_pert
 
         idx += 1
 
-    aux["utt_table"] = wandb.Table(columns=table_columns, data=table_values)
+    # aux["utt_table"] = wandb.Table(columns=table_columns, data=table_values)
 
     del aux["target_id"]
     del aux["utterance"]
@@ -116,6 +128,8 @@ def get_predictions(
 
     utterance = hypos
     translator.s2l(utterance)
+    dec_utt = list_vocab.batch_decode(utterance)
+
     lengths = torch.tensor([len(x) for x in utterance])
     max_length_tensor = torch.max(lengths).item()
     # get mask and translate utterance
@@ -130,7 +144,7 @@ def get_predictions(
     list_acc = list_preds.eq(target)
     list_loss = loss_f(list_out, target).mean()
 
-    if speak_model.training and not list_acc.sum():
+    if common_p.adversarial_loss_weight > 0 and speak_model.training and not list_acc.sum():
 
         perturbed_batch = attack(utterance, (context_separate, masks), target)
 
@@ -138,9 +152,14 @@ def get_predictions(
 
         dl = dec_logits.permute(1, 2, 0)
 
-        translator.l2s(perturbed_batch)
-        adversarial_loss = loss_f(dl, perturbed_batch).mean()
-        perplexity = torch.exp(adversarial_loss)
+        if (perturbed_batch != utterance).any():
+            translator.l2s(perturbed_batch)
+            adversarial_loss = loss_f(dl, perturbed_batch).mean()
+            perplexity = torch.exp(adversarial_loss)
+        else:
+            adversarial_loss = torch.tensor(0.0)
+            perturbed_hypo = ["-" for _ in range(len(utterance))]
+            perplexity = torch.tensor(0.0)
     else:
         adversarial_loss = torch.tensor(0.0)
         perturbed_hypo = ["-" for _ in range(len(utterance))]
@@ -150,12 +169,14 @@ def get_predictions(
     dec_log_probs = torch.log_softmax(dec_logits, dim=-1)
 
     bs = baseline.predict(list_loss.detach())
-    if common_p.use_enc_logits:
-        policy_loss = (list_loss.detach() - bs) * enc_log_probs
-        distr = Categorical(logits=enc_logits)
-    else:
-        policy_loss = (list_loss.detach() - bs) * dec_log_probs
-        distr = Categorical(logits=dec_logits)
+    # if common_p.use_enc_logits:
+    #     policy_loss = (list_loss.detach() - bs) * enc_log_probs
+    #     distr = Categorical(logits=enc_logits)
+    # else:
+
+    joint_log_probs = enc_log_probs + dec_log_probs
+    policy_loss = (list_loss.detach() - bs) *joint_log_probs
+    distr = Categorical(logits=joint_log_probs)
 
     policy_loss = policy_loss.mean()
     weighted_policy_loss = policy_loss * common_p.policy_loss_weight
@@ -164,10 +185,12 @@ def get_predictions(
     entropy_loss = - entropy.mean()
     weighted_entropy_loss = entropy_loss * common_p.entropy_loss_weight
 
-    loss = weighted_policy_loss + weighted_entropy_loss + adversarial_loss
+    weighted_list_loss = list_loss * common_p.list_loss_weight
+    weighted_adversarial_loss = adversarial_loss * common_p.adversarial_loss_weight
+
+    loss = weighted_policy_loss + weighted_entropy_loss + weighted_adversarial_loss + weighted_list_loss
 
     baseline.update(list_loss.detach())
-    dec_utt = list_vocab.batch_decode(utterance)
 
     aux = dict(
         loss=loss.detach().cpu().item(),
@@ -177,6 +200,8 @@ def get_predictions(
         adversarial_loss=adversarial_loss.detach().cpu().item(),
         weighted_policy_loss=weighted_policy_loss.detach().cpu().item(),
         weighted_entropy_loss=weighted_entropy_loss.detach().cpu().item(),
+        weighted_adversarial_loss=weighted_adversarial_loss.detach().cpu().item(),
+        weighted_list_loss=weighted_list_loss.detach().cpu().item(),
 
         baseline=bs.detach().cpu().item(),
         perplexity=perplexity.detach().cpu().item(),
@@ -219,7 +244,6 @@ def evaluate(
             total=episodes,
             description=f"evaluating '{split}' split...",
     ):
-
         loss, aux = get_predictions(
             data, list_model, speak_model, loss_f, translator, baseline
         )
@@ -453,7 +477,6 @@ def main():
         ):
             optimizer.zero_grad()
 
-
             # get datapoints
             loss, aux = get_predictions(
                 data,
@@ -469,13 +492,13 @@ def main():
 
             # optimizer
             loss.backward()
-            #nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=1.0)
+            # nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=1.0)
             optimizer.step()
 
         aux = merge_dict(auxs)
         aux['lr'] = optimizer.param_groups[0]['lr']
 
-        normalize_aux(aux, logger, all_domains=logger.domains)
+        normalize_aux(aux, logger, epoch)
 
         aux.update(attack.get_stats())
 
@@ -504,7 +527,7 @@ def main():
                 loss_f,
                 split="eval",
             )
-            normalize_aux(aux, logger, all_domains=logger.domains)
+            normalize_aux(aux, logger, epoch)
 
             eval_accuracy, eval_loss = aux["list_acc"], aux["loss"]
 
