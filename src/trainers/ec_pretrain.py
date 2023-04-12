@@ -6,7 +6,7 @@ import numpy as np
 import rich.progress
 import torch
 import wandb
-from torch import nn, optim, cosine_similarity
+from torch import nn, optim
 from torch.distributions import Categorical
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
@@ -14,11 +14,10 @@ from torch.utils.data import DataLoader
 from src.commons import (SPEAKER_CHK, EarlyStopping,
                          get_listener_check, load_wandb_checkpoint,
                          mask_attn, mask_oov_embeds,
-                         merge_dict, parse_args, save_model, set_seed,
-                         speak2list_vocab, translate_utterance)
+                         merge_dict, parse_args, save_model, set_seed)
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
-from src.commons.attack_utils import PGD
+from src.commons.attack_utils import AttackModule
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.EcDataset import EcDataset
 from src.models import ListenerModel, SpeakerModelEC
@@ -42,8 +41,10 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
     list_acc = aux["list_acc"]
     aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
-    aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).mean(dim=0).numpy()
-    aux['dec_log_probs'] = torch.stack([x.mean(dim=0) for x in aux['dec_log_probs']]).mean(dim=0).numpy()
+    aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).numpy()
+    dec = [x.mean(dim=0) for x in aux['dec_log_probs']]
+    dec = [x for x in dec if x.dim != 0]
+    aux['dec_log_probs'] = torch.stack(dec).mean(dim=0).numpy()
 
     # remove nans from log probs
     aux['enc_log_probs'] = np.nan_to_num(aux['enc_log_probs'])
@@ -85,7 +86,6 @@ def normalize_aux(aux, logger, all_domains, max_targets=3):
 # FGSM attack code
 
 
-
 def get_predictions(
         data: Dict,
         list_model: ListenerModel,
@@ -93,7 +93,7 @@ def get_predictions(
         loss_f: nn.CrossEntropyLoss,
         translator: Translator,
         baseline: MeanBaseline,
-        attack: PGD = None,
+        attack: AttackModule = None,
 ) -> Tuple[torch.Tensor, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -132,8 +132,6 @@ def get_predictions(
 
     if speak_model.training and not list_acc.sum():
 
-
-
         perturbed_batch = attack(utterance, (context_separate, masks), target)
 
         perturbed_hypo = list_vocab.batch_decode(perturbed_batch)
@@ -145,7 +143,7 @@ def get_predictions(
         perplexity = torch.exp(adversarial_loss)
     else:
         adversarial_loss = torch.tensor(0.0)
-        perturbed_hypo = ["" for _ in range(len(utterance))]
+        perturbed_hypo = ["-" for _ in range(len(utterance))]
         perplexity = torch.tensor(0.0)
 
     enc_log_probs = torch.log_softmax(enc_logits, dim=-1)
@@ -166,10 +164,10 @@ def get_predictions(
     entropy_loss = - entropy.mean()
     weighted_entropy_loss = entropy_loss * common_p.entropy_loss_weight
 
-    loss =  weighted_policy_loss + weighted_entropy_loss + adversarial_loss
+    loss = weighted_policy_loss + weighted_entropy_loss + adversarial_loss
 
     baseline.update(list_loss.detach())
-    dec_utt = list_vocab.batch_decode(utterance.squeeze())
+    dec_utt = list_vocab.batch_decode(utterance)
 
     aux = dict(
         loss=loss.detach().cpu().item(),
@@ -216,12 +214,12 @@ def evaluate(
     auxs = []
     episodes = common_p.episodes
 
-    for idx in rich.progress.track(
-            range(episodes),
+    for data in rich.progress.track(
+            data_loader,
             total=episodes,
             description=f"evaluating '{split}' split...",
     ):
-        data = next(iter(data_loader))
+
         loss, aux = get_predictions(
             data, list_model, speak_model, loss_f, translator, baseline
         )
@@ -364,7 +362,6 @@ def main():
         common_speak_p.top_k,
         common_speak_p.top_p,
         device=device,
-        use_beam=common_speak_p.use_beam,
     ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
@@ -397,7 +394,8 @@ def main():
         raise ValueError(f"metric of value '{metric}' not recognized")
 
     logger.watch_model([speaker_model], log_freq=100)
-    attack = PGD(list_model)
+    attack = AttackModule(list_model, eps=common_p.attack_eps, steps=common_p.attack_steps, top_k=common_p.attack_top_k,
+                          std_mult=common_p.attack_std_mult)
 
     ###################################
     ##  Get  dataloader
@@ -421,8 +419,7 @@ def main():
         collate_fn=dataset.get_collate_fn(),
     )
 
-    translator=Translator(speak_vocab, list_vocab,device)
-
+    translator = Translator(speak_vocab, list_vocab, device)
 
     ###################################
     ##  START OF TRAINING LOOP
@@ -440,8 +437,8 @@ def main():
         auxs = []
 
         speaker_model.train()
-        dataloader_train.dataset.randomize_data()
-        dataloader_eval.dataset.randomize_data()
+        # dataloader_train.dataset.randomize_data()
+        # dataloader_eval.dataset.randomize_data()
 
         # torch.enable_grad()
         ###################################
@@ -449,14 +446,13 @@ def main():
         ###################################
         baseline = MeanBaseline()
 
-        for idx in rich.progress.track(
-                range(common_p.episodes),
+        for data in rich.progress.track(
+                dataloader_train,
                 total=common_p.episodes,
                 description=f"Training epoch {epoch}",
         ):
             optimizer.zero_grad()
 
-            data = next(iter(dataloader_train))
 
             # get datapoints
             loss, aux = get_predictions(
@@ -473,7 +469,7 @@ def main():
 
             # optimizer
             loss.backward()
-            nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=1.0)
+            #nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=1.0)
             optimizer.step()
 
         aux = merge_dict(auxs)

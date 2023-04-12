@@ -1,12 +1,12 @@
 from collections import Counter
 
-import torch
 import numpy as np
+import torch
 import wandb
 from torch import nn, cosine_similarity
 
 
-class PGD(nn.Module):
+class AttackModule(nn.Module):
     r"""
     PGD in the paper 'Towards Deep Learning Models Resistant to Adversarial Attacks'
     [https://arxiv.org/abs/1706.06083]
@@ -22,19 +22,71 @@ class PGD(nn.Module):
 
     """
 
-    def __init__(self, model, eps=0.4, steps=10):
-        super(PGD, self).__init__()
+    def __init__(self, model, eps=0.4, steps=10, top_k=0.5, std_mult=3):
+        super(AttackModule, self).__init__()
         self.eps = eps
         self.steps = steps
-        self.supported_mode = ['default', 'targeted']
         self.model = model
-        self.targeted = False
+        self.top_k = top_k
+        self.std_mult = std_mult
+
         self.loss = nn.CrossEntropyLoss()
         self.most_similar = Counter()
         self.same_sim_len = Counter()
-        self.acc_change=Counter()
+        self.acc_change = Counter()
+        self.utterance_id_change = {x: [0, 0] for x in range(self.steps)}
 
-    def fgsm_attack(self, inputs, data_grad):
+    def fgsm_attack(self, inputs: torch.Tensor, data_grad: torch.Tensor) -> torch.Tensor:
+        """
+        inputs: the embeddings given by the original utterances [batch size, seq len, embedding size]
+        data_grad: the gradient relative to the embeddings [batch size, seq len, embedding size]
+
+        return: perturbed inputs
+        """
+
+        orig_data_grad = torch.clone(data_grad)
+
+        ############################
+        # Filter on seq len
+        ############################
+        # find the abs gradient for all the words
+        abs_grad = torch.abs(data_grad)
+        abs_grad = abs_grad.sum(dim=-1)
+        # sort
+        sorted_grad, sorted_idx = torch.sort(abs_grad, dim=-1, descending=True)
+        # get top k
+        top_k = int(self.top_k * len(sorted_grad[0]))
+        top_k_idx = sorted_idx[:, :top_k]
+        # create a mask to filter out the non top k gradients
+        mask = torch.zeros_like(data_grad, dtype=torch.bool)
+        batch_indices = torch.arange(mask.shape[0]).view(-1, 1).expand_as(top_k_idx)
+        mask[batch_indices, top_k_idx] = True
+
+        # Apply the mask
+        data_grad[~mask] = 0
+
+        ############################
+        # Filter on grad value
+        ############################
+        # Calculate mean and std for the remaining gradients
+        remaining_gradients = data_grad[mask]
+        mean = torch.mean(remaining_gradients)
+        std = torch.std(remaining_gradients)
+
+        # Create a mask based on the range: mean ± std * alpha
+        lower_bound = mean - std * self.std_mult
+        upper_bound = mean + std * self.std_mult
+        second_mask = (remaining_gradients < lower_bound) | (remaining_gradients > upper_bound)
+
+        # Apply the second mask
+        mask2 = torch.clone(mask)
+        mask[mask2] = second_mask.view(-1)
+        data_grad[~mask] = 0
+
+        ############################
+        # get perturbed inputs
+        ############################
+
         # Collect the element-wise sign of the data gradient
         sign_data_grad = data_grad.sign()
         # Create the perturbed image by adjusting each pixel of the input image
@@ -47,7 +99,7 @@ class PGD(nn.Module):
         Overridden.
         """
 
-        orig_utterance = utterance.clone().detach()
+        orig_utterance = utterance.clone()
         utterance = utterance.clone().detach()
         targets = targets.clone().detach()
 
@@ -56,8 +108,8 @@ class PGD(nn.Module):
         orig_correct = 0
         itx = 1
         epsiolon = self.eps
-        most_similar=[]
-        same_sim_len=[]
+        most_similar = []
+        same_sim_len = []
         for st in range(self.steps):
             # Zero all existing gradients
             self.model.zero_grad()
@@ -99,18 +151,22 @@ class PGD(nn.Module):
                 for idx in range(perturbed_emb.shape[1]):
                     embed = perturbed_emb[btc, idx].squeeze()
                     sim = cosine_similarity(embed, self.model.embeddings.weight, dim=1)
-                    sorted_sim, sorted_idx=torch.sort(sim,dim=-1, descending=True)
-                    max_sim=(sorted_sim==sorted_sim[0]).sum()
+                    sorted_sim, sorted_idx = torch.sort(sim, dim=-1, descending=True)
+                    max_sim = (sorted_sim == sorted_sim[0]).sum()
                     same_sim_len.append(max_sim.item())
-                    sorted_idx=sorted_idx[:max_sim]
-                    most_similar+=sorted_idx.tolist()
+                    sorted_idx = sorted_idx[:max_sim]
+                    most_similar += sorted_idx.tolist()
                     idx3 = torch.randint(0, len(sorted_idx), (1,)).item()
                     idx3 = sorted_idx[idx3]
                     perturbed_utts.append(idx3)
                 perturbed_batch.append(perturbed_utts)
 
-            utterance = torch.as_tensor(perturbed_batch)
-            utterance = utterance.to(self.model.device)
+            perturbed_batch = torch.as_tensor(perturbed_batch).to(self.model.device)
+            cng = ((perturbed_batch - utterance) > 0).sum() / len(utterance)
+            cng = cng.item()
+            self.utterance_id_change[st][0] += cng
+            self.utterance_id_change[st][1] += 1
+            utterance = perturbed_batch
 
             prev_loss = loss
             prev_correct = correct
@@ -121,19 +177,20 @@ class PGD(nn.Module):
         self.most_similar.update(most_similar)
         self.same_sim_len.update(same_sim_len)
 
-        new_acc=correct-orig_correct
+        new_acc = correct - orig_correct
         self.acc_change.update([new_acc.item()])
 
-        return utterance
+        if new_acc > 0:
+            return utterance
+
+        return orig_utterance
 
     def get_stats(self):
         """convert counters
 
         """
 
-
-
-        res=dict()
+        res = dict()
         most_similar = dict(self.most_similar)
         same_sim_len = dict(self.same_sim_len)
         acc_change = dict(self.acc_change)
@@ -141,7 +198,7 @@ class PGD(nn.Module):
         # get weighted average
         weighted_sim = np.array(list(most_similar.values())) * np.array(list(most_similar.keys()))
         weighted_sim = np.sum(weighted_sim) / np.sum(list(most_similar.values()))
-        weighted_sim=weighted_sim/len(self.model.embeddings.weight)
+        weighted_sim = weighted_sim / len(self.model.embeddings.weight)
 
         weighted_sim_len = np.array(list(same_sim_len.values())) * np.array(list(same_sim_len.keys()))
         weighted_sim_len = np.sum(weighted_sim_len) / np.sum(list(same_sim_len.values()))
@@ -152,7 +209,6 @@ class PGD(nn.Module):
         res['weighted_sim'] = weighted_sim
         res['weighted_sim_len'] = weighted_sim_len
         res['weighted_acc_change'] = weighted_acc_change
-
 
         # make numpy NumpyHistogram
         hist_sim = np.histogram(list(most_similar.keys()), weights=list(most_similar.values()), bins=100)
@@ -169,13 +225,17 @@ class PGD(nn.Module):
         self.same_sim_len = Counter()
         self.acc_change = Counter()
 
-
         res['hist_sim'] = hist_sim
         res['hist_sim_len'] = hist_sim_len
         res['hist_acc_change'] = hist_acc_change
 
+        # add utterance id change
+        self.utterance_id_change = {k: v[0] / v[1] for k, v in self.utterance_id_change.items()}
+        utt_change_hist = wandb.Histogram(list(self.utterance_id_change.values()))
+        weighted_utt_change=np.array(list(most_similar.values())) * np.array(list(most_similar.keys()))
+
+        res['utt_change_hist'] = utt_change_hist
+
+        self.utterance_id_change = {x: [0, 0] for x in range(self.steps)}
+
         return res
-
-
-
-

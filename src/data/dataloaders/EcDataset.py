@@ -46,13 +46,17 @@ class EcDataset(AbstractDataset):
             # to device
             image_set = image_set.to(self.device)
             target_index = target_index.to(self.device)
+            target_id = random_set[target_index]
+            target_img_feat = image_set[target_index]
+
+            a=1
 
             data = dict(
                 image_set=image_set,
                 image_ids=random_set,
                 target_index=target_index,
-                target_id=random_set[target_index],
-                target_img_feat=image_set[target_index],
+                target_id=target_id,
+                target_img_feat=target_img_feat,
 
             )
             self.data.append(data)

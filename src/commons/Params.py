@@ -50,6 +50,10 @@ class Params:
     entropy_loss_weight: Optional[float] = 0.5
     policy_loss_weight: Optional[float] = 0.5
     sampler_temp: Optional[float] = 1.0
+    attack_eps: Optional[float] = 0.7
+    attack_steps: Optional[float] = 10
+    attack_top_k: Optional[float] = 0.5
+    attack_std_mult: Optional[float] = 3
 
     # Set to true for disabling wandb logging
     debug: Optional[bool] = False
