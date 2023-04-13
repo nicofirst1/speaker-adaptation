@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torchviz
 import wandb
+
 from src.commons.Params import Params
 from src.data.dataloaders import Vocab
 from src.wandb_logging import WandbLogger
@@ -18,7 +19,7 @@ def set_seed(seed: int):
 
 
 def mask_attn(
-    actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
+        actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
 ) -> torch.Tensor:
     """
     Maske attention function
@@ -37,7 +38,7 @@ def mask_attn(
     for n in range(len(actual_num_tokens)):
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (
-            max_num_tokens - actual_num_tokens[n]
+                max_num_tokens - actual_num_tokens[n]
         )
 
         masks.append(mask)
@@ -77,7 +78,7 @@ def speak2list_vocab(speak_v: Vocab, list_v: Vocab) -> Dict:
 
 
 def get_domain_accuracy(
-    accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+        accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:accuracy for all the domains in 'all_domains:
@@ -115,9 +116,8 @@ def get_domain_accuracy(
     return domain_accs
 
 
-
 def get_domain_mrr(
-    ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+        ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:mrr for all the domains in 'all_domains:
@@ -155,15 +155,15 @@ def get_domain_mrr(
 
 
 def save_model(
-    model: torch.nn.Module,
-    model_type: str,
-    epoch: int,
-    accuracy: float,
-    optimizer: torch.optim.Optimizer,
-    args: Params,
-    timestamp: str,
-    logger: WandbLogger,
-    **kwargs,
+        model: torch.nn.Module,
+        model_type: str,
+        epoch: int,
+        accuracy: float,
+        optimizer: torch.optim.Optimizer,
+        args: Params,
+        timestamp: str,
+        logger: WandbLogger,
+        **kwargs,
 ):
     """
     Save model in torch and wandb
@@ -312,6 +312,18 @@ def translate_utterance(speak2list_v, device):
     return translate
 
 
+def logprobs_from_logits(logits, labels):
+    """
+    taken from https://github.com/lvwerra/trl/blob/d1c75293287483883f42f79b253d96315662bb1b/trl/core.py#L91
+    """
+    logp = torch.log_softmax(logits, dim=-1)
+    if labels.ndim > 1:
+        labels = labels.permute(1, 0)
+
+    logpy = torch.gather(logp, -1, labels.unsqueeze(-1)).squeeze(-1)
+    return logpy
+
+
 def standardize(tensor: torch.Tensor) -> torch.Tensor:
     """
     Standardizes a tensor
@@ -330,6 +342,7 @@ def change2random(tensor: torch.Tensor) -> torch.Tensor:
         t = torch.rand(tensor.shape)
 
     return t.to(tensor.device)
+
 
 def to_concat_context(separate_images: torch.Tensor) -> torch.Tensor:
     """

@@ -46,7 +46,7 @@ class Params:
 
     # Emergent communication finetune
     episodes: Optional[int] = 100
-    use_enc_logits: Optional[bool] = False
+    logits_to_use: Optional[bool] = "enc" # enc, dec, both
     entropy_loss_weight: Optional[float] = 0.5
     policy_loss_weight: Optional[float] = 0.5
     list_loss_weight: Optional[float] = 1.0

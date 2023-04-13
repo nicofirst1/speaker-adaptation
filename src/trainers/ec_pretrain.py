@@ -5,6 +5,7 @@ import lovely_tensors as lt
 import numpy as np
 import rich.progress
 import torch
+import torch.nn.functional as F
 import wandb
 from torch import nn, optim
 from torch.distributions import Categorical
@@ -18,6 +19,7 @@ from src.commons import (SPEAKER_CHK, EarlyStopping,
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
 from src.commons.attack_utils import AttackModule
+from src.commons.model_utils import logprobs_from_logits
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.EcDataset import EcDataset
 from src.models import ListenerModel, SpeakerModelEC
@@ -27,39 +29,11 @@ global common_p
 global list_vocab
 
 
-def normalize_aux(aux, logger, epoch, max_targets=2):
-    batch_size = len(aux["target_id"][0])
-    aux["loss"] = np.mean(aux["loss"])
-    aux["policy_loss"] = np.mean(aux["policy_loss"])
-    aux["list_loss"] = np.mean(aux["list_loss"])
-    aux["entropy_loss"] = np.mean(aux["entropy_loss"])
-    aux["adversarial_loss"] = np.mean(aux["adversarial_loss"])
-    aux["weighted_policy_loss"] = np.mean(aux["weighted_policy_loss"])
-    aux["weighted_entropy_loss"] = np.mean(aux["weighted_entropy_loss"])
-    aux["weighted_list_loss"] = np.mean(aux["weighted_list_loss"])
-    aux["weighted_adversarial_loss"] = np.mean(aux["weighted_adversarial_loss"])
+def add_image(aux, list_acc, logger, max_targets=2):
+    idx = 0
 
-    aux["perplexity"] = np.mean(aux["perplexity"])
-
-    list_acc = aux["list_acc"]
-    aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
-    aux["baseline"] = np.mean(aux["baseline"])
-    aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).numpy()
-    dec = [x.mean(dim=0) for x in aux['dec_log_probs'] if x.size(0) > 0]
-    try:
-        dec = torch.stack(dec).mean(dim=0).numpy()
-    except RuntimeError:
-        dec = np.zeros_like(aux['enc_log_probs'])
-    aux['dec_log_probs'] = dec
-
-    # remove nans from log probs
-    aux['enc_log_probs'] = np.nan_to_num(aux['enc_log_probs'])
-    aux['dec_log_probs'] = np.nan_to_num(aux['dec_log_probs'])
-
-    # get max targets random ids in range of targets
     target_ids = np.random.choice(range(len(aux["target_id"])), max_targets)
 
-    idx = 0
     table_columns = ["epch", "img_id", "utterance", "perturbed_utterance", "img", "was correct?"]
     table_values = []
     for i in target_ids:
@@ -87,6 +61,43 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
             aux[f"perturbed_img_{idx}"] = img_pert
 
         idx += 1
+
+
+def normalize_aux(aux, logger, epoch, max_targets=2):
+    batch_size = len(aux["target_id"][0])
+    aux["loss"] = np.mean(aux["loss"])
+    aux["policy_loss"] = np.mean(aux["policy_loss"])
+    aux["list_loss"] = np.mean(aux["list_loss"])
+    aux["entropy_loss"] = np.mean(aux["entropy_loss"])
+    aux["adversarial_loss"] = np.mean(aux["adversarial_loss"])
+    aux["weighted_policy_loss"] = np.mean(aux["weighted_policy_loss"])
+    aux["weighted_entropy_loss"] = np.mean(aux["weighted_entropy_loss"])
+    aux["weighted_list_loss"] = np.mean(aux["weighted_list_loss"])
+    aux["weighted_adversarial_loss"] = np.mean(aux["weighted_adversarial_loss"])
+
+    aux["perplexity"] = np.mean(aux["perplexity"])
+
+    list_acc = aux["list_acc"]
+    aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
+    aux["baseline"] = np.mean(aux["baseline"])
+    aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).numpy()
+
+    dec = [x.mean(dim=0) for x in aux['dec_log_probs'] if x.size(0) > 0]
+    dec = [x for x in dec if x.size(0) > 0]
+    try:
+        dec = torch.stack(dec).mean(dim=0).numpy()
+    except RuntimeError:
+        dec = np.zeros_like(aux['enc_log_probs'])
+
+    aux['dec_log_probs'] = dec
+
+    # remove nans from log probs
+    aux['enc_log_probs'] = np.nan_to_num(aux['enc_log_probs'])
+    aux['dec_log_probs'] = np.nan_to_num(aux['dec_log_probs'])
+
+    # get max targets random ids in range of targets
+    if epoch % 10 == 0:
+        add_image(aux, list_acc, logger, max_targets=max_targets)
 
     # aux["utt_table"] = wandb.Table(columns=table_columns, data=table_values)
 
@@ -165,18 +176,21 @@ def get_predictions(
         perturbed_hypo = ["-" for _ in range(len(utterance))]
         perplexity = torch.tensor(0.0)
 
-    enc_log_probs = torch.log_softmax(enc_logits, dim=-1)
-    dec_log_probs = torch.log_softmax(dec_logits, dim=-1)
+    enc_log_probs = logprobs_from_logits(enc_logits, model_params['encoder_ids'].squeeze(dim=0))
+    dec_log_probs = logprobs_from_logits(dec_logits, hypos)
 
     bs = baseline.predict(list_loss.detach())
-    # if common_p.use_enc_logits:
-    #     policy_loss = (list_loss.detach() - bs) * enc_log_probs
-    #     distr = Categorical(logits=enc_logits)
-    # else:
+    if common_p.logits_to_use == "enc":
+        policy_loss = (list_loss.detach() - bs) * enc_log_probs
+        distr = Categorical(logits=enc_logits)
+    elif common_p.logits_to_use == "dec":
 
-    joint_log_probs = enc_log_probs + dec_log_probs
-    policy_loss = (list_loss.detach() - bs) *joint_log_probs
-    distr = Categorical(logits=joint_log_probs)
+        policy_loss = (list_loss.detach() - bs) * dec_log_probs
+        distr = Categorical(logits=dec_log_probs)
+    else:
+        joint_log_probs = enc_log_probs + dec_log_probs
+        policy_loss = (list_loss.detach() - bs) * joint_log_probs
+        distr = Categorical(logits=joint_log_probs)
 
     policy_loss = policy_loss.mean()
     weighted_policy_loss = policy_loss * common_p.policy_loss_weight
@@ -211,8 +225,8 @@ def get_predictions(
         target_id=target_id,
         list_acc=list_acc,
 
-        enc_log_probs=enc_log_probs.detach().cpu().squeeze(),
-        dec_log_probs=dec_log_probs.detach().cpu().squeeze(),
+        enc_log_probs=torch.log_softmax(enc_logits, dim=-1).detach().cpu().squeeze(),
+        dec_log_probs=torch.log_softmax(dec_logits.permute(1,0,2), dim=-1).detach().cpu().squeeze(),
 
     )
 
@@ -277,13 +291,15 @@ def get_kwargs(split, common_p):
 def main():
     lt.monkey_patch()
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
     img_dim = 2048
     global common_p
     global list_vocab
 
     common_p = parse_args("list")
     domain = common_p.train_domain
+
+    device = torch.device("cuda") if torch.cuda.is_available() and common_p.device!="cpu" else torch.device("cpu")
 
     # for reproducibility
     seed = common_p.seed

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 
 from src.commons import standardize, to_concat_context
+from src.commons.model_utils import change2random
 
 
 class TemperatureSampler:
@@ -106,7 +107,7 @@ class SpeakerModelEC(nn.Module):
 
         # project to vocabulary size
         self.lin2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
-        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size)
+        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size+1)
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
         self.attention = nn.Linear(self.attention_dim, 1)
@@ -197,7 +198,7 @@ class SpeakerModelEC(nn.Module):
         pad_val = self.vocab.word2index["<pad>"]
         nohs_val = self.vocab.word2index["<nohs>"]
 
-        empty_utt = torch.full((batch_size, 1), pad_val)
+        empty_utt = torch.full((batch_size,1), pad_val)
         empty_utt[:, 0] = nohs_val
         prev_utterance = empty_utt.to(self.device)
         prev_utt_lengths = torch.as_tensor([1] * batch_size).to(self.device)
@@ -262,6 +263,7 @@ class SpeakerModelEC(nn.Module):
             target_img_hid=target_img_hid,
             visual_context_hid=visual_context_hid,
             encoder_logits=logit,
+            encoder_ids=prev_utterance,
         )
 
         return decoder_hid, history_att, model_params
