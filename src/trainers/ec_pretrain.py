@@ -5,7 +5,6 @@ import lovely_tensors as lt
 import numpy as np
 import rich.progress
 import torch
-import torch.nn.functional as F
 import wandb
 from torch import nn, optim
 from torch.distributions import Categorical
@@ -80,10 +79,16 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
     list_acc = aux["list_acc"]
     aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
-    aux['enc_log_probs'] = torch.stack(aux['enc_log_probs']).mean(dim=0).numpy()
+    enc=[x.mean(dim=0) for x in aux['enc_log_probs'] if x.size(0) > 0]
+    enc = [x for x in enc if x.size(0) > 0]
+    enc=torch.stack(enc)
+
+    aux['enc_log_probs'] = enc
 
     dec = [x.mean(dim=0) for x in aux['dec_log_probs'] if x.size(0) > 0]
-    dec = [x for x in dec if x.size(0) > 0]
+    dec = [x.mean(dim=0) for x in dec if x.size(0) > 0]
+
+
     try:
         dec = torch.stack(dec).mean(dim=0).numpy()
     except RuntimeError:
@@ -176,19 +181,19 @@ def get_predictions(
         perturbed_hypo = ["-" for _ in range(len(utterance))]
         perplexity = torch.tensor(0.0)
 
-    enc_log_probs = logprobs_from_logits(enc_logits, model_params['encoder_ids'].squeeze(dim=0))
-    dec_log_probs = logprobs_from_logits(dec_logits, hypos)
-
     bs = baseline.predict(list_loss.detach())
     if common_p.logits_to_use == "enc":
+        enc_log_probs = logprobs_from_logits(enc_logits, model_params['encoder_ids'].squeeze(dim=0))
+
         policy_loss = (list_loss.detach() - bs) * enc_log_probs
         distr = Categorical(logits=enc_logits)
     elif common_p.logits_to_use == "dec":
+        dec_log_probs = logprobs_from_logits(dec_logits, hypos)
 
         policy_loss = (list_loss.detach() - bs) * dec_log_probs
         distr = Categorical(logits=dec_log_probs)
     else:
-        joint_log_probs = enc_log_probs + dec_log_probs
+        joint_log_probs = logprobs_from_logits(enc_logits[..., :-1] * dec_logits, hypos)
         policy_loss = (list_loss.detach() - bs) * joint_log_probs
         distr = Categorical(logits=joint_log_probs)
 
@@ -226,7 +231,7 @@ def get_predictions(
         list_acc=list_acc,
 
         enc_log_probs=torch.log_softmax(enc_logits, dim=-1).detach().cpu().squeeze(),
-        dec_log_probs=torch.log_softmax(dec_logits.permute(1,0,2), dim=-1).detach().cpu().squeeze(),
+        dec_log_probs=torch.log_softmax(dec_logits, dim=-1).detach().cpu().squeeze(),
 
     )
 
@@ -255,7 +260,7 @@ def evaluate(
 
     for data in rich.progress.track(
             data_loader,
-            total=episodes,
+            total=len(data_loader),
             description=f"evaluating '{split}' split...",
     ):
         loss, aux = get_predictions(
@@ -291,7 +296,6 @@ def get_kwargs(split, common_p):
 def main():
     lt.monkey_patch()
 
-
     img_dim = 2048
     global common_p
     global list_vocab
@@ -299,7 +303,7 @@ def main():
     common_p = parse_args("list")
     domain = common_p.train_domain
 
-    device = torch.device("cuda") if torch.cuda.is_available() and common_p.device!="cpu" else torch.device("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() and common_p.device != "cpu" else torch.device("cpu")
 
     # for reproducibility
     seed = common_p.seed
@@ -415,7 +419,7 @@ def main():
         speaker_model.parameters(), lr=common_p.learning_rate, weight_decay=0.0001
     )
     scheduler = ReduceLROnPlateau(
-        optimizer, "max", patience=common_p.epochs // 10, factor=0.5, verbose=True, threshold=0.5
+        optimizer, "max", patience=common_p.epochs // 10, factor=0.25, verbose=True, threshold=0.5
     )
     loss_f = nn.CrossEntropyLoss(reduction="none")
 
@@ -488,7 +492,7 @@ def main():
 
         for data in rich.progress.track(
                 dataloader_train,
-                total=common_p.episodes,
+                total=len(dataloader_train),
                 description=f"Training epoch {epoch}",
         ):
             optimizer.zero_grad()

@@ -317,8 +317,8 @@ def logprobs_from_logits(logits, labels):
     taken from https://github.com/lvwerra/trl/blob/d1c75293287483883f42f79b253d96315662bb1b/trl/core.py#L91
     """
     logp = torch.log_softmax(logits, dim=-1)
-    if labels.ndim > 1:
-        labels = labels.permute(1, 0)
+    if logp.ndim > 2:
+        logp = logp.permute(1, 0,2)
 
     logpy = torch.gather(logp, -1, labels.unsqueeze(-1)).squeeze(-1)
     return logpy
