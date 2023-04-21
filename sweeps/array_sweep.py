@@ -27,6 +27,8 @@ if __name__ == "__main__":
     )
 
     cuda_devices=torch.cuda.device_count()
+    if cuda_devices==0:
+        cuda_devices=1
     procs = []
     for i in range(cuda_devices):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(i)

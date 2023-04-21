@@ -7,7 +7,7 @@ metric:
   goal: maximize
   name: eval/sim_list_accuracy
   target: 1.0
-project: sim-sweep
+project: ec-sweep
 
 parameters:
     learning_rate:
@@ -19,6 +19,9 @@ parameters:
 
     train_domain:
         value: all
+
+
+
 
     entropy_loss_weight:
       distribution: q_uniform

@@ -15,14 +15,12 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # perform sweep
-common_args=( --sweep_file ./ec_finetune_sweep.json --episodes 2048 --batch_size 32 --patience 50 --epochs 400)
+common_args=( --sweep_file ./ec_finetune_sweep.json --episodes 2048 --batch_size 32 --patience 50 --epochs 400 --train_domain all)
 
 
-trainers_file="${HOME}/pb_speaker_adaptation/sweeps/array_sweep.py"
+trainers_file="${HOME}/speaker-adaptation/sweeps/array_sweep.py"
 
 #running the actual code
 echo "Starting the process..."
 
-
-echo "Launching script for domain appliances..."
 python -u ${trainers_file}  "${common_args[@]}"

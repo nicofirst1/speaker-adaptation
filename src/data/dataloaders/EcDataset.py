@@ -1,27 +1,39 @@
+import json
 from collections import defaultdict
 
 import numpy
 import torch
+from torch.utils.data import Dataset
 
 from src.data.dataloaders.AbstractDataset import AbstractDataset, imgid2path
 
 
-class EcDataset(AbstractDataset):
-    def __init__(self, domain, episodes, batch_size, device, **kwargs):
-        self.img_id2path = imgid2path(kwargs["data_dir"])
+class EcDataset(Dataset):
+    def __init__(self, domain, episodes, batch_size, device,vectors_file,img2dom_file, **kwargs):
 
-        kwargs["data_dir"] = kwargs["data_dir"] + "/chains-domain-specific/" + domain
 
-        super(EcDataset, self).__init__(**kwargs)
+        with open(vectors_file, "r") as file:
+            self.image_features = json.load(file)
+
+            # Original reference sentences without unks
+
+            # Original reference sentences without unks
+        with open(img2dom_file, "r") as file:
+            self.img2dom = json.load(file)
+
+
+        for img_id, dom in self.img2dom.items():
+            if dom!=domain:
+                del self.image_features[img_id]
+
 
         self.domain = domain
         self.episodes = episodes
         self.device = device
         self.batch_size = batch_size
 
-        domain_images = [x['image_set'] for x in self.data.values()]
-        domain_images = [x for sub_list in domain_images for x in sub_list]
-        self.domain_images = sorted(list(set(domain_images)))
+
+        self.domain_images = sorted(list(set(self.image_features.keys())))
 
         self.randomize_data()
 

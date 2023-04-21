@@ -27,7 +27,12 @@ def parse_args(mode: str):
 
 def get_working_dir():
     pwd = os.getcwd()
-    pwd = pwd.split("src")[0]
+    if "src" in pwd:
+        pwd = pwd.split("src")[0]
+    elif "sweep" in pwd:
+        pwd = pwd.split("sweep")[0] 
+    else:
+        raise ValueError("Working directory not recognized")
     return pwd
 
 

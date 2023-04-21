@@ -85,9 +85,14 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
     list_acc = aux["list_acc"]
     aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
-    enc = [x.mean(dim=0) for x in aux["enc_log_probs"] if x.size(0) > 0]
-    enc = [x for x in enc if x.size(0) > 0]
-    enc = torch.stack(enc)
+
+    if aux["enc_log_probs"][0].ndim==1:
+        enc = torch.stack(aux["enc_log_probs"])
+        enc=enc.mean(dim=0)
+    else:
+        enc = [x.mean(dim=0) for x in aux["enc_log_probs"] if x.size(0) > 0]
+        enc = [x for x in enc if x.size(0) > 0]
+        enc = torch.stack(enc)
 
     aux["enc_log_probs"] = enc
 
