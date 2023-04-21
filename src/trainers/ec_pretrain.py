@@ -6,18 +6,27 @@ import numpy as np
 import rich.progress
 import torch
 import wandb
+from PIL import Image
+from PIL import ImageDraw
 from torch import nn, optim
 from torch.distributions import Categorical
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from src.commons import (SPEAKER_CHK, EarlyStopping,
-                         get_listener_check, load_wandb_checkpoint,
-                         mask_attn, mask_oov_embeds,
-                         merge_dict, parse_args, save_model, set_seed)
+from src.commons import (
+    SPEAKER_CHK,
+    EarlyStopping,
+    get_listener_check,
+    load_wandb_checkpoint,
+    mask_attn,
+    mask_oov_embeds,
+    merge_dict,
+    parse_args,
+    save_model,
+    set_seed,
+)
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
-from src.commons.attack_utils import AttackModule
 from src.commons.model_utils import logprobs_from_logits
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.EcDataset import EcDataset
@@ -33,31 +42,32 @@ def add_image(aux, list_acc, logger, max_targets=2):
 
     target_ids = np.random.choice(range(len(aux["target_id"])), max_targets)
 
-    table_columns = ["epch", "img_id", "utterance", "perturbed_utterance", "img", "was correct?"]
     table_values = []
     for i in target_ids:
         t_id = aux["target_id"][i]
         utt = aux["utterance"][i]
-        perb_utt = aux["perturbed_utts"][i]
         la = list_acc[i]
 
         jdx = np.random.choice(range(len(t_id)))
         t_id = t_id[jdx]
         utt = utt[jdx]
-        perb_utt = perb_utt[jdx]
         la = la[jdx]
 
         t_id = logger.img_id2path[t_id]
 
-        img_orig = wandb.Image(t_id, caption=utt)
+        # read image with PIL
+        img = Image.open(t_id)
+        color = "green" if la else "red"
+        # add a green rectangle to the image if la is 1
+        draw = ImageDraw.Draw(img)
+        draw.rectangle(((0, 0), (img.width, img.height)), outline=color)
+
+        # convert to wandb.Image
+        img_orig = wandb.Image(img, caption=utt)
 
         # table_values.append([epoch, idx, utt, perb_utt, img, la])
 
         aux[f"img_{idx}"] = img_orig
-
-        if perb_utt != "-":
-            img_pert = wandb.Image(t_id, caption=perb_utt)
-            aux[f"perturbed_img_{idx}"] = img_pert
 
         idx += 1
 
@@ -68,37 +78,32 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
     aux["policy_loss"] = np.mean(aux["policy_loss"])
     aux["list_loss"] = np.mean(aux["list_loss"])
     aux["entropy_loss"] = np.mean(aux["entropy_loss"])
-    aux["adversarial_loss"] = np.mean(aux["adversarial_loss"])
     aux["weighted_policy_loss"] = np.mean(aux["weighted_policy_loss"])
     aux["weighted_entropy_loss"] = np.mean(aux["weighted_entropy_loss"])
     aux["weighted_list_loss"] = np.mean(aux["weighted_list_loss"])
-    aux["weighted_adversarial_loss"] = np.mean(aux["weighted_adversarial_loss"])
-
-    aux["perplexity"] = np.mean(aux["perplexity"])
 
     list_acc = aux["list_acc"]
     aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
     aux["baseline"] = np.mean(aux["baseline"])
-    enc=[x.mean(dim=0) for x in aux['enc_log_probs'] if x.size(0) > 0]
+    enc = [x.mean(dim=0) for x in aux["enc_log_probs"] if x.size(0) > 0]
     enc = [x for x in enc if x.size(0) > 0]
-    enc=torch.stack(enc)
+    enc = torch.stack(enc)
 
-    aux['enc_log_probs'] = enc
+    aux["enc_log_probs"] = enc
 
-    dec = [x.mean(dim=0) for x in aux['dec_log_probs'] if x.size(0) > 0]
+    dec = [x.mean(dim=0) for x in aux["dec_log_probs"] if x.size(0) > 0]
     dec = [x.mean(dim=0) for x in dec if x.size(0) > 0]
-
 
     try:
         dec = torch.stack(dec).mean(dim=0).numpy()
     except RuntimeError:
-        dec = np.zeros_like(aux['enc_log_probs'])
+        dec = np.zeros_like(aux["enc_log_probs"])
 
-    aux['dec_log_probs'] = dec
+    aux["dec_log_probs"] = dec
 
     # remove nans from log probs
-    aux['enc_log_probs'] = np.nan_to_num(aux['enc_log_probs'])
-    aux['dec_log_probs'] = np.nan_to_num(aux['dec_log_probs'])
+    aux["enc_log_probs"] = np.nan_to_num(aux["enc_log_probs"])
+    aux["dec_log_probs"] = np.nan_to_num(aux["dec_log_probs"])
 
     # get max targets random ids in range of targets
     if epoch % 10 == 0:
@@ -108,20 +113,15 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
 
     del aux["target_id"]
     del aux["utterance"]
-    del aux["perturbed_utts"]
-
-
-# FGSM attack code
 
 
 def get_predictions(
-        data: Dict,
-        list_model: ListenerModel,
-        speak_model: SpeakerModelEC,
-        loss_f: nn.CrossEntropyLoss,
-        translator: Translator,
-        baseline: MeanBaseline,
-        attack: AttackModule = None,
+    data: Dict,
+    list_model: ListenerModel,
+    speak_model: SpeakerModelEC,
+    loss_f: nn.CrossEntropyLoss,
+    translator: Translator,
+    baseline: MeanBaseline,
 ) -> Tuple[torch.Tensor, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -137,10 +137,12 @@ def get_predictions(
     target_id = data["target_id"]
     target_img_feat = data["target_img_feat"]
 
-    hypos, model_params, _ = speak_model.generate_hypothesis(context_separate, target_img_feat)
+    hypos, model_params, _ = speak_model.generate_hypothesis(
+        context_separate, target_img_feat
+    )
 
-    enc_logits = model_params['encoder_logits']
-    dec_logits = model_params['decoder_logits']
+    enc_logits = model_params["encoder_logits"]
+    dec_logits = model_params["decoder_logits"]
 
     utterance = hypos
     translator.s2l(utterance)
@@ -160,30 +162,11 @@ def get_predictions(
     list_acc = list_preds.eq(target)
     list_loss = loss_f(list_out, target).mean()
 
-    if common_p.adversarial_loss_weight > 0 and speak_model.training and not list_acc.sum():
-
-        perturbed_batch = attack(utterance, (context_separate, masks), target)
-
-        perturbed_hypo = list_vocab.batch_decode(perturbed_batch)
-
-        dl = dec_logits.permute(1, 2, 0)
-
-        if (perturbed_batch != utterance).any():
-            translator.l2s(perturbed_batch)
-            adversarial_loss = loss_f(dl, perturbed_batch).mean()
-            perplexity = torch.exp(adversarial_loss)
-        else:
-            adversarial_loss = torch.tensor(0.0)
-            perturbed_hypo = ["-" for _ in range(len(utterance))]
-            perplexity = torch.tensor(0.0)
-    else:
-        adversarial_loss = torch.tensor(0.0)
-        perturbed_hypo = ["-" for _ in range(len(utterance))]
-        perplexity = torch.tensor(0.0)
-
     bs = baseline.predict(list_loss.detach())
     if common_p.logits_to_use == "enc":
-        enc_log_probs = logprobs_from_logits(enc_logits, model_params['encoder_ids'].squeeze(dim=0))
+        enc_log_probs = logprobs_from_logits(
+            enc_logits, model_params["encoder_ids"].squeeze(dim=0)
+        )
 
         policy_loss = (list_loss.detach() - bs) * enc_log_probs
         distr = Categorical(logits=enc_logits)
@@ -201,13 +184,12 @@ def get_predictions(
     weighted_policy_loss = policy_loss * common_p.policy_loss_weight
 
     entropy = distr.entropy()
-    entropy_loss = - entropy.mean()
+    entropy_loss = -entropy.mean()
     weighted_entropy_loss = entropy_loss * common_p.entropy_loss_weight
 
     weighted_list_loss = list_loss * common_p.list_loss_weight
-    weighted_adversarial_loss = adversarial_loss * common_p.adversarial_loss_weight
 
-    loss = weighted_policy_loss + weighted_entropy_loss + weighted_adversarial_loss + weighted_list_loss
+    loss = weighted_policy_loss + weighted_entropy_loss + weighted_list_loss
 
     baseline.update(list_loss.detach())
 
@@ -216,36 +198,28 @@ def get_predictions(
         policy_loss=policy_loss.detach().cpu().item(),
         list_loss=list_loss.detach().cpu().item(),
         entropy_loss=entropy_loss.detach().cpu().item(),
-        adversarial_loss=adversarial_loss.detach().cpu().item(),
         weighted_policy_loss=weighted_policy_loss.detach().cpu().item(),
         weighted_entropy_loss=weighted_entropy_loss.detach().cpu().item(),
-        weighted_adversarial_loss=weighted_adversarial_loss.detach().cpu().item(),
         weighted_list_loss=weighted_list_loss.detach().cpu().item(),
-
         baseline=bs.detach().cpu().item(),
-        perplexity=perplexity.detach().cpu().item(),
-
         utterance=dec_utt,
-        perturbed_utts=perturbed_hypo,
         target_id=target_id,
         list_acc=list_acc,
-
         enc_log_probs=torch.log_softmax(enc_logits, dim=-1).detach().cpu().squeeze(),
         dec_log_probs=torch.log_softmax(dec_logits, dim=-1).detach().cpu().squeeze(),
-
     )
 
     return loss, aux
 
 
 def evaluate(
-        data_loader: DataLoader,
-        speak_model: SpeakerModelEC,
-        list_model: ListenerModel,
-        translator,
-        baseline: MeanBaseline,
-        loss_f: torch.nn.Module,
-        split: str,
+    data_loader: DataLoader,
+    speak_model: SpeakerModelEC,
+    list_model: ListenerModel,
+    translator,
+    baseline: MeanBaseline,
+    loss_f: torch.nn.Module,
+    split: str,
 ) -> Dict:
     """
     Evaluate model on either in/out_domain dataloader
@@ -256,12 +230,11 @@ def evaluate(
     """
 
     auxs = []
-    episodes = common_p.episodes
 
     for data in rich.progress.track(
-            data_loader,
-            total=len(data_loader),
-            description=f"evaluating '{split}' split...",
+        data_loader,
+        total=len(data_loader),
+        description=f"evaluating '{split}' split...",
     ):
         loss, aux = get_predictions(
             data, list_model, speak_model, loss_f, translator, baseline
@@ -303,7 +276,11 @@ def main():
     common_p = parse_args("list")
     domain = common_p.train_domain
 
-    device = torch.device("cuda") if torch.cuda.is_available() and common_p.device != "cpu" else torch.device("cpu")
+    device = (
+        torch.device("cuda")
+        if torch.cuda.is_available() and common_p.device != "cpu"
+        else torch.device("cpu")
+    )
 
     # for reproducibility
     seed = common_p.seed
@@ -416,10 +393,16 @@ def main():
     ###################################
 
     optimizer = optim.AdamW(
-        speaker_model.parameters(), lr=common_p.learning_rate, weight_decay=0.0001
+        speaker_model.parameters(), lr=common_p.learning_rate, weight_decay=1e-4
     )
     scheduler = ReduceLROnPlateau(
-        optimizer, "max", patience=common_p.epochs // 10, factor=0.25, verbose=True, threshold=0.5
+        optimizer,
+        "max",
+        patience=10,
+        factor=0.2,
+        verbose=True,
+        threshold=0.001,
+        threshold_mode="abs",
     )
     loss_f = nn.CrossEntropyLoss(reduction="none")
 
@@ -430,7 +413,6 @@ def main():
     metric = common_p.metric
 
     if metric == "loss":
-
         es = EarlyStopping(common_p.patience, "min")
     elif metric == "accs":
         es = EarlyStopping(common_p.patience, "max")
@@ -438,12 +420,12 @@ def main():
         raise ValueError(f"metric of value '{metric}' not recognized")
 
     logger.watch_model([speaker_model], log_freq=100)
-    attack = AttackModule(list_model, eps=common_p.attack_eps, steps=common_p.attack_steps, top_k=common_p.attack_top_k,
-                          std_mult=common_p.attack_std_mult)
 
     ###################################
     ##  Get  dataloader
     ###################################
+
+    print("Loading train data...")
     # need batchsize =1 for generating the new dataloaders
     data_domain = common_p.data_domain
 
@@ -454,6 +436,7 @@ def main():
         batch_size=common_p.batch_size,
         collate_fn=dataset.get_collate_fn(),
     )
+    print("...Done.\nLoading eval data...")
 
     kwargs = get_kwargs("val", common_p)
     dataset = EcDataset(**kwargs)
@@ -471,11 +454,10 @@ def main():
 
     t = datetime.datetime.now()
     timestamp = (
-            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(common_p.epochs):
-
         print("Epoch : ", epoch)
 
         auxs = []
@@ -491,21 +473,15 @@ def main():
         baseline = MeanBaseline()
 
         for data in rich.progress.track(
-                dataloader_train,
-                total=len(dataloader_train),
-                description=f"Training epoch {epoch}",
+            dataloader_train,
+            total=len(dataloader_train),
+            description=f"Training epoch {epoch}",
         ):
             optimizer.zero_grad()
 
             # get datapoints
             loss, aux = get_predictions(
-                data,
-                list_model,
-                speaker_model,
-                loss_f,
-                translator,
-                baseline,
-                attack
+                data, list_model, speaker_model, loss_f, translator, baseline
             )
 
             auxs.append(aux)
@@ -516,19 +492,13 @@ def main():
             optimizer.step()
 
         aux = merge_dict(auxs)
-        aux['lr'] = optimizer.param_groups[0]['lr']
+        aux["lr"] = optimizer.param_groups[0]["lr"]
 
         normalize_aux(aux, logger, epoch)
 
-        aux.update(attack.get_stats())
+        logger.on_eval_end(aux, list_domain=data_domain, modality="train")
 
-        logger.on_eval_end(
-            aux, list_domain=data_domain, modality="train"
-        )
-
-        print(
-            f"Train loss {aux['loss']:.6f}, accuracy {aux['list_acc'] * 100:.2f}% "
-        )
+        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['list_acc'] * 100:.2f}% ")
 
         ###################################
         ##  EVAL LOOP
@@ -556,11 +526,9 @@ def main():
             print(
                 f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f}% "
             )
-            logger.on_eval_end(
-                aux, list_domain=data_domain, modality="eval"
-            )
+            logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-        if epoch > 0 and epoch % 50 == 0:
+        if epoch > 0 and epoch % (common_p.epochs // 20) == 0:
             save_model(
                 model=speaker_model,
                 model_type="speaker_ec",
@@ -583,7 +551,6 @@ def main():
 
 
 if __name__ == "__main__":
-
     try:
         main()
     except KeyboardInterrupt:

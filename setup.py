@@ -3,7 +3,7 @@ import setuptools
 with open("README.md", "r") as f:
     long_description = f.read()
 
-with open("uvapb.yml", "r") as f:
+with open("adapt.yml", "r") as f:
     reqs = f.read()
 reqs = reqs.split("- pip:")[1]
 reqs = reqs.split("prefix")[0]

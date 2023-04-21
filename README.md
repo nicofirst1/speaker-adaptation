@@ -7,9 +7,9 @@
 You can either install by copying the conda yaml file with the following command:
 
 ```bash
-conda env create -f uvapb.yml
+conda env create -f adapt.yml
 ```
-the corresponding conda env `uvapb` will be created.
+the corresponding conda env `adapt` will be created.
 
 ### Setup.py
 You can also install by running the following command:

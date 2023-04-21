@@ -5,7 +5,6 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-import torchviz
 import wandb
 
 from src.commons.Params import Params
@@ -296,6 +295,8 @@ def merge_dict(dicts: List[Dict]) -> Dict:
 
 
 def draw_grad_graph(params, input, output, file_name="grad_graph.png"):
+    import torchviz
+
     (grad_x,) = torch.autograd.grad(output, input, create_graph=True)
     params.update({"grad_x": grad_x, "in": input, "out": output})
     file = torchviz.make_dot((grad_x, input, output), params=params)
@@ -319,8 +320,9 @@ def logprobs_from_logits(logits, labels):
     logp = torch.log_softmax(logits, dim=-1)
     if logp.ndim > 2:
         logp = logp.permute(1, 0,2)
+        labels=labels.unsqueeze(-1)
 
-    logpy = torch.gather(logp, -1, labels.unsqueeze(-1)).squeeze(-1)
+    logpy = torch.gather(logp, -1, labels).squeeze(-1)
     return logpy
 
 
