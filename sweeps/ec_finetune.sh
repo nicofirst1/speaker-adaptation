@@ -15,7 +15,7 @@ module load Anaconda3/2021.05
 source activate uvapb
 
 # perform sweep
-common_args=( --sweep_file ./ec_finetune_sweep.json --episodes 2048 --batch_size 32 --patience 50 --epochs 400 --train_domain all)
+common_args=( --sweep_file ./ec_finetune_sweep.json --episodes 2048 --batch_size 32 --patience 5 --epochs 400 --train_domain all)
 
 
 trainers_file="${HOME}/speaker-adaptation/sweeps/array_sweep.py"

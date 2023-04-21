@@ -1,11 +1,11 @@
 early_terminate:
   eta: 3
-  min_iter: 5
+  min_iter: 10
   type: hyperband
 method: bayes
 metric:
   goal: maximize
-  name: eval/sim_list_accuracy
+  name: eval/list_acc
   target: 1.0
 project: ec-sweep
 

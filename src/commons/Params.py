@@ -30,7 +30,7 @@ def get_working_dir():
     if "src" in pwd:
         pwd = pwd.split("src")[0]
     elif "sweep" in pwd:
-        pwd = pwd.split("sweep")[0] 
+        pwd = pwd.split("sweep")[0]
     else:
         raise ValueError("Working directory not recognized")
     return pwd
@@ -199,6 +199,7 @@ class Params:
 
         # Create the parser to capture CLI arguments.
         parser = argparse.ArgumentParser()
+        self.parser = parser
 
         # for every attribute add an arg instance
         for k, v in att.items():
