@@ -22,9 +22,11 @@ class EcDataset(Dataset):
             self.img2dom = json.load(file)
 
 
-        for img_id, dom in self.img2dom.items():
-            if dom!=domain:
-                del self.image_features[img_id]
+        if domain!="all":
+
+            for img_id, dom in self.img2dom.items():
+                if dom!=domain:
+                    del self.image_features[img_id]
 
 
         self.domain = domain
