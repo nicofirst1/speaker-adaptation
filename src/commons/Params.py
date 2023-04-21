@@ -19,6 +19,8 @@ def parse_args(mode: str):
         parser = ListenerArguments()
     elif mode == "sim":
         parser = SimulatorArguments()
+    else:
+        raise ValueError(f"Mode '{mode}' not recognized")
 
     return parser
 
