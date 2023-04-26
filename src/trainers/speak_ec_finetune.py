@@ -406,7 +406,7 @@ def main():
         patience=10,
         factor=0.2,
         verbose=True,
-        threshold=0.001,
+        threshold=0.05,
         threshold_mode="abs",
     )
     loss_f = nn.CrossEntropyLoss(reduction="none")
@@ -533,7 +533,7 @@ def main():
             )
             logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-        if epoch > 0 and epoch % (common_p.epochs // 20) == 0:
+        if common_p.sweep_file is None and epoch > 0 and epoch % (common_p.epochs // 20) == 0:
             save_model(
                 model=speaker_model,
                 model_type="speaker_ec",

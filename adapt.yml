@@ -44,7 +44,6 @@ dependencies:
     - fastcore==1.5.27
     - filelock==3.6.0
     - fonttools==4.33.3
-    - gensim==3.8.3
     - gitdb==4.0.9
     - gitpython==3.1.27
     - huggingface-hub==0.4.0
@@ -75,7 +74,6 @@ dependencies:
     - promise==2.3
     - prompt-toolkit==3.0.36
     - protobuf==3.19.4
-    - psutil==5.9.0
     - ptyprocess==0.7.0
     - pure-eval==0.2.2
     - pydantic==1.8.2

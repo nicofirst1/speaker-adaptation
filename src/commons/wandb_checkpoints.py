@@ -26,6 +26,8 @@ def get_listener_check(domain, golden_data_percent):
 ########
 SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
+SPEAKER_CHK_EC = "adaptive-speaker/ec_pretrain/SpeakerModelEC:v94"
+
 ########
 # SIM
 ########
@@ -40,8 +42,20 @@ SIM_CHECKPOINTS = dict(
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorModel:v1012",
 )
 
+SIM_CHECKPOINTS_2FINETUNE = dict(
+    all="",
+    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v1078",
+    appliances="",
+    indoor="",
+    outdoor="",
+    vehicles="",
+)
 
-def get_simulator_check(domain, golden_data_percent):
+
+
+def get_simulator_check(domain, finetune=False):
+    if finetune:
+        return SIM_CHECKPOINTS_2FINETUNE[domain]
     return SIM_CHECKPOINTS[domain]
 
 

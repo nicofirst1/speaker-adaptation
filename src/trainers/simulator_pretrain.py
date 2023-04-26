@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 global common_p
 
 
-def normalize_aux(aux, data_length, all_domains, max_targets=3):
+def normalize_aux(aux, data_length, all_domains, max_targets=0):
     aux["loss"] = np.mean(aux["loss"])
 
     aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
@@ -89,19 +89,22 @@ def normalize_aux(aux, data_length, all_domains, max_targets=3):
 
     aux["cohen_kappa_score"] = cohen_kappa_score(aux["list_preds"], aux["sim_preds"])
     aux["matthews_corrcoef"] = matthews_corrcoef(aux["list_preds"], aux["sim_preds"])
-    aux["list_dist"] = torch.concat(aux["list_dist"], dim=0).T
-    aux["sim_dist"] = torch.concat(aux["sim_dist"], dim=0).T
+    # aux["list_dist"] = torch.concat(aux["list_dist"], dim=0).T
+    # aux["sim_dist"] = torch.concat(aux["sim_dist"], dim=0).T
 
     if len(aux["target"]) > max_targets:
         aux["target"] = np.random.choice(
             aux["target"], size=max_targets, replace=False
         ).tolist()
+    if max_targets==0:
+        del aux["target"]
+
 
 
 def get_predictions(
     data: Dict,
-    list_model: torch.nn.Module,
-    sim_model: torch.nn.Module,
+    list_model: ListenerModel,
+    sim_model: SimulatorModel,
     loss_f: nn.CrossEntropyLoss,
     acc_estimator: AccuracyEstimator,
     translator,
@@ -127,8 +130,8 @@ def get_predictions(
     translator(utterance)
 
     # get outputs
-    list_out = list_model(utterance, context_separate, context_concat, masks)
-    sim_out = sim_model(speak_embds, utterance, context_separate, context_concat, masks)
+    list_out = list_model(utterance, context_separate, masks)
+    sim_out = sim_model(utterance, context_separate, context_concat, masks)
 
     # Losses and preds
     list_preds = torch.argmax(list_out, dim=1)
@@ -149,8 +152,8 @@ def get_predictions(
 
 def evaluate(
     data_loader: DataLoader,
-    sim_model: torch.nn.Module,
-    list_model: torch.nn.Module,
+    sim_model: SimulatorModel,
+    list_model: ListenerModel,
     translator,
     loss_f: torch.nn.Module,
     acc_estimator: AccuracyEstimator,
@@ -289,7 +292,7 @@ def main():
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
-        common_speak_p.beam_size,
+        0,
         speak_p.max_len,
         common_speak_p.top_k,
         common_speak_p.top_p,
@@ -344,7 +347,7 @@ def main():
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([sim_model])
+    #logger.watch_model([sim_model],)
 
     ###################################
     ##  Get speaker dataloader
@@ -501,26 +504,8 @@ def main():
                 aux, list_domain=speak_val_dl.dataset.domain, modality="eval"
             )
 
-            # print(f"\nTest")
-            # aux = evaluate(
-            #     speak_test_dl,
-            #     sim_model,
-            #     list_model,
-            #     list_vocab,
-            #     loss_f,
-            #     acc_estimator,
-            #     all_domains=logger.domains,
-            #     split="test",
-            # )
-            #
-            # test_accuracy, test_loss = aux["sim_list_accuracy"], aux["loss"]
-            # print(f"Test loss {test_loss:.6f}, accuracy {test_accuracy:.3f} ")
-            #
-            # logger.on_eval_end(
-            #     aux, list_domain=speak_test_dl.dataset.domain, modality="test"
-            # )
 
-        if not common_p.is_test and epoch % 2 == 0:
+        if epoch>0 and epoch % 2 == 0:
             save_model(
                 model=sim_model,
                 model_type="simulator",

@@ -41,6 +41,8 @@ __all__ = [
     "VAL_DATASET_CHK",
     "TEST_ALL_DATASET_CHK",
     "TRAIN_DATASET_CHK",
+    "SPEAKER_CHK_EC",
+    "SIM_CHECKPOINTS_2FINETUNE",
     # Other
     "AccuracyEstimator",
     "EarlyStopping",

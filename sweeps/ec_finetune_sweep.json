@@ -12,7 +12,7 @@ project: ec-sweep
 parameters:
     learning_rate:
         distribution: q_uniform
-        max: 1e-5
+        max: 1e-6
         min: 1e-7
         q:   2e-7
 
@@ -20,31 +20,22 @@ parameters:
     train_domain:
         value: all
 
-
-
-
     entropy_loss_weight:
       distribution: q_uniform
-      max: 1.0
+      max: 0.5
       min: 0.0
-      q: 0.05
+      q: 0.1
 
     policy_loss_weight:
       distribution: q_uniform
       max: 1.0
-      min: 0.0
-      q: 0.05
+      min: 0.5
+      q: 0.1
 
-
-    list_loss_weight:
-      distribution: q_uniform
-      max: 1.0
-      min: 0.0
-      q: 0.05
 
     sampler_temp:
       distribution: q_uniform
-      max: 1.0
+      max: 0.6
       min: 0.1
       q: 0.1
 

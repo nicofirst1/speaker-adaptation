@@ -1,7 +1,5 @@
-from typing import Optional
-
 import torch
-from src.commons import standardize, to_concat_context
+from src.commons import standardize
 from torch import nn
 
 
@@ -14,7 +12,7 @@ def linear(input_dim, output_dim):
     return linear
 
 
-class SimulatorModel(nn.Module):
+class SimulatorModelOLD(nn.Module):
     def __init__(
         self,
         vocab_size,
@@ -157,11 +155,11 @@ class SimulatorModel(nn.Module):
 
     def forward(
         self,
+        speaker_embeds: torch.Tensor,
         speaker_utterances: torch.Tensor,
         separate_images: torch.Tensor,
+        visual_context: torch.Tensor,
         masks: torch.Tensor,
-        speaker_embeds: Optional[torch.Tensor]=None,
-
     ):
         """
         @param speaker_embeds: utterances coming from the speaker embeddings
@@ -171,10 +169,11 @@ class SimulatorModel(nn.Module):
         """
         speaker_utterances = speaker_utterances.to(self.device)
         separate_images = separate_images.to(self.device)
-        visual_context = to_concat_context(separate_images)
+        visual_context = visual_context.to(self.device)
 
         visual_context = standardize(visual_context)
         separate_images = standardize(separate_images)
+        speaker_embeds = standardize(speaker_embeds)
 
         # visual context is processed
         projected_context = self.lin_context(visual_context)
@@ -182,13 +181,7 @@ class SimulatorModel(nn.Module):
 
         # utterance representations are processed
         utt_out = self.utterance_forward(speaker_utterances, projected_context, masks)
-
-        if speaker_embeds is not None:
-            speaker_embeds = standardize(speaker_embeds)
-            embeds_out = self.embeds_forward(speaker_embeds, projected_context)
-
-        else:
-            embeds_out = torch.ones(utt_out.shape).to(self.device)
+        embeds_out = self.embeds_forward(speaker_embeds, projected_context)
 
         #################
         # visual context

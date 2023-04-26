@@ -127,8 +127,8 @@ class AccuracyEstimator(torch.nn.Module):
             neg_pred_len=len(list_neg_preds),
             pos_pred_len=len(list_pos_preds),
             # distributions
-            list_dist=list_dist,
-            sim_dist=pred_dist,
+            # list_dist=list_dist,
+            # sim_dist=pred_dist,
             # domain specific
             list_target_accuracy_dom=list_target_accuracy_dom,
             sim_list_accuracy_dom=sim_list_accuracy_dom,

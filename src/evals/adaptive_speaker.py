@@ -13,7 +13,7 @@ from src.commons import (SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
                          get_listener_check, get_simulator_check,
                          load_wandb_checkpoint, mask_attn, mask_oov_embeds,
                          parse_args, set_seed, speak2list_vocab,
-                         translate_utterance)
+                         translate_utterance, SPEAKER_CHK_EC)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
 from src.wandb_logging import ListenerLogger
@@ -194,7 +194,7 @@ def evaluate(
         masks = mask_attn(lengths, max_length_tensor, device)
 
         golden_list_out = list_model(
-            golden_utt_ids, context_separate, context_concat, masks
+            golden_utt_ids, context_separate, masks
         )
         golden_list_out.squeeze(dim=0)
         golden_acc = torch.argmax(golden_list_out.squeeze(dim=-1), dim=1)
@@ -228,7 +228,7 @@ def evaluate(
         masks = mask_attn(lengths, max_length_tensor, device)
 
         list_out = list_model(
-            utterance, context_separate, context_concat, masks
+            utterance, context_separate, masks
         )
         original_list_out = list_out.squeeze(dim=0)
 
@@ -262,7 +262,7 @@ def evaluate(
             set_seed(seed)
 
             sim_out = sim_model(
-                h0, utterance, context_separate, context_concat, masks
+             utterance, context_separate, masks, speaker_embeds=h0
             )
             s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
@@ -289,7 +289,7 @@ def evaluate(
             masks = mask_attn(lengths, max_length_tensor, device)
 
             list_out = list_model(
-                utterance, context_separate, context_concat, masks
+                utterance, context_separate , masks
             )
             s_adapted_list_outs[i] = list_out.squeeze(dim=0).tolist()
 
@@ -564,12 +564,12 @@ if __name__ == "__main__":
 
     speaker_model = SpeakerModel(
         speak_vocab,
-        speak_p.embedding_dim,
+        common_speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
-        common_speak_p.beam_size,
+        0,
         speak_p.max_len,
         common_speak_p.top_k,
         common_speak_p.top_p,
@@ -577,7 +577,7 @@ if __name__ == "__main__":
         use_beam=common_speak_p.use_beam,
     )
 
-    speaker_model.load_state_dict(speak_check["model_state_dict"])
+    speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()
@@ -694,7 +694,7 @@ if __name__ == "__main__":
 
     ### saving df
 
-    if not is_sweep:
+    if False and not is_sweep:
         file_name = f"tmp_{uid}.csv"
         df.to_csv(file_name)
 
