@@ -56,6 +56,7 @@ class Params:
     logits_to_use: Optional[bool] = "dec" # enc, dec, both
     entropy_loss_weight: Optional[float] = 0.5
     policy_loss_weight: Optional[float] = 0.5
+    sim_loss_weight: Optional[float] = 0.5
     list_loss_weight: Optional[float] = 1.0
     sampler_temp: Optional[float] = 1.0
 

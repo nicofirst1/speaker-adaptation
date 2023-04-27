@@ -15,6 +15,8 @@ from src.commons import (SPEAKER_CHK, AccuracyEstimator, EarlyStopping,
                          speak2list_vocab, translate_utterance)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
+from src.models.simulator.SimulatorModelSplit import SimulatorModelSplit
+from src.models.speaker.SpeakerModelEC import SpeakerModelEC
 from src.wandb_logging import ListenerLogger
 from torch import nn, optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -131,7 +133,7 @@ def get_predictions(
 
     # get outputs
     list_out = list_model(utterance, context_separate, masks)
-    sim_out = sim_model(utterance, context_separate, context_concat, masks)
+    sim_out = sim_model(context_separate, masks, utterance=utterance)#,speaker_embeds=speak_embds)
 
     # Losses and preds
     list_preds = torch.argmax(list_out, dim=1)
@@ -285,22 +287,21 @@ def main():
 
     # init speak model and load state
 
-    speaker_model = SpeakerModel(
+    speaker_model = SpeakerModelEC(
         speak_vocab,
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
         speak_p.dropout_prob,
         speak_p.attention_dim,
-        0,
+        common_speak_p.sampler_temp,
         speak_p.max_len,
         common_speak_p.top_k,
         common_speak_p.top_p,
         device=device,
-        use_beam=common_speak_p.use_beam,
     ).to(device)
 
-    speaker_model.load_state_dict(speak_check["model_state_dict"])
+    speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
     speaker_model = speaker_model.to(device)
 
     speaker_model = speaker_model.eval()
@@ -309,7 +310,7 @@ def main():
     # simulator
     ##########################
 
-    sim_model = SimulatorModel(
+    sim_model = SimulatorModelSplit(
         len(list_vocab),
         speak_p.hidden_dim,
         common_p.hidden_dim,

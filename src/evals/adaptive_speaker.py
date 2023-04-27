@@ -16,6 +16,8 @@ from src.commons import (SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
                          translate_utterance, SPEAKER_CHK_EC)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
+from src.models.simulator.SimulatorModelSplit import SimulatorModelSplit
+from src.models.speaker.SpeakerModelEC import SpeakerModelEC
 from src.wandb_logging import ListenerLogger
 from torch import nn
 from torch.utils.data import DataLoader
@@ -34,7 +36,7 @@ def generate_ood_table(
         "adapted acc",
     ]
     ood_accs = {d: 0 for d in domain}
-    for d in ood_accs.keys():
+    for d in sorted(ood_accs.keys()):
         # filter out target with this domain
         ood_df = df[df["target domain"] == d]
 
@@ -120,7 +122,7 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 def evaluate(
     data_loader: DataLoader,
     speak_model: SpeakerModel,
-    sim_model: SimulatorModel,
+    sim_model: SimulatorModelSplit,
     list_model: ListenerModel,
     list_vocab: Vocab,
     criterion: nn.CrossEntropyLoss,
@@ -262,7 +264,7 @@ def evaluate(
             set_seed(seed)
 
             sim_out = sim_model(
-             utterance, context_separate, masks, speaker_embeds=h0
+             context_separate, masks, speaker_embeds=h0, utterance=utterance,
             )
             s_adapted_sim_outs[i] = sim_out.squeeze(dim=0).tolist()
 
@@ -574,7 +576,6 @@ if __name__ == "__main__":
         common_speak_p.top_k,
         common_speak_p.top_p,
         device=device,
-        use_beam=common_speak_p.use_beam,
     )
 
     speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
@@ -602,10 +603,10 @@ if __name__ == "__main__":
     common_p.attention_dim = sim_p.attention_dim
     common_p.dropout_prob = sim_p.dropout_prob
 
-    sim_model = SimulatorModel(
+    sim_model = SimulatorModelSplit(
         len(list_vocab),
-        speak_p.hidden_dim,
-        common_p.hidden_dim,
+        512,
+        sim_p.hidden_dim,
         img_dim,
         common_p.attention_dim,
         common_p.dropout_prob,
