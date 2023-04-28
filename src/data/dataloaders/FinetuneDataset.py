@@ -5,46 +5,55 @@ import numpy
 import torch
 from torch.utils.data import Dataset
 
-from src.data.dataloaders.AbstractDataset import AbstractDataset, imgid2path
 
+class FinetuneDataset(Dataset):
+    """
+    Dataset for the fine-tuning
 
-class EcDataset(Dataset):
-    def __init__(self, domain, episodes, batch_size, device,vectors_file,img2dom_file, **kwargs):
+    @param domain: domain to be used for the fine-tuning
+    @param num_images: number of images to be chosen
+    @param device: device to be used
+    @param vectors_file: file containing image features
+    @param img2dom_file: file containing image to domain mapping
+    """
 
-
+    def __init__(
+        self,
+        domain: str,
+        num_images: int,
+        device,
+        vectors_file: str,
+        img2dom_file: str,
+    ):
         with open(vectors_file, "r") as file:
             self.image_features = json.load(file)
-
-            # Original reference sentences without unks
 
             # Original reference sentences without unks
         with open(img2dom_file, "r") as file:
             self.img2dom = json.load(file)
 
-
-        if domain!="all":
-
+        if domain != "all":
+            # filter out images not in the domain
+            domain_images = []
             for img_id, dom in self.img2dom.items():
-                if dom!=domain:
-                    del self.image_features[img_id]
-
+                if dom == domain:
+                    domain_images.append(img_id)
+            self.image_features = {
+                k: v for k, v in self.image_features.items() if k in domain_images
+            }
 
         self.domain = domain
-        self.episodes = episodes
+        self.num_images = num_images
         self.device = device
-        self.batch_size = batch_size
-
 
         self.domain_images = sorted(list(set(self.image_features.keys())))
 
         self.randomize_data()
 
     def randomize_data(self):
-
         self.data = []
 
-
-        for _ in range(self.episodes*self.batch_size):
+        for _ in range(self.num_images):
             # choose 6 random images
             random_set = numpy.random.choice(self.domain_images, 6)
 
@@ -63,20 +72,16 @@ class EcDataset(Dataset):
             target_id = random_set[target_index]
             target_img_feat = image_set[target_index]
 
-            a=1
-
             data = dict(
                 image_set=image_set,
                 image_ids=random_set,
                 target_index=target_index,
                 target_id=target_id,
                 target_img_feat=target_img_feat,
-
             )
             self.data.append(data)
 
     def __getitem__(self, item):
-
         data = self.data[item]
 
         return data
@@ -89,10 +94,6 @@ class EcDataset(Dataset):
         Collate function for batching
         Parameters
         ----------
-        device
-        SOS
-        EOS
-        NOHS
 
         Returns
         -------
@@ -100,16 +101,13 @@ class EcDataset(Dataset):
         """
 
         def collate_fn(data):
-
             batch = defaultdict(list)
 
             for sample in data:
-
                 for key in sample.keys():
                     batch[key].append(sample[key])
 
             for key in batch.keys():
-
                 if key in ["target_index", "image_set", "target_img_feat"]:
                     batch[key] = torch.stack(batch[key]).to(self.device)
 

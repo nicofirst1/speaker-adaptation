@@ -2,7 +2,7 @@ from .AbstractDataset import (AbstractDataset, generate_imgid2domain,
                               imgid2path, load_imgid2domain)
 from .ListenerDataset import ListenerDataset, SpeakerUttDataset
 from .SpeakerDataset import SpeakerDataset
-from .EcDataset import EcDataset
+from .EcDataset import FinetuneDataset
 from .Vocab import Vocab
 
 __all__ = [
@@ -14,5 +14,5 @@ __all__ = [
     "imgid2path",
     "Vocab",
     "SpeakerUttDataset",
-    "EcDataset",
+    "FinetuneDataset",
 ]

@@ -1,8 +1,9 @@
 from typing import Optional
 
 import torch
-from src.commons import standardize, to_concat_context
 from torch import nn
+
+from src.commons import standardize, to_concat_context
 
 
 def linear(input_dim, output_dim):
@@ -54,7 +55,8 @@ class SimulatorModel(nn.Module):
         # from embedding dimensions to hidden dimensions
         # self.lin_emb2hid = linear(self.embedding_dim, self.hidden_dim)
 
-        self.lin_emb2hid = self.init_sequential(embedding_dim, 1, use_leaky=True)
+        self.lin_emb2hid_utt = self.init_sequential(embedding_dim, 1, use_leaky=True)
+        self.lin_emb2hid_emb = self.init_sequential(embedding_dim, 1, use_leaky=True)
 
         # Concatenation of 6 images in the context projected to hidden
         # self.lin_context = linear(self.img_dim * 6, self.hidden_dim)
@@ -62,16 +64,35 @@ class SimulatorModel(nn.Module):
 
         # Multimodal (text representation; visual context)
         # self.lin_mm = linear(self.hidden_dim * 2, self.hidden_dim)
-        self.lin_mm = self.init_sequential(self.hidden_dim, 1, use_leaky=False)
+        self.lin_mm_utt = self.init_sequential(self.hidden_dim, 1, use_leaky=False)
+        self.lin_mm_emb = self.init_sequential(self.hidden_dim, 1, use_leaky=False)
 
         # attention linear layers
-        self.att_linear_1 = linear(self.hidden_dim, self.attention_dim)
-        self.att_linear_2 = linear(self.attention_dim, 1)
+        self.att_linear_1_utt = linear(self.hidden_dim, self.attention_dim)
+        self.att_linear_2_utt = linear(self.attention_dim, 1)
 
         self.relu = nn.ReLU()
         self.lrelu = nn.LeakyReLU()
 
         self.softmax = nn.Softmax(dim=1)
+
+    def freeze_utts(self):
+        utt_params = (
+            list(self.embeddings.parameters())
+            + list(self.lin_emb2hid_utt.parameters())
+            + list(self.lin_mm_utt.parameters())
+            + list(self.att_linear_1_utt.parameters())
+            + list(self.att_linear_2_utt.parameters())
+        )
+
+        vision_params = list(self.linear_separate.parameters()) + list(
+            self.lin_context.parameters()
+        )
+
+        params = utt_params + vision_params
+
+        for param in params:
+            param.requires_grad = False
 
     def init_sequential(self, input_dim, num_layers, use_leaky=False, end_dim=-1):
         """
@@ -107,20 +128,20 @@ class SimulatorModel(nn.Module):
         representations = self.embeddings(speaker_utterances)
 
         # utterance representations are processed
-        input_reps = self.lin_emb2hid(representations)
+        input_reps = self.lin_emb2hid_utt(representations)
         input_reps = standardize(input_reps)
 
         repeated_context = projected_context.unsqueeze(1)
 
         # multimodal utterance representations
         mm_reps = input_reps * repeated_context
-        mm_reps = self.lin_mm(mm_reps)
+        mm_reps = self.lin_mm_utt(mm_reps)
 
         # attention over the multimodal utterance representations (tokens and visual context interact)
-        outputs_att = self.att_linear_1(mm_reps)
+        outputs_att = self.att_linear_1_utt(mm_reps)
         outputs_att = self.lrelu(outputs_att)
         outputs_att = standardize(outputs_att)
-        outputs_att = self.att_linear_2(outputs_att)
+        outputs_att = self.att_linear_2_utt(outputs_att)
 
         # mask pads so that no attention is paid to them (with -inf)
         masks = masks.bool()
@@ -143,14 +164,13 @@ class SimulatorModel(nn.Module):
         """
 
         # utterance representations are processed
-        input_reps = self.lin_emb2hid(speaker_embeds)
-        # input_reps = F.normalize(input_reps, p=2, dim=1)
+        input_reps = self.lin_emb2hid_emb(speaker_embeds)
         input_reps = standardize(input_reps)
 
         # multimodal utterance representations
         mm_reps = input_reps * projected_context
 
-        mm_reps = self.lin_mm(mm_reps)
+        mm_reps = self.lin_mm_emb(mm_reps)
         mm_reps = standardize(mm_reps)
 
         return mm_reps
@@ -159,9 +179,8 @@ class SimulatorModel(nn.Module):
         self,
         separate_images: torch.Tensor,
         masks: torch.Tensor,
-        speaker_embeds: Optional[torch.Tensor]=None,
-        utterance: Optional[torch.Tensor]=None,
-
+        speaker_embeds: Optional[torch.Tensor] = None,
+        utterance: Optional[torch.Tensor] = None,
     ):
         """
         @param speaker_embeds: utterances coming from the speaker embeddings
@@ -169,6 +188,7 @@ class SimulatorModel(nn.Module):
         @param visual_context: concatenation of 6 images in the context
         @param masks: attention mask for pad tokens
         """
+
         separate_images = separate_images.to(self.device)
         visual_context = to_concat_context(separate_images)
 
@@ -178,6 +198,7 @@ class SimulatorModel(nn.Module):
         # visual context is processed
         projected_context = self.lin_context(visual_context)
         projected_context = standardize(projected_context)
+        batch_size = projected_context.shape[0]
 
         # utterance representations are processed
 
@@ -186,23 +207,18 @@ class SimulatorModel(nn.Module):
             utt_out = self.utterance_forward(utterance, projected_context, masks)
 
         else:
-            utt_out = torch.ones(masks.shape).to(self.device).squeeze(dim=-1)
+            utt_out = torch.ones((batch_size, self.attention_dim)).to(self.device)
 
         if speaker_embeds is not None:
             speaker_embeds = standardize(speaker_embeds)
             embeds_out = self.embeds_forward(speaker_embeds, projected_context)
 
         else:
-            speaker_embeds = torch.randn((masks.shape[0],self.embedding_dim)).to(self.device)
-            embeds_out = self.embeds_forward(speaker_embeds, projected_context)
-
-            #embeds_out = torch.ones(utt_out.shape).to(self.device)
+            embeds_out = torch.ones((batch_size, self.attention_dim)).to(self.device)
 
         #################
         # visual context
         #################
-
-        batch_size = utterance.shape[0]
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)

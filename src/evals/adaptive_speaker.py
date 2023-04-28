@@ -603,7 +603,7 @@ if __name__ == "__main__":
     common_p.attention_dim = sim_p.attention_dim
     common_p.dropout_prob = sim_p.dropout_prob
 
-    sim_model = SimulatorModelSplit(
+    sim_model = SimulatorModel(
         len(list_vocab),
         512,
         sim_p.hidden_dim,

@@ -31,6 +31,8 @@ def get_working_dir():
         pwd = pwd.split("src")[0]
     elif "sweep" in pwd:
         pwd = pwd.split("sweep")[0]
+    elif "tests" in pwd:
+        pwd = pwd.split("tests")[0]
     else:
         raise ValueError("Working directory not recognized")
     return pwd

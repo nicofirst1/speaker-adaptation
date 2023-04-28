@@ -9,35 +9,33 @@ import wandb
 from PIL import Image
 from PIL import ImageDraw
 from torch import nn, optim
-from torch.distributions import Categorical
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from src.commons import (
     SPEAKER_CHK,
     EarlyStopping,
-    get_listener_check,
     load_wandb_checkpoint,
     mask_attn,
-    mask_oov_embeds,
     merge_dict,
     parse_args,
     save_model,
     set_seed,
+    get_simulator_check,
 )
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
-from src.commons.model_utils import logprobs_from_logits
 from src.data.dataloaders import Vocab
-from src.data.dataloaders.EcDataset import EcDataset
-from src.models import ListenerModel, SpeakerModelEC
+from src.data.dataloaders.EcDataset import FinetuneDataset
+from src.models import SpeakerModelEC
+from src.models.simulator.SimulatorModelSplit import SimulatorModelSplit
 from src.wandb_logging import ListenerLogger
 
 global common_p
-global list_vocab
+global sim_vocab
 
 
-def add_image(aux, list_acc, logger, max_targets=2):
+def add_image(aux, sim_acc, logger, max_targets=2):
     idx = 0
 
     target_ids = np.random.choice(range(len(aux["target_id"])), max_targets)
@@ -46,7 +44,7 @@ def add_image(aux, list_acc, logger, max_targets=2):
     for i in target_ids:
         t_id = aux["target_id"][i]
         utt = aux["utterance"][i]
-        la = list_acc[i]
+        la = sim_acc[i]
 
         jdx = np.random.choice(range(len(t_id)))
         t_id = t_id[jdx]
@@ -75,44 +73,13 @@ def add_image(aux, list_acc, logger, max_targets=2):
 def normalize_aux(aux, logger, epoch, max_targets=2):
     batch_size = len(aux["target_id"][0])
     aux["loss"] = np.mean(aux["loss"])
-    aux["policy_loss"] = np.mean(aux["policy_loss"])
-    aux["list_loss"] = np.mean(aux["list_loss"])
-    aux["entropy_loss"] = np.mean(aux["entropy_loss"])
-    aux["weighted_policy_loss"] = np.mean(aux["weighted_policy_loss"])
-    aux["weighted_entropy_loss"] = np.mean(aux["weighted_entropy_loss"])
-    aux["weighted_list_loss"] = np.mean(aux["weighted_list_loss"])
 
-    list_acc = aux["list_acc"]
-    aux["list_acc"] = np.mean([sum(x) for x in aux["list_acc"]]) / batch_size
-    aux["baseline"] = np.mean(aux["baseline"])
-
-    if aux["enc_log_probs"][0].ndim==1:
-        enc = torch.stack(aux["enc_log_probs"])
-        enc=enc.mean(dim=0)
-    else:
-        enc = [x.mean(dim=0) for x in aux["enc_log_probs"] if x.size(0) > 0]
-        enc = [x for x in enc if x.size(0) > 0]
-        enc = torch.stack(enc)
-
-    aux["enc_log_probs"] = enc
-
-    dec = [x.mean(dim=0) for x in aux["dec_log_probs"] if x.size(0) > 0]
-    dec = [x.mean(dim=0) for x in dec if x.size(0) > 0]
-
-    try:
-        dec = torch.stack(dec).mean(dim=0).numpy()
-    except RuntimeError:
-        dec = np.zeros_like(aux["enc_log_probs"])
-
-    aux["dec_log_probs"] = dec
-
-    # remove nans from log probs
-    aux["enc_log_probs"] = np.nan_to_num(aux["enc_log_probs"])
-    aux["dec_log_probs"] = np.nan_to_num(aux["dec_log_probs"])
+    sim_acc = aux["sim_acc"]
+    aux["sim_acc"] = np.mean([sum(x) for x in aux["sim_acc"]]) / batch_size
 
     # get max targets random ids in range of targets
-    if epoch % 10 == 0:
-        add_image(aux, list_acc, logger, max_targets=max_targets)
+    if False and epoch % 10 == 0:
+        add_image(aux, sim_acc, logger, max_targets=max_targets)
 
     # aux["utt_table"] = wandb.Table(columns=table_columns, data=table_values)
 
@@ -122,7 +89,7 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
 
 def get_predictions(
     data: Dict,
-    list_model: ListenerModel,
+    sim_model: SimulatorModelSplit,
     speak_model: SpeakerModelEC,
     loss_f: nn.CrossEntropyLoss,
     translator: Translator,
@@ -133,7 +100,7 @@ def get_predictions(
 
     """
     global common_p
-    global list_vocab
+    global sim_vocab
 
     # get datapoints
     context_separate = data["image_set"]
@@ -142,76 +109,42 @@ def get_predictions(
     target_id = data["target_id"]
     target_img_feat = data["target_img_feat"]
 
-    hypos, model_params, _ = speak_model.generate_hypothesis(
+    hypos, _, embeds = speak_model.generate_hypothesis(
         context_separate, target_img_feat
     )
 
-    enc_logits = model_params["encoder_logits"]
-    dec_logits = model_params["decoder_logits"]
-
     utterance = hypos
     translator.s2l(utterance)
-    dec_utt = list_vocab.batch_decode(utterance)
+    dec_utt = sim_vocab.batch_decode(utterance)
 
     lengths = torch.tensor([len(x) for x in utterance])
     max_length_tensor = torch.max(lengths).item()
     # get mask and translate utterance
-    masks = mask_attn(lengths, max_length_tensor, list_model.device)
+    masks = mask_attn(lengths, max_length_tensor, sim_model.device)
 
     # get outputs
-    list_out = list_model(utterance, context_separate, masks)
-    list_out = list_out.squeeze(-1)
+    sim_out = sim_model(
+        context_separate,
+        masks,
+        speaker_embeds=embeds,
+        utterance=utterance,
+    )
+    sim_out = sim_out.squeeze(-1)
 
     # Losses and preds
-    list_preds = torch.argmax(list_out, dim=1)
-    list_acc = list_preds.eq(target)
-    list_loss = loss_f(list_out, target).mean()
+    sim_preds = torch.argmax(sim_out, dim=1)
+    sim_acc = sim_preds.eq(target)
+    sim_loss = loss_f(sim_out, target).mean()
 
-    bs = baseline.predict(list_loss.detach())
-    if common_p.logits_to_use == "enc":
-        enc_log_probs = logprobs_from_logits(
-            enc_logits, model_params["encoder_ids"].squeeze(dim=0)
-        )
+    loss = sim_loss
 
-        policy_loss = (list_loss.detach() - bs) * enc_log_probs
-        distr = Categorical(logits=enc_logits)
-    elif common_p.logits_to_use == "dec":
-        dec_log_probs = logprobs_from_logits(dec_logits, hypos)
-
-        policy_loss = (list_loss.detach() - bs) * dec_log_probs
-        distr = Categorical(logits=dec_log_probs)
-    else:
-        joint_log_probs = logprobs_from_logits(enc_logits[..., :-1] * dec_logits, hypos)
-        policy_loss = (list_loss.detach() - bs) * joint_log_probs
-        distr = Categorical(logits=joint_log_probs)
-
-    policy_loss = policy_loss.mean()
-    weighted_policy_loss = policy_loss * common_p.policy_loss_weight
-
-    entropy = distr.entropy()
-    entropy_loss = -entropy.mean()
-    weighted_entropy_loss = entropy_loss * common_p.entropy_loss_weight
-
-    weighted_list_loss = list_loss * common_p.list_loss_weight
-
-    loss = weighted_policy_loss + weighted_entropy_loss + weighted_list_loss
-
-    baseline.update(list_loss.detach())
+    baseline.update(sim_loss.detach())
 
     aux = dict(
         loss=loss.detach().cpu().item(),
-        policy_loss=policy_loss.detach().cpu().item(),
-        list_loss=list_loss.detach().cpu().item(),
-        entropy_loss=entropy_loss.detach().cpu().item(),
-        weighted_policy_loss=weighted_policy_loss.detach().cpu().item(),
-        weighted_entropy_loss=weighted_entropy_loss.detach().cpu().item(),
-        weighted_list_loss=weighted_list_loss.detach().cpu().item(),
-        baseline=bs.detach().cpu().item(),
         utterance=dec_utt,
         target_id=target_id,
-        list_acc=list_acc,
-        enc_log_probs=torch.log_softmax(enc_logits, dim=-1).detach().cpu().squeeze(),
-        dec_log_probs=torch.log_softmax(dec_logits, dim=-1).detach().cpu().squeeze(),
+        sim_acc=sim_acc,
     )
 
     return loss, aux
@@ -220,7 +153,7 @@ def get_predictions(
 def evaluate(
     data_loader: DataLoader,
     speak_model: SpeakerModelEC,
-    list_model: ListenerModel,
+    sim_model: SimulatorModelSplit,
     translator,
     baseline: MeanBaseline,
     loss_f: torch.nn.Module,
@@ -242,7 +175,7 @@ def evaluate(
         description=f"evaluating '{split}' split...",
     ):
         loss, aux = get_predictions(
-            data, list_model, speak_model, loss_f, translator, baseline
+            data, sim_model, speak_model, loss_f, translator, baseline
         )
 
         auxs.append(aux)
@@ -276,9 +209,9 @@ def main():
 
     img_dim = 2048
     global common_p
-    global list_vocab
+    global sim_vocab
 
-    common_p = parse_args("list")
+    common_p = parse_args("sim")
     domain = common_p.train_domain
 
     device = (
@@ -310,55 +243,8 @@ def main():
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="ec_pretrain",
+        project="ec_sim_finetune",
     )
-
-    ##########################
-    # LISTENER
-    ##########################
-
-    list_check = get_listener_check(domain, common_p.golden_data_perc)
-
-    list_checkpoint, _ = load_wandb_checkpoint(
-        list_check,
-        device,
-    )
-    # datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
-    list_args = list_checkpoint["args"]
-
-    # update list args
-    list_args.device = device
-    list_args.reset_paths()
-
-    # update paths
-    # list_args.__parse_args()
-    list_args.__post_init__()
-    list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
-
-    list_model = ListenerModel(
-        len(list_vocab),
-        list_args.embed_dim,
-        list_args.hidden_dim,
-        img_dim,
-        list_args.attention_dim,
-        list_args.dropout_prob,
-        list_args.train_domain,
-        device=device,
-    ).to(device)
-
-    list_model.load_state_dict(list_checkpoint["model_state_dict"])
-    list_model = list_model.to(device)
-    list_model.eval()
-
-    with torch.no_grad():
-        list_model.embeddings = mask_oov_embeds(
-            list_model.embeddings,
-            list_vocab,
-            domain,
-            replace_token=common_p.mask_oov_embed,
-            data_path=common_p.data_path,
-        )
-
     ##########################
     # SPEAKER
     ##########################
@@ -392,13 +278,51 @@ def main():
 
     speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
     speaker_model = speaker_model.to(device)
+    speaker_model = speaker_model.eval()
+
+    ##########################
+    # SIMULATOR
+    ##########################
+
+    if common_p.force_resume_url == "":
+        check = get_simulator_check(common_p.sim_domain, finetune=True)
+    else:
+        check = common_p.force_resume_url
+    sim_check, _ = load_wandb_checkpoint(check, device)
+
+    sim_vocab = Vocab(common_p.vocab_file, is_speaker=False)
+
+    # load args
+    sim_p = sim_check["args"]
+    common_p.train_domain = domain
+    common_p.device = device
+
+    # override common_p with sim_p
+    common_p.hidden_dim = sim_p.hidden_dim
+    common_p.attention_dim = sim_p.attention_dim
+
+    sim_model = SimulatorModelSplit(
+        len(sim_vocab),
+        speak_p.hidden_dim,
+        common_p.hidden_dim,
+        img_dim,
+        common_p.attention_dim,
+        common_p.dropout_prob,
+        common_p.sim_domain,
+        common_p.device,
+    ).to(device)
+
+    sim_model.load_state_dict(sim_check["model_state_dict"])
+
+    sim_model = sim_model.to(device)
+    sim_model = sim_model.train()
 
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
 
     optimizer = optim.AdamW(
-        speaker_model.parameters(), lr=common_p.learning_rate, weight_decay=1e-4
+        sim_model.parameters(), lr=common_p.learning_rate, weight_decay=1e-4
     )
     scheduler = ReduceLROnPlateau(
         optimizer,
@@ -424,7 +348,7 @@ def main():
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([speaker_model], log_freq=100)
+    logger.watch_model([sim_model], log_freq=1000)
 
     ###################################
     ##  Get  dataloader
@@ -435,7 +359,7 @@ def main():
     data_domain = common_p.data_domain
 
     kwargs = get_kwargs("train", common_p)
-    dataset = EcDataset(**kwargs)
+    dataset = FinetuneDataset(**kwargs)
     dataloader_train = DataLoader(
         dataset,
         batch_size=common_p.batch_size,
@@ -444,14 +368,14 @@ def main():
     print("...Done.\nLoading eval data...")
 
     kwargs = get_kwargs("val", common_p)
-    dataset = EcDataset(**kwargs)
+    dataset = FinetuneDataset(**kwargs)
     dataloader_eval = DataLoader(
         dataset,
         batch_size=common_p.batch_size,
         collate_fn=dataset.get_collate_fn(),
     )
 
-    translator = Translator(speak_vocab, list_vocab, device)
+    translator = Translator(speak_vocab, sim_vocab, device)
 
     ###################################
     ##  START OF TRAINING LOOP
@@ -467,7 +391,8 @@ def main():
 
         auxs = []
 
-        speaker_model.train()
+        sim_model.train()
+        sim_model.freeze_utts()
         # dataloader_train.dataset.randomize_data()
         # dataloader_eval.dataset.randomize_data()
 
@@ -486,7 +411,7 @@ def main():
 
             # get datapoints
             loss, aux = get_predictions(
-                data, list_model, speaker_model, loss_f, translator, baseline
+                data, sim_model, speaker_model, loss_f, translator, baseline
             )
 
             auxs.append(aux)
@@ -503,20 +428,20 @@ def main():
 
         logger.on_eval_end(aux, list_domain=data_domain, modality="train")
 
-        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['list_acc'] * 100:.2f}% ")
+        print(f"Train loss {aux['loss']:.6f}, accuracy {aux['sim_acc'] * 100:.2f}% ")
 
         ###################################
         ##  EVAL LOOP
         ###################################
 
         with torch.no_grad():
-            speaker_model.eval()
+            sim_model.eval()
 
             print(f"\nEvaluation")
             aux = evaluate(
                 dataloader_eval,
                 speaker_model,
-                list_model,
+                sim_model,
                 translator,
                 baseline,
                 loss_f,
@@ -524,7 +449,7 @@ def main():
             )
             normalize_aux(aux, logger, epoch)
 
-            eval_accuracy, eval_loss = aux["list_acc"], aux["loss"]
+            eval_accuracy, eval_loss = aux["sim_acc"], aux["loss"]
 
             scheduler.step(eval_accuracy)
 
@@ -533,10 +458,14 @@ def main():
             )
             logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-        if common_p.sweep_file is None and epoch > 0 and epoch % (common_p.epochs // 20) == 0:
+        if (
+            common_p.sweep_file == ""
+            and epoch > 0
+            and epoch %  7 == 0
+        ):
             save_model(
-                model=speaker_model,
-                model_type="speaker_ec",
+                model=sim_model,
+                model_type="sim_ec",
                 epoch=epoch,
                 accuracy=eval_accuracy,
                 optimizer=optimizer,
