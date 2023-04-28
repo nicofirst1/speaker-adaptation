@@ -16,15 +16,14 @@ from src.commons import (
     SPEAKER_CHK,
     EarlyStopping,
     load_wandb_checkpoint,
-    mask_attn,
     merge_dict,
     parse_args,
     save_model,
     set_seed,
     get_simulator_check,
 )
-from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
+from src.commons.model_utils import get_mask_from_utts
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.FinetuneDataset import FinetuneDataset
 from src.models import SpeakerModelEC
@@ -78,7 +77,7 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
     aux["sim_acc"] = np.mean([sum(x) for x in aux["sim_acc"]]) / batch_size
 
     # get max targets random ids in range of targets
-    if False and epoch % 10 == 0:
+    if epoch % 10 == 0:
         add_image(aux, sim_acc, logger, max_targets=max_targets)
 
     # aux["utt_table"] = wandb.Table(columns=table_columns, data=table_values)
@@ -93,19 +92,15 @@ def get_predictions(
     speak_model: SpeakerModelEC,
     loss_f: nn.CrossEntropyLoss,
     translator: Translator,
-    baseline: MeanBaseline,
 ) -> Tuple[torch.Tensor, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
 
     """
-    global common_p
-    global sim_vocab
 
     # get datapoints
     context_separate = data["image_set"]
     target = data["target_index"]
-    image_ids = data["image_ids"]
     target_id = data["target_id"]
     target_img_feat = data["target_img_feat"]
 
@@ -114,31 +109,26 @@ def get_predictions(
     )
 
     utterance = hypos
-    translator.s2l(utterance)
-    dec_utt = sim_vocab.batch_decode(utterance)
+    utterance = translator.s2l(utterance)
+    dec_utt = translator.list_vocab.batch_decode(utterance)
 
-    lengths = torch.tensor([len(x) for x in utterance])
-    max_length_tensor = torch.max(lengths).item()
     # get mask and translate utterance
-    masks = mask_attn(lengths, max_length_tensor, sim_model.device)
+    masks = get_mask_from_utts(utterance, translator.list_vocab, device=embeds.device)
 
     # get outputs
     sim_out = sim_model(
-        context_separate,
-        masks,
-        speaker_embeds=embeds,
+        separate_images=context_separate,
         utterance=utterance,
+        masks=masks,
+        speaker_embeds=embeds,
     )
+
     sim_out = sim_out.squeeze(-1)
 
     # Losses and preds
     sim_preds = torch.argmax(sim_out, dim=1)
     sim_acc = sim_preds.eq(target)
-    sim_loss = loss_f(sim_out, target).mean()
-
-    loss = sim_loss
-
-    baseline.update(sim_loss.detach())
+    loss = loss_f(sim_out, target).mean()
 
     aux = dict(
         loss=loss.detach().cpu().item(),
@@ -148,60 +138,6 @@ def get_predictions(
     )
 
     return loss, aux
-
-
-def evaluate(
-    data_loader: DataLoader,
-    speak_model: SpeakerModelEC,
-    sim_model: SimulatorModel,
-    translator,
-    baseline: MeanBaseline,
-    loss_f: torch.nn.Module,
-    split: str,
-) -> Dict:
-    """
-    Evaluate model on either in/out_domain dataloader
-    :param data_loader:
-    :param model:
-    :param in_domain: when out_domain also estimate per domain accuracy
-    :return:
-    """
-
-    auxs = []
-
-    for data in rich.progress.track(
-        data_loader,
-        total=len(data_loader),
-        description=f"evaluating '{split}' split...",
-    ):
-        loss, aux = get_predictions(
-            data, sim_model, speak_model, loss_f, translator, baseline
-        )
-
-        auxs.append(aux)
-
-    aux = merge_dict(auxs)
-
-    return aux
-
-
-def get_kwargs(split, common_p):
-    kwargs = {
-        "device": common_p.device,
-        "episodes": common_p.episodes,
-        "domain": common_p.train_domain,
-        "utterances_file": f"{split}_{common_p.utterances_file}",
-        "vectors_file": common_p.vectors_file,
-        "chain_file": f"{split}_{common_p.chains_file}",
-        "orig_ref_file": f"{split}_{common_p.orig_ref_file}",
-        "split": split,
-        "subset_size": common_p.subset_size,
-        "image_size": common_p.image_size,
-        "img2dom_file": common_p.img2dom_file,
-        "data_dir": common_p.data_path,
-        "batch_size": common_p.batch_size,
-    }
-    return kwargs
 
 
 def main():
@@ -243,7 +179,7 @@ def main():
         train_logging_step=1,
         val_logging_step=1,
         tags=tags,
-        project="ec_sim_finetune",
+        project="sim_finetune",
     )
     ##########################
     # SPEAKER
@@ -294,22 +230,30 @@ def main():
 
     # load args
     sim_p = sim_check["args"]
-    common_p.train_domain = domain
-    common_p.device = device
 
-    # override common_p with sim_p
-    common_p.hidden_dim = sim_p.hidden_dim
-    common_p.attention_dim = sim_p.attention_dim
+    # warn the user if the hidden_dim and attention_dim are different
+    if sim_p.hidden_dim != common_p.hidden_dim:
+        print(
+            "WARNING: hidden_dim is different in sim and common, {} vs {}".format(
+                sim_p.hidden_dim, common_p.hidden_dim
+            )
+        )
+    if sim_p.attention_dim != common_p.attention_dim:
+        print(
+            "WARNING: attention_dim is different in sim and common, {} vs {}".format(
+                sim_p.attention_dim, common_p.attention_dim
+            )
+        )
 
     sim_model = SimulatorModel(
         len(sim_vocab),
         speak_p.hidden_dim,
-        common_p.hidden_dim,
+        sim_p.hidden_dim,
         img_dim,
-        common_p.attention_dim,
+        sim_p.attention_dim,
         common_p.dropout_prob,
         common_p.sim_domain,
-        common_p.device,
+        device,
     ).to(device)
 
     sim_model.load_state_dict(sim_check["model_state_dict"])
@@ -358,7 +302,6 @@ def main():
     # need batchsize =1 for generating the new dataloaders
     data_domain = common_p.data_domain
 
-
     dataset = FinetuneDataset(
         domain=data_domain,
         num_images=common_p.episodes * common_p.batch_size,
@@ -403,32 +346,28 @@ def main():
 
         sim_model.train()
         sim_model.freeze_utts_stream()
-        # dataloader_train.dataset.randomize_data()
-        # dataloader_eval.dataset.randomize_data()
 
-        # torch.enable_grad()
         ###################################
         ##  TRAIN LOOP
         ###################################
-        baseline = MeanBaseline()
 
         for data in rich.progress.track(
             dataloader_train,
-            total=len(dataloader_train),
+            total=common_p.episodes,
             description=f"Training epoch {epoch}",
         ):
             optimizer.zero_grad()
 
             # get datapoints
             loss, aux = get_predictions(
-                data, sim_model, speaker_model, loss_f, translator, baseline
+                data, sim_model, speaker_model, loss_f, translator
             )
 
             auxs.append(aux)
 
             # optimizer
             loss.backward()
-            # nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=1.0)
+            # nn.utils.clip_grad_value_(sim_model.parameters(), clip_value=1.0)
             optimizer.step()
 
         aux = merge_dict(auxs)
@@ -447,16 +386,19 @@ def main():
         with torch.no_grad():
             sim_model.eval()
 
-            print(f"\nEvaluation")
-            aux = evaluate(
+            for data in rich.progress.track(
                 dataloader_eval,
-                speaker_model,
-                sim_model,
-                translator,
-                baseline,
-                loss_f,
-                split="eval",
-            )
+                total=len(dataloader_eval),
+                description=f"evaluating...",
+            ):
+                loss, aux = get_predictions(
+                    data, sim_model, speaker_model, loss_f, translator
+                )
+
+                auxs.append(aux)
+
+            aux = merge_dict(auxs)
+
             normalize_aux(aux, logger, epoch)
 
             eval_accuracy, eval_loss = aux["sim_acc"], aux["loss"]
@@ -468,11 +410,7 @@ def main():
             )
             logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-        if (
-            common_p.sweep_file == ""
-            and epoch > 0
-            and epoch %  7 == 0
-        ):
+        if common_p.sweep_file == "" and epoch > 0 and epoch % 7 == 0:
             save_model(
                 model=sim_model,
                 model_type="sim_ec",

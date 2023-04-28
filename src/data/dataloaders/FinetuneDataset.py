@@ -87,7 +87,7 @@ class FinetuneDataset(Dataset):
         return data
 
     def __len__(self):
-        return self.episodes
+        return self.num_images
 
     def get_collate_fn(self):
         """

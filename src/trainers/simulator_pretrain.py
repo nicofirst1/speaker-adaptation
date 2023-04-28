@@ -1,5 +1,6 @@
 import datetime
 from typing import Dict, List, Tuple
+import lovely_tensors as lt
 
 import numpy as np
 import rich.progress
@@ -546,6 +547,8 @@ def main():
 
 if __name__ == "__main__":
     try:
+        lt.monkey_patch()
+
         main()
     except KeyboardInterrupt:
         print("Keyboard Interrupt, finishing run")

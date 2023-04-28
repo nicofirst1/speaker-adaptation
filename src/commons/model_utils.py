@@ -18,7 +18,7 @@ def set_seed(seed: int):
 
 
 def mask_attn(
-        actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
+    actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
 ) -> torch.Tensor:
     """
     Maske attention function
@@ -37,7 +37,7 @@ def mask_attn(
     for n in range(len(actual_num_tokens)):
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (
-                max_num_tokens - actual_num_tokens[n]
+            max_num_tokens - actual_num_tokens[n]
         )
 
         masks.append(mask)
@@ -45,6 +45,30 @@ def mask_attn(
     masks = torch.tensor(masks).unsqueeze(-1).to(device)
 
     return masks
+
+
+def get_mask_from_utts(
+    utts: torch.Tensor, vocab: Vocab, device: torch.device
+) -> torch.Tensor:
+    """
+    Return a mask for the utterances, where the padding is masked
+    Padding is 0 and end of sentence is 3
+
+    Parameters
+    ----------
+    utts : tensor of utterances [batch_size, max_len]
+    vocab : A vocab class
+    device
+
+    """
+    mask = torch.ones_like(utts).to(device)
+    mask[utts == vocab["<pad>"]] = 0
+    mask[utts == vocab["<eos>"]] = 0
+
+    # invert mask
+    mask = mask == 0
+
+    return mask.unsqueeze(-1)
 
 
 def hypo2utterance(hypo: str, vocab):
@@ -67,11 +91,8 @@ def hypo2utterance(hypo: str, vocab):
     return utterance
 
 
-
-
-
 def get_domain_accuracy(
-        accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+    accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:accuracy for all the domains in 'all_domains:
@@ -110,7 +131,7 @@ def get_domain_accuracy(
 
 
 def get_domain_mrr(
-        ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+    ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:mrr for all the domains in 'all_domains:
@@ -148,15 +169,15 @@ def get_domain_mrr(
 
 
 def save_model(
-        model: torch.nn.Module,
-        model_type: str,
-        epoch: int,
-        accuracy: float,
-        optimizer: torch.optim.Optimizer,
-        args: Params,
-        timestamp: str,
-        logger: AbstractWandbLogger,
-        **kwargs,
+    model: torch.nn.Module,
+    model_type: str,
+    epoch: int,
+    accuracy: float,
+    optimizer: torch.optim.Optimizer,
+    args: Params,
+    timestamp: str,
+    logger: AbstractWandbLogger,
+    **kwargs,
 ):
     """
     Save model in torch and wandb
@@ -298,16 +319,14 @@ def draw_grad_graph(params, input, output, file_name="grad_graph.png"):
     return file
 
 
-
-
 def logprobs_from_logits(logits, labels):
     """
     taken from https://github.com/lvwerra/trl/blob/d1c75293287483883f42f79b253d96315662bb1b/trl/core.py#L91
     """
     logp = torch.log_softmax(logits, dim=-1)
     if logp.ndim > 2:
-        logp = logp.permute(1, 0,2)
-        labels=labels.unsqueeze(-1)
+        logp = logp.permute(1, 0, 2)
+        labels = labels.unsqueeze(-1)
 
     logpy = torch.gather(logp, -1, labels).squeeze(-1)
     return logpy

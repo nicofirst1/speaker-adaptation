@@ -8,6 +8,9 @@ from src.data.dataloaders import Vocab
 def speak2list_vocab(speak_v: Vocab, list_v: Vocab) -> Dict:
     res = {}
     for k, v in speak_v.word2index.items():
+        # listener does not know about <eos>, so we replace it with <pad>
+        if k == "<eos>":
+            k = "<pad>"
         if k in list_v.word2index.keys():
             res[v] = list_v[k]
 
