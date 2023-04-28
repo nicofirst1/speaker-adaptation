@@ -17,7 +17,7 @@ LISTENER_CHK_DICT = dict(
 )
 
 
-def get_listener_check(domain, golden_data_percent):
+def get_listener_check(domain):
     return LISTENER_CHK_DICT[domain]
 
 

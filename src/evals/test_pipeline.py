@@ -16,7 +16,7 @@ from src.data.dataloaders import Vocab
 from src.models.listener.ListenerModel import ListenerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
 from src.models.speaker.SpeakerModel import SpeakerModel
-from src.wandb_logging import ListenerLogger
+from src.wandb_logging import WandbLogger
 
 
 def gen_list_table(
@@ -111,7 +111,7 @@ def gen_list_domain_table(
 
 
 
-def evaluate_and_log(listener: ListenerModel, speaker: SpeakerModel, simulator: SimulatorModel, logger: ListenerLogger,
+def evaluate_and_log(listener: ListenerModel, speaker: SpeakerModel, simulator: SimulatorModel, logger: WandbLogger,
                      cur_domain: str, data_loader: DataLoader, translator, split: str):
     print(f"{split} on '{cur_domain}' domain with golden caption ")
     golden_metrics = evaluate_trained_model(
@@ -160,7 +160,7 @@ def evaluate_trained_model(
         sim_model: torch.nn.Module,
         translator,
         domain: str,
-        logger: ListenerLogger,
+        logger: WandbLogger,
         split: str,
         speak_model: Optional[torch.nn.Module] = None,
 ):
@@ -463,7 +463,7 @@ if __name__ == "__main__":
     # Logger
     ##########################
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=list_vocab,
         opts=vars(common_p),
         group=list_args.train_domain,

@@ -13,7 +13,7 @@ from src.commons.model_utils import load_wandb_file
 from src.commons.wandb_checkpoints import DATASET_CHK
 from src.data.dataloaders import (AbstractDataset, ListenerDataset,
                                   SpeakerDataset, SpeakerUttDataset, Vocab)
-from src.wandb_logging import WandbLogger
+from src.wandb_logging import AbstractWandbLogger
 from torch.utils.data import DataLoader
 
 
@@ -155,7 +155,7 @@ def load_wandb_dataset(
     listener_vocab: Vocab,
     speaker_model: torch.nn.Module,
     dataloader: DataLoader,
-    logger: WandbLogger,
+    logger: AbstractWandbLogger,
     subset_size: Optional[int] = -1,
     test_split: Optional[str] = "all",
 ) -> DataLoader:

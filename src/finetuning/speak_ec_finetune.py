@@ -31,7 +31,7 @@ from src.commons.model_utils import logprobs_from_logits
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.EcDataset import FinetuneDataset
 from src.models import ListenerModel, SpeakerModelEC
-from src.wandb_logging import ListenerLogger
+from src.wandb_logging import WandbLogger
 
 global common_p
 global list_vocab
@@ -304,7 +304,7 @@ def main():
 
     speak_vocab = Vocab(parse_args("speak").vocab_file, is_speaker=True)
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=speak_vocab,
         opts=vars(common_p),
         train_logging_step=1,

@@ -9,7 +9,7 @@ import wandb
 
 from src.commons.Params import Params
 from src.data.dataloaders import Vocab
-from src.wandb_logging import WandbLogger
+from src.wandb_logging import AbstractWandbLogger
 
 
 def set_seed(seed: int):
@@ -67,13 +67,7 @@ def hypo2utterance(hypo: str, vocab):
     return utterance
 
 
-def speak2list_vocab(speak_v: Vocab, list_v: Vocab) -> Dict:
-    res = {}
-    for k, v in speak_v.word2index.items():
-        if k in list_v.word2index.keys():
-            res[v] = list_v[k]
 
-    return res
 
 
 def get_domain_accuracy(
@@ -161,7 +155,7 @@ def save_model(
         optimizer: torch.optim.Optimizer,
         args: Params,
         timestamp: str,
-        logger: WandbLogger,
+        logger: AbstractWandbLogger,
         **kwargs,
 ):
     """
@@ -304,13 +298,6 @@ def draw_grad_graph(params, input, output, file_name="grad_graph.png"):
     return file
 
 
-def translate_utterance(speak2list_v, device):
-    def translate(utterance):
-        for idx in range(len(utterance)):
-            new_utt = [speak2list_v[x.item()] for x in utterance[idx]]
-            utterance[idx] = torch.as_tensor(new_utt).to(device)
-
-    return translate
 
 
 def logprobs_from_logits(logits, labels):

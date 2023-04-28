@@ -15,7 +15,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, EarlyStopping,
 from src.commons.data_utils import load_wandb_dataset
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import ListenerModel, SpeakerModel
-from src.wandb_logging import DataLogger, ListenerLogger
+from src.wandb_logging import DataLogger, WandbLogger
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
     vocab_size = len(list_vocab)
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=list_vocab,
         opts=vars(list_args),
         group=list_args.train_domain,

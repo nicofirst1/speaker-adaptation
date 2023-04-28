@@ -18,7 +18,7 @@ from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
 from src.models.speaker.SpeakerModelEC import SpeakerModelEC
-from src.wandb_logging import ListenerLogger
+from src.wandb_logging import WandbLogger
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -626,7 +626,7 @@ if __name__ == "__main__":
 
     flag = common_p.type_of_int
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=speak_vocab,
         opts=vars(common_p),
         train_logging_step=1,

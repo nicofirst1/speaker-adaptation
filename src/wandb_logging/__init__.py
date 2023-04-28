@@ -1,11 +1,11 @@
 from .DataLogger import DataLogger
-from .ListenerLogger import ListenerLogger
-from .SpeakerLogger import SpeakerLogger
 from .WandbLogger import WandbLogger
+from .SpeakerLogger import SpeakerLogger
+from .AbstractWandbLogger import AbstractWandbLogger
 
 __all__ = [
-    "ListenerLogger",
+    "WandbLogger",
     "DataLogger",
     "SpeakerLogger",
-    "WandbLogger",
+    "AbstractWandbLogger",
 ]

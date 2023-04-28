@@ -9,10 +9,10 @@ from torch import nn
 
 from src.data.dataloaders import imgid2path
 from src.data.dataloaders.AbstractDataset import load_imgid2domain
-from src.wandb_logging.WandbLogger import WandbLogger
+from src.wandb_logging.AbstractWandbLogger import AbstractWandbLogger
 
 
-class SpeakerLogger(WandbLogger):
+class SpeakerLogger(AbstractWandbLogger):
     def __init__(self, vocab, **kwargs):
         """
         Args:

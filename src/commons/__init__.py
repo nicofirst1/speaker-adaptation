@@ -5,8 +5,8 @@ from .data_utils import (get_dataloaders, load_wandb_dataset,
                          speaker_augmented_dataloader, wandb2rich_table)
 from .model_utils import (draw_grad_graph, get_domain_accuracy, get_domain_mrr, hypo2utterance,
                           load_wandb_checkpoint, mask_attn, merge_dict,
-                          save_model, set_seed, speak2list_vocab, standardize,
-                          translate_utterance,to_concat_context)
+                          save_model, set_seed, standardize,
+                          to_concat_context)
 from .vocab_utils import mask_oov_embeds
 from .wandb_checkpoints import *
 from .Baseline import MeanBaseline
@@ -27,8 +27,6 @@ __all__ = [
     "merge_dict",
     "set_seed",
     "draw_grad_graph",
-    "speak2list_vocab",
-    "translate_utterance",
     "standardize",
     "get_domain_mrr",
     "to_concat_context",

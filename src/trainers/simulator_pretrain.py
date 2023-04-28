@@ -5,22 +5,36 @@ import numpy as np
 import rich.progress
 import torch
 import wandb
-from sklearn.metrics import (cohen_kappa_score, matthews_corrcoef,
-                             precision_recall_fscore_support)
-from src.commons import (SPEAKER_CHK, AccuracyEstimator, EarlyStopping,
-                         get_dataloaders, get_domain_accuracy,
-                         get_listener_check, load_wandb_checkpoint,
-                         load_wandb_dataset, mask_attn, mask_oov_embeds,
-                         merge_dict, parse_args, save_model, set_seed,
-                         speak2list_vocab, translate_utterance)
-from src.data.dataloaders import AbstractDataset, Vocab
-from src.models import ListenerModel, SimulatorModel, SpeakerModel
-from src.models.simulator.SimulatorModelSplit import SimulatorModelSplit
-from src.models.speaker.SpeakerModelEC import SpeakerModelEC
-from src.wandb_logging import ListenerLogger
+from sklearn.metrics import (
+    cohen_kappa_score,
+    matthews_corrcoef,
+    precision_recall_fscore_support,
+)
 from torch import nn, optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
+
+from src.commons import (
+    SPEAKER_CHK,
+    AccuracyEstimator,
+    EarlyStopping,
+    get_dataloaders,
+    get_domain_accuracy,
+    get_listener_check,
+    load_wandb_checkpoint,
+    load_wandb_dataset,
+    mask_attn,
+    mask_oov_embeds,
+    merge_dict,
+    parse_args,
+    save_model,
+    set_seed,
+)
+from src.commons.Translator import Translator
+from src.data.dataloaders import AbstractDataset, Vocab
+from src.models import ListenerModel, SimulatorModel
+from src.models.speaker.SpeakerModelEC import SpeakerModelEC
+from src.wandb_logging import WandbLogger
 
 global common_p
 
@@ -98,9 +112,8 @@ def normalize_aux(aux, data_length, all_domains, max_targets=0):
         aux["target"] = np.random.choice(
             aux["target"], size=max_targets, replace=False
         ).tolist()
-    if max_targets==0:
+    if max_targets == 0:
         del aux["target"]
-
 
 
 def get_predictions(
@@ -109,7 +122,7 @@ def get_predictions(
     sim_model: SimulatorModel,
     loss_f: nn.CrossEntropyLoss,
     acc_estimator: AccuracyEstimator,
-    translator,
+    translator: Translator,
 ) -> Tuple[torch.Tensor, int, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -129,11 +142,15 @@ def get_predictions(
 
     # get mask and translate utterance
     masks = mask_attn(lengths, max_length_tensor, list_model.device)
-    translator(utterance)
+    utterance = translator.s2l(utterance)
 
     # get outputs
     list_out = list_model(utterance, context_separate, masks)
-    sim_out = sim_model(context_separate, masks, utterance=utterance)#,speaker_embeds=speak_embds)
+    sim_out = sim_model(
+        separate_images=context_separate,
+        utterance=utterance,
+        masks=masks,
+    )
 
     # Losses and preds
     list_preds = torch.argmax(list_out, dim=1)
@@ -156,7 +173,7 @@ def evaluate(
     data_loader: DataLoader,
     sim_model: SimulatorModel,
     list_model: ListenerModel,
-    translator,
+    translator: Translator,
     loss_f: torch.nn.Module,
     acc_estimator: AccuracyEstimator,
     all_domains: List,
@@ -214,7 +231,7 @@ def main():
 
     speak_vocab = Vocab(parse_args("speak").vocab_file, is_speaker=True)
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=speak_vocab,
         opts=vars(common_p),
         train_logging_step=1,
@@ -227,7 +244,7 @@ def main():
     # LISTENER
     ##########################
 
-    list_check = get_listener_check(domain, common_p.golden_data_perc)
+    list_check = get_listener_check(domain)
 
     list_checkpoint, _ = load_wandb_checkpoint(
         list_check,
@@ -237,7 +254,6 @@ def main():
     list_args = list_checkpoint["args"]
 
     # update list args
-    list_args.batch_size = 1  # hypotesis generation does not support batch
     list_args.device = device
     list_args.reset_paths()
 
@@ -282,7 +298,6 @@ def main():
     speak_p = speak_check["args"]
     speak_p.reset_paths()
 
-    speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
     common_speak_p = parse_args("speak")
 
     # init speak model and load state
@@ -310,7 +325,7 @@ def main():
     # simulator
     ##########################
 
-    sim_model = SimulatorModelSplit(
+    sim_model = SimulatorModel(
         len(list_vocab),
         speak_p.hidden_dim,
         common_p.hidden_dim,
@@ -341,14 +356,13 @@ def main():
     metric = common_p.metric
 
     if metric == "loss":
-
         es = EarlyStopping(common_p.patience, "min")
     elif metric == "accs":
         es = EarlyStopping(common_p.patience, "max")
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    #logger.watch_model([sim_model],)
+    # logger.watch_model([sim_model],)
 
     ###################################
     ##  Get speaker dataloader
@@ -359,17 +373,11 @@ def main():
     common_p.shuffle = False
     data_domain = common_p.data_domain
 
-    shuffle = common_p.shuffle
     training_loader, _, val_loader = get_dataloaders(
         common_p, speak_vocab, data_domain, splits=["train", "val"]
     )
 
-    speak2list_v = speak2list_vocab(speak_vocab, list_vocab)
-    translator = translate_utterance(speak2list_v, device)
-
-    if common_p.is_test:
-        training_loader = []
-        common_p.epochs = 1
+    translator = Translator(speak_vocab, list_vocab, device=device)
 
     load_params = {
         "batch_size": bs,
@@ -395,7 +403,7 @@ def main():
     )
 
     load_params = {
-        "batch_size": 1,
+        "batch_size": bs,
         "shuffle": False,
         "collate_fn": AbstractDataset.get_collate_fn(
             speaker_model.device,
@@ -425,11 +433,9 @@ def main():
     )
 
     for epoch in range(common_p.epochs):
-
         print("Epoch : ", epoch)
 
         auxs = []
-        data = {}
 
         sim_model.train()
 
@@ -437,7 +443,6 @@ def main():
         speak_train_dl.dataset.randomize_target_location()
         speak_val_dl.dataset.randomize_target_location()
 
-        # torch.enable_grad()
         ###################################
         ##  TRAIN LOOP
         ###################################
@@ -484,16 +489,24 @@ def main():
             sim_model.eval()
 
             print(f"\nEvaluation")
-            aux = evaluate(
-                speak_val_dl,
-                sim_model,
-                list_model,
-                translator,
-                loss_f,
-                acc_estimator,
-                all_domains=logger.domains,
-                split="eval",
+            auxs = []
+
+            for ii, data in rich.progress.track(
+                enumerate(speak_val_dl),
+                total=len(speak_val_dl),
+                description=f"evaluating...",
+            ):
+                loss, accuracy, aux = get_predictions(
+                    data, list_model, sim_model, loss_f, acc_estimator, translator
+                )
+
+                auxs.append(aux)
+
+            aux = merge_dict(auxs)
+            normalize_aux(
+                aux, len(speak_val_dl.dataset.data), all_domains=logger.domains
             )
+
             eval_accuracy, eval_loss = aux["sim_list_accuracy"], aux["loss"]
 
             scheduler.step(eval_accuracy)
@@ -505,8 +518,11 @@ def main():
                 aux, list_domain=speak_val_dl.dataset.domain, modality="eval"
             )
 
+        ###################################
+        ##  Saving and early stopping
+        ###################################
 
-        if epoch>0 and epoch % 2 == 0:
+        if epoch > 0 and epoch % 2 == 0:
             save_model(
                 model=sim_model,
                 model_type="simulator",
@@ -529,7 +545,6 @@ def main():
 
 
 if __name__ == "__main__":
-
     try:
         main()
     except KeyboardInterrupt:

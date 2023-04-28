@@ -1,88 +1,225 @@
-import os
-from typing import Any, Dict, List, Optional
+import random
+from typing import Any, Dict, Optional
 
+import numpy as np
+import PIL.Image
 import torch
 import wandb
-from torch import nn
+from PIL import ImageOps
+from src.data.dataloaders import imgid2path, load_imgid2domain
+from src.wandb_logging.AbstractWandbLogger import AbstractWandbLogger
 
 
-def custom_string2list(tags: str) -> List[str]:
-    """custom_string2list method.
+class WandbLogger(AbstractWandbLogger):
+    def __init__(self, vocab, project=None, **kwargs):
+        """
+        Args:
+            models: list of torch.Modules to watch with wandb
+            **kwargs:
+        """
 
-    Parameters
-    ----------
-    tags : str
-        A string of tags separated by commas.
+        if project is None:
+            project = "listener"
 
-    Returns
-    -------
-    list_tags : list
-        A list of tags.
+        super().__init__(project=project, **kwargs)
 
-    """
+        self.vocab = vocab
 
-    if isinstance(tags, list):
-        list_tags = tags
-    else:
-        list_tags = tags.strip("[").strip("]").split(",")
+        # create a dict from img_id to path
+        data_path = self.opts["data_path"]
+        self.img_id2path = imgid2path(data_path)
 
-    list_tags = [x for x in list_tags if x]
-
-    return list_tags
-
-
-class WandbLogger:
-    def __init__(
-            self,
-            opts: Dict = {},
-            group: Optional[str] = None,
-            run_id: Optional[str] = None,
-            train_logging_step: int = 1,
-            val_logging_step: int = 1,
-            **kwargs,
-    ):
-        # This callback logs to wandb the interaction as they are stored in the leader process.
-        # When interactions are not aggregated in a multigpu run, each process will store
-        # its own Dict[str, Any] object in logs. For now, we leave to the user handling this case by
-        # subclassing WandbLogger and implementing a custom logic since we do not know a priori
-        # what type of data are to be logged.
-        self.opts = opts
-
-        # add debug label
-        tags = kwargs.pop("tags", '[]')
-        tags = custom_string2list(tags)
-
-        if opts['debug'] or opts['subset_size'] != -1:
-            tags += ["debug"]
-
-        if "wandb_dir" not in opts.keys():
-            opts["wandb_dir"] = "wandb_out"
-        out_dir = opts["wandb_dir"]
-
-        # create wandb dir if not existing
-        try:
-            os.mkdir(out_dir)
-        except FileExistsError:
-            pass
-
-        self.run = wandb.init(
-            group=group,
-            entity="adaptive-speaker",
-            id=run_id,
-            dir=out_dir,
-            config=opts,
-            mode="disabled" if opts["debug"] else "online",
-            tags=tags,
-            reinit=True,
-           # settings=wandb.Settings(start_method='fork'),
-            **kwargs,
+        # create a dict from img_id to domain
+        self.img_id2domain, self.domains = load_imgid2domain(
+            kwargs["opts"]["img2dom_file"]
         )
-        wandb.config.update(opts)
-        self.metrics = {}
-        self.train_logging_step = train_logging_step
-        self.val_logging_step = val_logging_step
-        self.epochs = 0
-        self.steps = {}
+
+        ### datapoint table
+        table_columns = ["model domain"]
+        table_columns += [f"img_{i}" for i in range(6)]
+        table_columns += ["utt", "hist"]
+        self.dt_table = wandb.Table(columns=table_columns)
+
+        ### domain table
+
+        columns = [
+            "model domain",
+            "all",
+            "appliances",
+            "food",
+            "indoor",
+            "outdoor",
+            "vehicles",
+        ]
+        self.domain_table = wandb.Table(columns)
+
+        # viz embedding data
+        self.embedding_data = {}
+
+    def log_datapoint(self, data_point: Dict, preds, modality: str) -> Dict:
+        """
+        Log a datapoint into a wandb table
+        :param data_point: datapoint as it comes from the dataloader
+        :param preds: prediction of model, after argmax
+        :return:
+        """
+
+        if len(data_point) == 0:
+            print("Empty data point")
+            return
+
+        # get random idx for logging
+        batch_size = len(data_point["image_set"])
+        idx = random.randint(0, batch_size - 1)
+
+        imgs = data_point["image_set"][idx]
+        utt = data_point["utterance"][idx].cpu().numpy()
+        target = data_point["target"][idx].cpu().numpy()
+        hist = data_point["prev_histories"][idx]
+        preds = preds[idx].detach().cpu().numpy()
+
+        ## convert to int
+        preds = int(preds)
+        target = int(target)
+
+        # remove empty hists
+        hist = [x for x in hist.values() if len(x)]
+
+        # convert to words
+        translate_list = lambda utt: " ".join([self.vocab.index2word[x] for x in utt])
+        hist = [translate_list(x) for x in hist]
+        utt = translate_list(utt)
+        utt = utt.replace(" <pad>", "")
+
+        # get imgs domain
+        imgs = [str(x) for x in imgs]
+        imgs_domains = [self.img_id2domain[img] for img in imgs]
+
+        # read image
+        imgs = [self.img_id2path[x] for x in imgs]
+        imgs = [PIL.Image.open(x) for x in imgs]
+
+        ## add red border to pred if wrong
+
+        if preds != target:
+            imgs[preds] = ImageOps.expand(imgs[preds], border=10, fill="red")
+
+        imgs[target] = ImageOps.expand(imgs[target], border=10, fill="green")
+
+        data = [self.opts["train_domain"]]
+        data += [
+            wandb.Image(img, caption=f"Domain: {dom}")
+            for img, dom in zip(imgs, imgs_domains)
+        ]
+        data += [utt, hist]
+        new_table = wandb.Table(columns=self.dt_table.columns, data=[data])
+
+        logs = dict(data_table=new_table)
+
+        logs = {f"{k}/{modality}": v for k, v in logs.items()}
+
+        self.log_to_wandb(logs)
+
+        return logs
+
+    def log_viz_embeddings(self, data_point, modality):
+        """
+        Log image embeddings
+        :param data_point:
+        :param modality:
+        :return:
+        """
+        # get random idx for logging
+        batch_size = len(data_point["image_set"])
+        idx = random.randint(0, batch_size - 1)
+
+        imgs = data_point["image_set"][idx]
+        img_emb = data_point["separate_images"][idx].cpu().numpy()
+        img_emb = [list(x) for x in img_emb]
+
+        imgs = [str(x) for x in imgs]
+
+        # get imgs domain
+        imgs_domains = [self.img_id2domain[img] for img in imgs]
+
+        # read images
+        imgs = [self.img_id2path[x] for x in imgs]
+        imgs = [
+            wandb.Image(img, caption=f"Domain: {dom}")
+            for img, dom in zip(imgs, imgs_domains)
+        ]
+
+        # transform to matrix
+        data = list(zip(imgs, imgs_domains, img_emb))
+
+        if modality not in self.embedding_data.keys():
+            self.embedding_data[modality] = []
+
+        self.embedding_data[modality] += data
+
+        # create table
+        columns = ["image", "domain", "viz_embed"]
+        new_table = wandb.Table(columns=columns, data=self.embedding_data[modality])
+
+        logs = {f"viz_embed/{modality}": new_table}
+
+        self.log_to_wandb(logs, commit=False)
+
+    def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
+        metrics["epochs"] = epoch_id
+        self.epochs = epoch_id
+
+        self.log_to_wandb(metrics, commit=True)
+
+    def on_eval_end(
+            self,
+            metrics: Dict[str, Any],
+            list_domain: int,
+            modality: str,
+            commit: Optional[bool] = False,
+    ):
+
+        # get and log domain accuracy table
+        logs = {}
+        if "domain_accuracy" in metrics.keys():
+            domain_accuracy = metrics["domain_accuracy"]
+            domain_accuracy = sorted(domain_accuracy.items(), key=lambda item: item[0])
+
+            data = [self.opts["train_domain"]]
+            data += [x[1] for x in domain_accuracy]
+
+            # self.domain_table.add_data(*data)
+            new_table = wandb.Table(columns=self.domain_table.columns, data=[data])
+            logs["domain_acc_table"] = new_table
+
+            # log plot for each domain
+            logs["domain_acc_plots"] = dict(domain_accuracy)
+
+        logs.update(metrics)
+        logs = {f"{modality}/{k}": v for k, v in logs.items()}
+
+        # detach torch tensor
+        for k, v in logs.items():
+            if isinstance(v, torch.Tensor):
+                v = v.detach().cpu()
+                # transform to list/float
+                if v.ndim > 0:
+                    logs[k] = v.tolist()
+                else:
+                    logs[k] = v.item()
+
+                v = logs[k]
+
+            # transform list into histograms
+            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], (int, float)):
+                try:
+                    num_bins = max(v) if max(v) > 0 else 1
+                    logs[k] = wandb.Histogram(v, num_bins=num_bins + 1)
+                except TypeError:
+                    h = np.histogram(v)
+                    logs[k] = wandb.Histogram(np_histogram=h)
+
+        self.log_to_wandb(logs, commit=commit)
 
     def on_batch_end(
             self,
@@ -90,88 +227,44 @@ class WandbLogger:
             data_point: Dict[str, Any],
             aux: Dict[str, Any],
             batch_id: int,
-            is_train: bool,
+            modality: str,
+            commit: Optional[bool] = False,
     ):
-        raise NotImplemented()
 
-    def watch_model(self, models: List[nn.Module], log_freq: int = 1000):
-        for idx, mod in enumerate(models):
-            wandb.watch(mod, log_freq=log_freq, log_graph=True, idx=idx, log="all")
-
-    def on_train_end(self, metrics: Dict[str, Any], epoch_id: int):
-        self.epochs = epoch_id
-        raise NotImplemented()
-
-    def on_eval_end(self, metrics: Dict[str, Any], epoch_id: int):
-        raise NotImplemented()
-
-    @staticmethod
-    def log_to_wandb(metrics: Dict[str, Any], commit: bool = False, **kwargs):
-        wandb.log(metrics, commit=commit, **kwargs)
-
-    def wandb_close(self):
-        """close method.
-
-        it ends the current wandb run
-        """
-        wandb.finish()
-
-    def save_model(self, path2model, model_name, epoch, args):
-
-        if "Listener" in model_name or "Interpreter" in model_name:
-            model_name += f"_{args.train_domain}"
-
-        self.log_artifact(
-            path2model,
-            model_name,
-            artifact_type="model",
-            epoch=epoch,
-            description="",
-            metadata=args,
+        logging_step = (
+            self.train_logging_step if modality == "train" else self.val_logging_step
         )
 
-    def log_artifact(
-            self,
-            path2artifact,
-            artifact_name,
-            artifact_type,
-            epoch=None,
-            metadata={},
-            description="",
-    ):
-        if epoch is None:
-            epoch = self.epochs
+        # do not log
+        if batch_id > 0 and logging_step % batch_id != 0:
+            return
 
-        # cast everything in metadata to str
-        if not isinstance(metadata, dict):
-            metadata = vars(metadata)
-        metadata = {k: str(v) for k, v in metadata.items()}
-        metadata["curr_epoch"] = str(epoch)
+        logs = {}
+        logs.update(aux)
 
-        # refine model name
-        artifact = wandb.Artifact(
-            artifact_name,
-            type=artifact_type,
-            description=description,
-            metadata=metadata,
-        )
-        artifact.add_file(path2artifact)
-        self.run.log_artifact(artifact)
+        # detach torch tensor
+        for k, v in logs.items():
+            if isinstance(v, torch.Tensor):
+                v = v.detach()
+                # transform to list/float
+                if v.ndim > 0:
+                    logs[k] = v.tolist()
+                else:
+                    logs[k] = v.item()
 
+            # transform list into histograms
+            if isinstance(v, list) and len(v) > 0:
+                num_bins = max(v) if max(v) > 0 else 1
+                logs[k] = wandb.Histogram(v, num_bins=num_bins)
 
-def delete_run(run_to_remove: str):
-    """delete_run method.
+        # apply correct flag
+        logs = {f"{modality}/{k}": v for k, v in logs.items()}
 
-    Parameters
-    ----------
-    run_to_remove : str
-        "<entity>/<project>/<run_id>"
+        if modality not in self.steps.keys():
+            self.steps[modality] = -1
 
-    Returns
-    -------
-    None.
+        # update steps for this modality
+        self.steps[modality] += 1
+        logs[f"{modality}/steps"] = self.steps[modality]
 
-    """
-    api = wandb.Api()
-    run = api.run(run_to_remove)
-    run.delete()
+        self.log_to_wandb(logs, commit=commit)

@@ -4,7 +4,7 @@ from src.commons import (LISTENER_CHK_DICT, SPEAKER_CHK, get_dataloaders,
                          load_wandb_checkpoint, load_wandb_dataset, parse_args)
 from src.data.dataloaders import AbstractDataset, Vocab
 from src.models import ListenerModel, SpeakerModel
-from src.wandb_logging import ListenerLogger
+from src.wandb_logging import WandbLogger
 
 
 def compute_domain(common_p):
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     splits = ["all", "seen", "unseen"]
     common_p = parse_args("list")
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=None,
         opts=vars(common_p),
         train_logging_step=1,

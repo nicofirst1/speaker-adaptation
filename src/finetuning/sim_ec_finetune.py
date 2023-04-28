@@ -29,7 +29,7 @@ from src.data.dataloaders import Vocab
 from src.data.dataloaders.FinetuneDataset import FinetuneDataset
 from src.models import SpeakerModelEC
 from src.models.simulator.SimulatorModel import SimulatorModel
-from src.wandb_logging import ListenerLogger
+from src.wandb_logging import WandbLogger
 
 global common_p
 global sim_vocab
@@ -237,7 +237,7 @@ def main():
 
     speak_vocab = Vocab(parse_args("speak").vocab_file, is_speaker=True)
 
-    logger = ListenerLogger(
+    logger = WandbLogger(
         vocab=speak_vocab,
         opts=vars(common_p),
         train_logging_step=1,
