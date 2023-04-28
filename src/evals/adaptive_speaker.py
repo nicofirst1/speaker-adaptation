@@ -16,7 +16,7 @@ from src.commons import (SPEAKER_CHK, AccuracyEstimator, get_dataloaders,
                          translate_utterance, SPEAKER_CHK_EC)
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel, SimulatorModel, SpeakerModel
-from src.models.simulator.SimulatorModelSplit import SimulatorModelSplit
+from src.models.simulator.SimulatorModel import SimulatorModel
 from src.models.speaker.SpeakerModelEC import SpeakerModelEC
 from src.wandb_logging import ListenerLogger
 from torch import nn
@@ -122,7 +122,7 @@ def generate_hypo_table(data: List, target_domain: List, s: int) -> wandb.Table:
 def evaluate(
     data_loader: DataLoader,
     speak_model: SpeakerModel,
-    sim_model: SimulatorModelSplit,
+    sim_model: SimulatorModel,
     list_model: ListenerModel,
     list_vocab: Vocab,
     criterion: nn.CrossEntropyLoss,

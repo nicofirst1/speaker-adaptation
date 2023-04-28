@@ -26,9 +26,9 @@ from src.commons import (
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
 from src.data.dataloaders import Vocab
-from src.data.dataloaders.EcDataset import FinetuneDataset
+from src.data.dataloaders.FinetuneDataset import FinetuneDataset
 from src.models import SpeakerModelEC
-from src.models.simulator.SimulatorModelSplit import SimulatorModelSplit
+from src.models.simulator.SimulatorModel import SimulatorModel
 from src.wandb_logging import ListenerLogger
 
 global common_p
@@ -89,7 +89,7 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
 
 def get_predictions(
     data: Dict,
-    sim_model: SimulatorModelSplit,
+    sim_model: SimulatorModel,
     speak_model: SpeakerModelEC,
     loss_f: nn.CrossEntropyLoss,
     translator: Translator,
@@ -153,7 +153,7 @@ def get_predictions(
 def evaluate(
     data_loader: DataLoader,
     speak_model: SpeakerModelEC,
-    sim_model: SimulatorModelSplit,
+    sim_model: SimulatorModel,
     translator,
     baseline: MeanBaseline,
     loss_f: torch.nn.Module,
@@ -301,7 +301,7 @@ def main():
     common_p.hidden_dim = sim_p.hidden_dim
     common_p.attention_dim = sim_p.attention_dim
 
-    sim_model = SimulatorModelSplit(
+    sim_model = SimulatorModel(
         len(sim_vocab),
         speak_p.hidden_dim,
         common_p.hidden_dim,
@@ -358,17 +358,27 @@ def main():
     # need batchsize =1 for generating the new dataloaders
     data_domain = common_p.data_domain
 
-    kwargs = get_kwargs("train", common_p)
-    dataset = FinetuneDataset(**kwargs)
+
+    dataset = FinetuneDataset(
+        domain=data_domain,
+        num_images=common_p.episodes * common_p.batch_size,
+        device=device,
+        vectors_file=common_p.vectors_file,
+        img2dom_file=common_p.img2dom_file,
+    )
     dataloader_train = DataLoader(
         dataset,
         batch_size=common_p.batch_size,
         collate_fn=dataset.get_collate_fn(),
     )
-    print("...Done.\nLoading eval data...")
 
-    kwargs = get_kwargs("val", common_p)
-    dataset = FinetuneDataset(**kwargs)
+    dataset = FinetuneDataset(
+        domain=data_domain,
+        num_images=common_p.episodes * common_p.batch_size,
+        device=device,
+        vectors_file=common_p.vectors_file,
+        img2dom_file=common_p.img2dom_file,
+    )
     dataloader_eval = DataLoader(
         dataset,
         batch_size=common_p.batch_size,
@@ -392,7 +402,7 @@ def main():
         auxs = []
 
         sim_model.train()
-        sim_model.freeze_utts()
+        sim_model.freeze_utts_stream()
         # dataloader_train.dataset.randomize_data()
         # dataloader_eval.dataset.randomize_data()
 

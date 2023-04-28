@@ -12,7 +12,7 @@ def linear(input_dim, output_dim):
     return linear
 
 
-class SimulatorModelOLD(nn.Module):
+class SimulatorModel_old(nn.Module):
     def __init__(
         self,
         vocab_size,

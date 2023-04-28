@@ -76,7 +76,7 @@ class SimulatorModel(nn.Module):
 
         self.softmax = nn.Softmax(dim=1)
 
-    def freeze_utts(self):
+    def freeze_utts_stream(self):
         utt_params = (
             list(self.embeddings.parameters())
             + list(self.lin_emb2hid_utt.parameters())
@@ -115,17 +115,17 @@ class SimulatorModel(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def utterance_forward(self, speaker_utterances, projected_context, masks):
+    def utterance_stream(self, utterances, projected_context, masks):
         """
         Forward pass for the utterance representations
-        @param speaker_utterances: the speaker generated utterances
+        @param utterances: the speaker generated utterances [batch_size, seq_len]
         @param projected_context: the visual context
         @param masks: the masks for the utterances
         @return:
 
         """
 
-        representations = self.embeddings(speaker_utterances)
+        representations = self.embeddings(utterances)
 
         # utterance representations are processed
         input_reps = self.lin_emb2hid_utt(representations)
@@ -155,7 +155,7 @@ class SimulatorModel(nn.Module):
 
         return attended_hids
 
-    def embeds_forward(self, speaker_embeds, projected_context):
+    def embedding_stream(self, speaker_embeds, projected_context):
         """
         Forward pass for the embedding representations
         @param speaker_embeds: speaker embeddings
@@ -178,9 +178,9 @@ class SimulatorModel(nn.Module):
     def forward(
         self,
         separate_images: torch.Tensor,
+        utterance: torch.Tensor,
         masks: torch.Tensor,
         speaker_embeds: Optional[torch.Tensor] = None,
-        utterance: Optional[torch.Tensor] = None,
     ):
         """
         @param speaker_embeds: utterances coming from the speaker embeddings
@@ -202,16 +202,12 @@ class SimulatorModel(nn.Module):
 
         # utterance representations are processed
 
-        if utterance is not None:
-            utterance = utterance.to(self.device)
-            utt_out = self.utterance_forward(utterance, projected_context, masks)
-
-        else:
-            utt_out = torch.ones((batch_size, self.attention_dim)).to(self.device)
+        utterance = utterance.to(self.device)
+        utt_out = self.utterance_stream(utterance, projected_context, masks)
 
         if speaker_embeds is not None:
             speaker_embeds = standardize(speaker_embeds)
-            embeds_out = self.embeds_forward(speaker_embeds, projected_context)
+            embeds_out = self.embedding_stream(speaker_embeds, projected_context)
 
         else:
             embeds_out = torch.ones((batch_size, self.attention_dim)).to(self.device)
