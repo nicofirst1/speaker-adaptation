@@ -1,6 +1,8 @@
+import concurrent
 import datetime
 import random
 import string
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict
 
 import lovely_tensors as lt
@@ -221,6 +223,29 @@ def predict(
     return res
 
 
+from rich.progress import Progress
+
+def evaluate_subset(
+    progress: Progress,
+    task_id: int,
+    data_subset,
+    speak_model: SpeakerModel,
+    sim_model: SimulatorModel,
+    list_model: ListenerModel,
+    criterion: nn.CrossEntropyLoss,
+    adapt_lr: float = 0.1,
+    s: int = 1,
+) -> List[Dict]:
+    results = []
+
+    for data in data_subset:
+        rs = predict(data, speak_model, list_model, sim_model, criterion, adapt_lr, s)
+        results.append(rs)
+        progress.update(task_id, advance=1)
+
+    return results
+
+
 def evaluate(
     data_loader: DataLoader,
     speak_model: SpeakerModel,
@@ -250,15 +275,30 @@ def evaluate(
 
     """
 
-    results = []
+    n_threads = 8
 
-    for ii, data in rich.progress.track(
-        enumerate(data_loader),
-        total=len(data_loader),
-        description=f"Evaluating on split {split}",
-    ):
-        rs = predict(data, speak_model, list_model, sim_model, criterion, adapt_lr, s)
-        results.append(rs)
+    # Split the data into subsets
+    data_list = list(data_loader)
+    data_subsets = np.array_split(data_list, n_threads)
+
+    # Create a shared Progress object
+    progress = Progress()
+    progress.start()
+
+    # Create tasks for each subset
+    tasks = [progress.add_task(f"[cyan]Evaluating on split {split} (Thread {i + 1})", total=len(subset)) for i, subset
+             in enumerate(data_subsets)]
+
+    # Use ThreadPoolExecutor to process subsets concurrently
+    with ThreadPoolExecutor(max_workers=n_threads) as executor:
+        future_results = [
+            executor.submit(evaluate_subset, progress, tasks[i], data_subsets[i], speak_model, sim_model, list_model,
+                            criterion, adapt_lr, s) for i in range(n_threads)]
+        results = []
+        for future in concurrent.futures.as_completed(future_results):
+            results.extend(future.result())
+
+    progress.stop()
 
     ##############################
     # METRICS
