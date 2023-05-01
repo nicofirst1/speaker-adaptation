@@ -24,7 +24,7 @@ from src.commons import (
     mask_attn,
     mask_oov_embeds,
     parse_args,
-    set_seed,
+    set_seed, SPEAKER_CHK_EC,
 )
 from src.commons.Translator import Translator
 from src.commons.model_utils import get_mask_from_utts
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK, device)
+    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK_EC['food'], device)
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -436,7 +436,7 @@ if __name__ == "__main__":
         model = SimulatorModel_old
     else:
         check = common_p.force_resume_url
-        model = SimulatorModel
+        model = SimulatorModel_old
 
     sim_check, _ = load_wandb_checkpoint(check, device)
 

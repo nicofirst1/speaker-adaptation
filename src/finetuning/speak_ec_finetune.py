@@ -27,9 +27,9 @@ from src.commons import (
 )
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
-from src.commons.model_utils import logprobs_from_logits
+from src.commons.model_utils import logprobs_from_logits, get_mask_from_utts
 from src.data.dataloaders import Vocab
-from src.data.dataloaders.EcDataset import FinetuneDataset
+from src.data.dataloaders.FinetuneDataset import FinetuneDataset
 from src.models import ListenerModel, SpeakerModelEC
 from src.wandb_logging import WandbLogger
 
@@ -97,7 +97,7 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
     aux["enc_log_probs"] = enc
 
     dec = [x.mean(dim=0) for x in aux["dec_log_probs"] if x.size(0) > 0]
-    dec = [x.mean(dim=0) for x in dec if x.size(0) > 0]
+    dec = [x.mean(dim=0) if x.ndim > 1  else x for x in dec ]
 
     try:
         dec = torch.stack(dec).mean(dim=0).numpy()
@@ -138,7 +138,6 @@ def get_predictions(
     # get datapoints
     context_separate = data["image_set"]
     target = data["target_index"]
-    image_ids = data["image_ids"]
     target_id = data["target_id"]
     target_img_feat = data["target_img_feat"]
 
@@ -153,10 +152,7 @@ def get_predictions(
     translator.s2l(utterance)
     dec_utt = list_vocab.batch_decode(utterance)
 
-    lengths = torch.tensor([len(x) for x in utterance])
-    max_length_tensor = torch.max(lengths).item()
-    # get mask and translate utterance
-    masks = mask_attn(lengths, max_length_tensor, list_model.device)
+    masks = get_mask_from_utts(utterance, translator.list_vocab, device=enc_logits.device)
 
     # get outputs
     list_out = list_model(utterance, context_separate, masks)
@@ -252,23 +248,6 @@ def evaluate(
     return aux
 
 
-def get_kwargs(split, common_p):
-    kwargs = {
-        "device": common_p.device,
-        "episodes": common_p.episodes,
-        "domain": common_p.train_domain,
-        "utterances_file": f"{split}_{common_p.utterances_file}",
-        "vectors_file": common_p.vectors_file,
-        "chain_file": f"{split}_{common_p.chains_file}",
-        "orig_ref_file": f"{split}_{common_p.orig_ref_file}",
-        "split": split,
-        "subset_size": common_p.subset_size,
-        "image_size": common_p.image_size,
-        "img2dom_file": common_p.img2dom_file,
-        "data_dir": common_p.data_path,
-        "batch_size": common_p.batch_size,
-    }
-    return kwargs
 
 
 def main():
@@ -278,7 +257,7 @@ def main():
     global common_p
     global list_vocab
 
-    common_p = parse_args("list")
+    common_p = parse_args("speak")
     domain = common_p.train_domain
 
     device = (
@@ -317,7 +296,7 @@ def main():
     # LISTENER
     ##########################
 
-    list_check = get_listener_check(domain, common_p.golden_data_perc)
+    list_check = get_listener_check(domain)
 
     list_checkpoint, _ = load_wandb_checkpoint(
         list_check,
@@ -355,7 +334,7 @@ def main():
             list_model.embeddings,
             list_vocab,
             domain,
-            replace_token=common_p.mask_oov_embed,
+            replace_token=list_args.mask_oov_embed,
             data_path=common_p.data_path,
         )
 
@@ -373,6 +352,7 @@ def main():
 
     speak_vocab = Vocab(speak_p.vocab_file, is_speaker=True)
     common_speak_p = parse_args("speak")
+    common_p.embedding_dim = speak_p.embedding_dim
 
     # init speak model and load state
 
@@ -381,7 +361,7 @@ def main():
         speak_p.embedding_dim,
         speak_p.hidden_dim,
         img_dim,
-        speak_p.dropout_prob,
+        common_p.dropout_prob,
         speak_p.attention_dim,
         common_speak_p.sampler_temp,
         speak_p.max_len,
@@ -403,7 +383,7 @@ def main():
     scheduler = ReduceLROnPlateau(
         optimizer,
         "max",
-        patience=10,
+        patience=7,
         factor=0.2,
         verbose=True,
         threshold=0.05,
@@ -432,19 +412,29 @@ def main():
 
     print("Loading train data...")
     # need batchsize =1 for generating the new dataloaders
+
     data_domain = common_p.data_domain
 
-    kwargs = get_kwargs("train", common_p)
-    dataset = FinetuneDataset(**kwargs)
+    dataset = FinetuneDataset(
+        domain=data_domain,
+        num_images=common_p.episodes * common_p.batch_size,
+        device=device,
+        vectors_file=common_p.vectors_file,
+        img2dom_file=common_p.img2dom_file,
+    )
     dataloader_train = DataLoader(
         dataset,
         batch_size=common_p.batch_size,
         collate_fn=dataset.get_collate_fn(),
     )
-    print("...Done.\nLoading eval data...")
 
-    kwargs = get_kwargs("val", common_p)
-    dataset = FinetuneDataset(**kwargs)
+    dataset = FinetuneDataset(
+        domain=data_domain,
+        num_images=common_p.episodes * common_p.batch_size,
+        device=device,
+        vectors_file=common_p.vectors_file,
+        img2dom_file=common_p.img2dom_file,
+    )
     dataloader_eval = DataLoader(
         dataset,
         batch_size=common_p.batch_size,
@@ -468,8 +458,6 @@ def main():
         auxs = []
 
         speaker_model.train()
-        # dataloader_train.dataset.randomize_data()
-        # dataloader_eval.dataset.randomize_data()
 
         # torch.enable_grad()
         ###################################
@@ -533,7 +521,7 @@ def main():
             )
             logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-        if common_p.sweep_file is None and epoch > 0 and epoch % (common_p.epochs // 20) == 0:
+        if common_p.sweep_file =="" and epoch > 0 and epoch % 2 == 0:
             save_model(
                 model=speaker_model,
                 model_type="speaker_ec",

@@ -448,7 +448,7 @@ class SpeakerArguments(Params):
     hidden_dim: Optional[int] = 512
     attention_dim: Optional[int] = 512
     dropout_prob: Optional[float] = 0.0
-    metric: Optional[str] = "cider" #"bert
+    metric: Optional[str] = "accs" #"bert # cider # acc
 
     # if true use beam search, else nucleus sampling
     use_beam: Optional[bool] = False

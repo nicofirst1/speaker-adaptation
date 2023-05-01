@@ -1,5 +1,17 @@
+# 01/05/2023
+New month, same shit.
+I manage to clean all the relevant code and also implement a multi thread adaptation pipeline that is now x2 faster than the previous one (thank chatGPT).
+Now the problem seems to be that the code from last time does not really give the same resutls...
+First of all, the adapted accuracy for the old model are 10% more than on the old code... i don't know why, but i checked and everything seems to be correct...
+Then, using the updated simulator i get very low adaptation accuracy, I checked and it seems to be tied to the problem of correctly predicitng
+the listener behavior. It mught be the case that i need to go back to the ec finetuining.
+Well shit... I just ran an adaptation with a simulator only trained on predicting the list (sim pretraining) and it is achieving comparable results to the 
+original sim from the uva project. This basically means that the embedding stream does not even need to be trained to work...
+Good news for the problem inconsistency in the uva project i spotted last time, but bad news for ec pretrain. I want to see if i can get the same
+results woth a finetuned version of the speaker. 
 
-## 28/04/2023
+
+# 28/04/2023
 I'm probably late in writing this journal but better late than never. 
 I've been working on how to adapt the uva project with the RL part. During this time i have done the following:
 

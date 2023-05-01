@@ -26,7 +26,10 @@ def get_listener_check(domain):
 ########
 SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
-SPEAKER_CHK_EC = "adaptive-speaker/ec_pretrain/SpeakerModelEC:v94"
+SPEAKER_CHK_EC = dict(
+    all="adaptive-speaker/ec_pretrain/SpeakerModelEC:v94",
+    food = "adaptive-speaker/ec_pretrain/SpeakerModelEC:v138",
+)
 
 ########
 # SIM
