@@ -1,5 +1,5 @@
 import torch
-from src.commons import standardize
+from src.commons import standardize, to_concat_context
 from torch import nn
 
 
@@ -158,7 +158,6 @@ class SimulatorModel_old(nn.Module):
         speaker_embeds: torch.Tensor,
         speaker_utterances: torch.Tensor,
         separate_images: torch.Tensor,
-        visual_context: torch.Tensor,
         masks: torch.Tensor,
     ):
         """
@@ -169,7 +168,7 @@ class SimulatorModel_old(nn.Module):
         """
         speaker_utterances = speaker_utterances.to(self.device)
         separate_images = separate_images.to(self.device)
-        visual_context = visual_context.to(self.device)
+        visual_context = to_concat_context(separate_images)
 
         visual_context = standardize(visual_context)
         separate_images = standardize(separate_images)

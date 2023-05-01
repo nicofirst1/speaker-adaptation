@@ -53,9 +53,7 @@ SIM_CHECKPOINTS_2FINETUNE = dict(
 
 
 
-def get_simulator_check(domain, finetune=False):
-    if finetune:
-        return SIM_CHECKPOINTS_2FINETUNE[domain]
+def get_simulator_check(domain):
     return SIM_CHECKPOINTS[domain]
 
 

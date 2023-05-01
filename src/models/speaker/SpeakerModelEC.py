@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from torch.distributions import Categorical
 
 from src.commons import standardize, to_concat_context
-from src.commons.model_utils import change2random
 
 
 class TemperatureSampler:
@@ -34,19 +33,18 @@ class TemperatureSampler:
 
 class SpeakerModelEC(nn.Module):
     def __init__(
-            self,
-            vocab,
-            embedding_dim,
-            hidden_dim,
-            img_dim,
-            dropout_prob,
-            attention_dim,
-            sampler_temp,
-            max_len,
-            top_k,
-            top_p,
-            device,
-
+        self,
+        vocab,
+        embedding_dim,
+        hidden_dim,
+        img_dim,
+        dropout_prob,
+        attention_dim,
+        sampler_temp,
+        max_len,
+        top_k,
+        top_p,
+        device,
     ):
         super().__init__()
         self.vocab = vocab
@@ -107,7 +105,7 @@ class SpeakerModelEC(nn.Module):
 
         # project to vocabulary size
         self.lin2voc = nn.Linear(self.attention_dim + self.hidden_dim, self.vocab_size)
-        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size+1)
+        self.enc_hid2voc = nn.Linear(self.hidden_dim * 2, self.vocab_size + 1)
         self.lin_mm = nn.Linear(self.hidden_dim * 2, self.hidden_dim)
 
         self.attention = nn.Linear(self.attention_dim, 1)
@@ -145,9 +143,9 @@ class SpeakerModelEC(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def generate_hypothesis(
-            self,
-            visual_context: torch.Tensor,
-            target_img_feats: torch.Tensor,
+        self,
+        visual_context: torch.Tensor,
+        target_img_feats: torch.Tensor,
     ) -> Tuple[str, Dict, torch.Tensor]:
         """
         Generate an hypothesis (natural language sentence) based on the current output
@@ -166,20 +164,17 @@ class SpeakerModelEC(nn.Module):
 
         model_params["history_att"] = history_att
 
-        hypos, dec_logits = self.nucleus_sampling(
-            decoder_hid, history_att, top_p=self.top_p
-        )
+        hypos, dec_logits = self.nucleus_sampling(decoder_hid, history_att)
 
         model_params["decoder_logits"] = dec_logits
 
         return hypos, model_params, decoder_hid
 
     def partial_forward(
-            self,
-            visual_context: torch.Tensor,
-            target_img_feats: torch.Tensor,
+        self,
+        visual_context: torch.Tensor,
+        target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
-
         batch_size = visual_context.shape[0]
 
         # standardize input
@@ -198,7 +193,7 @@ class SpeakerModelEC(nn.Module):
         pad_val = self.vocab.word2index["<pad>"]
         nohs_val = self.vocab.word2index["<nohs>"]
 
-        empty_utt = torch.full((batch_size,1), pad_val)
+        empty_utt = torch.full((batch_size, 1), pad_val)
         empty_utt[:, 0] = nohs_val
         prev_utterance = empty_utt.to(self.device)
         prev_utt_lengths = torch.as_tensor([1] * batch_size).to(self.device)
@@ -269,10 +264,9 @@ class SpeakerModelEC(nn.Module):
         return decoder_hid, history_att, model_params
 
     def nucleus_sampling(
-            self,
-            decoder_hid,
-            history_att,
-            top_p=0.0,
+        self,
+        decoder_hid,
+        history_att,
     ):
         """Filter a distribution using top-k and/or nucleus (top-p) filtering
         Args:
@@ -298,11 +292,12 @@ class SpeakerModelEC(nn.Module):
         gen_len = 0
 
         decoder_input = sos_token  # beam_k sos copies
-        dec_logits = torch.zeros((self.max_len, batch_size, self.lin2voc.out_features)).to(self.device)
-        eos_mask = torch.zeros((self.max_len +1, batch_size)).to(self.device)
+        dec_logits = torch.zeros(
+            (self.max_len, batch_size, self.lin2voc.out_features)
+        ).to(self.device)
+        eos_mask = torch.zeros((self.max_len + 1, batch_size)).to(self.device)
 
         while True:
-
             if gen_len >= self.max_len:
                 break  # very long sentence generated
 
@@ -314,24 +309,45 @@ class SpeakerModelEC(nn.Module):
             dec_logit = self.lin2voc(h1_att)
             dec_logits[gen_len] = dec_logit
 
-            word_pred = F.softmax(dec_logit, dim=1, )
+            word_pred = F.softmax(
+                dec_logit,
+                dim=1,
+            )
 
             word_pred = word_pred.squeeze()
 
-            if top_p > 0.0:
-                sorted_probs, sorted_indices = torch.sort(word_pred, dim=-1, descending=True)
+            if self.top_p > 0.0:
+                sorted_probs, sorted_indices = torch.sort(
+                    word_pred, dim=-1, descending=True
+                )
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
 
                 # Remove tokens with cumulative probability above the threshold
-                nucleus = cumulative_probs < top_p
+                nucleus = cumulative_probs < self.top_p
 
-                nucleus = torch.cat([nucleus.new_ones(nucleus.shape[:-1] + (1,)), nucleus[..., :-1]], dim=-1)
+                nucleus = torch.cat(
+                    [nucleus.new_ones(nucleus.shape[:-1] + (1,)), nucleus[..., :-1]],
+                    dim=-1,
+                )
                 sorted_log_probs = torch.log(sorted_probs)
-                sorted_log_probs[~nucleus] = float('-inf')
+                sorted_log_probs[~nucleus] = float("-inf")
 
                 sampled_sorted_indexes = self.sampler(sorted_log_probs)
-                next_token = sorted_indices.gather(-1, sampled_sorted_indexes.unsqueeze(-1))
+                next_token = sorted_indices.gather(
+                    -1, sampled_sorted_indexes.unsqueeze(-1)
+                )
                 next_token.squeeze(-1)
+
+                if next_token.item() == eos_token and gen_len == 0:
+                    # discourage eos at first step
+                    idx = 10
+                    while next_token.item() == eos_token and idx > 0:
+                        sampled_sorted_indexes = self.sampler(sorted_log_probs)
+                        next_token = sorted_indices.gather(
+                            -1, sampled_sorted_indexes.unsqueeze(-1)
+                        )
+                        next_token.squeeze(-1)
+                        idx -= 1
 
             decoder_input = next_token
 
@@ -342,10 +358,9 @@ class SpeakerModelEC(nn.Module):
             # get index of eos
             idx = eos_idxs.nonzero(as_tuple=True)[0]
             if len(idx) > 0:
-
                 # normalize logit
                 for i in idx:
-                    eos_mask[gen_len + 1:, i] = 1
+                    eos_mask[gen_len + 1 :, i] = 1
 
             if eos_mask[gen_len + 1].all():
                 break
@@ -362,9 +377,9 @@ class SpeakerModelEC(nn.Module):
             completed_sentences = completed_sentences.unsqueeze(0)
 
         # truncate
-        eos_mask = eos_mask[:self.max_len, :]
-        eos_mask = eos_mask[:gen_len + 1, :]
-        dec_logits = dec_logits[:gen_len + 1, :, :]
+        eos_mask = eos_mask[: self.max_len, :]
+        eos_mask = eos_mask[: gen_len + 1, :]
+        dec_logits = dec_logits[: gen_len + 1, :, :]
 
         # for each column of the mask get the index of the first 1
         eos_idxs = torch.argmax(eos_mask, dim=0)
@@ -375,7 +390,9 @@ class SpeakerModelEC(nn.Module):
         eos_mask = eos_mask.bool()
 
         # apply mask to complete_sentences
-        completed_sentences = completed_sentences.masked_fill(eos_mask.T, self.vocab["<pad>"])
+        completed_sentences = completed_sentences.masked_fill(
+            eos_mask.T, self.vocab["<pad>"]
+        )
         dec_logits[eos_mask, :] = 0
 
         # sum and normalize logits
