@@ -201,7 +201,7 @@ def save_model(
     }
     save_dict.update(kwargs)
     torch.save(save_dict, file_name, pickle_protocol=5)
-    logger.save_model(file_name, type(model).__name__, epoch, args)
+    logger.save_model(file_name,model_type, epoch, args)
 
     print("Model saved and logged to wandb")
 

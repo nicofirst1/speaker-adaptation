@@ -61,6 +61,7 @@ class Params:
     sim_loss_weight: Optional[float] = 0.5
     list_loss_weight: Optional[float] = 1.0
     sampler_temp: Optional[float] = 1.0
+    use_finetuned_speaker: Optional[bool] = False
 
     # Set to true for disabling wandb logging
     debug: Optional[bool] = False

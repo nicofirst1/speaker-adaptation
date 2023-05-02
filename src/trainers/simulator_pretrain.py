@@ -526,7 +526,7 @@ def main():
         if epoch > 0 and epoch % 2 == 0:
             save_model(
                 model=sim_model,
-                model_type="simulator",
+                model_type=f"Simulator{domain.capitalize()}",
                 epoch=epoch,
                 accuracy=eval_accuracy,
                 optimizer=optimizer,

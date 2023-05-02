@@ -53,17 +53,14 @@ class SimulatorModel(nn.Module):
         self.linear_separate = linear(self.img_dim, self.hidden_dim)
 
         # from embedding dimensions to hidden dimensions
-        # self.lin_emb2hid = linear(self.embedding_dim, self.hidden_dim)
 
         self.lin_emb2hid_utt = self.init_sequential(embedding_dim, 1, use_leaky=True)
         self.lin_emb2hid_emb = self.init_sequential(embedding_dim, 1, use_leaky=True)
 
         # Concatenation of 6 images in the context projected to hidden
-        # self.lin_context = linear(self.img_dim * 6, self.hidden_dim)
         self.lin_context = self.init_sequential(self.img_dim * 6, 2, use_leaky=True)
 
         # Multimodal (text representation; visual context)
-        # self.lin_mm = linear(self.hidden_dim * 2, self.hidden_dim)
         self.lin_mm_utt = self.init_sequential(self.hidden_dim, 1, use_leaky=False)
         self.lin_mm_emb = self.init_sequential(self.hidden_dim, 1, use_leaky=False)
 

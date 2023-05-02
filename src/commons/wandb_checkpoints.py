@@ -29,6 +29,7 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 SPEAKER_CHK_EC = dict(
     all="adaptive-speaker/ec_pretrain/SpeakerModelEC:v94",
     food = "adaptive-speaker/ec_pretrain/SpeakerModelEC:v138",
+    appliances = "adaptive-speaker/ec_pretrain/SpeakerModelEC:v153",
 )
 
 ########
@@ -48,7 +49,7 @@ SIM_CHECKPOINTS = dict(
 SIM_CHECKPOINTS_2FINETUNE = dict(
     all="",
     food="adaptive-speaker/simulator-pretrain/SimulatorModel:v1078",
-    appliances="",
+    appliances="adaptive-speaker/simulator-pretrain/SimulatorModel:v1103",
     indoor="",
     outdoor="",
     vehicles="",

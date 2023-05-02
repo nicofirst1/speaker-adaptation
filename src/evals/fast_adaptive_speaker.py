@@ -8,7 +8,6 @@ from typing import List, Dict
 import lovely_tensors as lt
 import numpy as np
 import pandas as pd
-import rich.progress
 import torch
 import wandb
 from torch import nn
@@ -24,7 +23,8 @@ from src.commons import (
     mask_attn,
     mask_oov_embeds,
     parse_args,
-    set_seed, SPEAKER_CHK_EC,
+    set_seed,
+    SPEAKER_CHK_EC,
 )
 from src.commons.Translator import Translator
 from src.commons.model_utils import get_mask_from_utts
@@ -225,6 +225,7 @@ def predict(
 
 from rich.progress import Progress
 
+
 def evaluate_subset(
     progress: Progress,
     task_id: int,
@@ -286,14 +287,30 @@ def evaluate(
     progress.start()
 
     # Create tasks for each subset
-    tasks = [progress.add_task(f"[cyan]Evaluating on split {split} (Thread {i + 1})", total=len(subset)) for i, subset
-             in enumerate(data_subsets)]
+    tasks = [
+        progress.add_task(
+            f"[cyan]Evaluating on split {split} (Thread {i + 1})", total=len(subset)
+        )
+        for i, subset in enumerate(data_subsets)
+    ]
 
     # Use ThreadPoolExecutor to process subsets concurrently
     with ThreadPoolExecutor(max_workers=n_threads) as executor:
         future_results = [
-            executor.submit(evaluate_subset, progress, tasks[i], data_subsets[i], speak_model, sim_model, list_model,
-                            criterion, adapt_lr, s) for i in range(n_threads)]
+            executor.submit(
+                evaluate_subset,
+                progress,
+                tasks[i],
+                data_subsets[i],
+                speak_model,
+                sim_model,
+                list_model,
+                criterion,
+                adapt_lr,
+                s,
+            )
+            for i in range(n_threads)
+        ]
         results = []
         for future in concurrent.futures.as_completed(future_results):
             results.extend(future.result())
@@ -343,6 +360,12 @@ if __name__ == "__main__":
     domain = common_p.train_domain
     lt.monkey_patch()
 
+    # for reproducibility
+    seed = common_p.seed
+    set_seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
     ##########################
     # LISTENER
     ##########################
@@ -351,22 +374,8 @@ if __name__ == "__main__":
     list_checkpoint, _ = load_wandb_checkpoint(list_checkpoint, device)
     list_args = list_checkpoint["args"]
 
-    # update list args
-    list_args.batch_size = 1  # hypotesis generation does not support batch
-    list_args.device = device
-    list_args.reset_paths()
-
-    # for debug
-    list_args.subset_size = common_p.subset_size
-    list_args.debug = common_p.debug
-
-    # for reproducibility
-    seed = common_p.seed
-    set_seed(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-
     # update paths
+    list_args.reset_paths()
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
 
@@ -377,7 +386,7 @@ if __name__ == "__main__":
         img_dim,
         list_args.attention_dim,
         list_args.dropout_prob,
-        list_args.train_domain,
+        domain,
         device=device,
     ).to(device)
 
@@ -400,7 +409,12 @@ if __name__ == "__main__":
     # SPEAKER
     ##########################
 
-    speak_check, _ = load_wandb_checkpoint(SPEAKER_CHK_EC['food'], device)
+    if common_p.use_finetuned_speaker:
+        chk = SPEAKER_CHK_EC[domain]
+    else:
+        chk = SPEAKER_CHK
+
+    speak_check, _ = load_wandb_checkpoint(chk, device)
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -424,7 +438,6 @@ if __name__ == "__main__":
 
     speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
     speaker_model = speaker_model.to(device)
-
     speaker_model = speaker_model.eval()
 
     ##########################
@@ -436,7 +449,7 @@ if __name__ == "__main__":
         model = SimulatorModel_old
     else:
         check = common_p.force_resume_url
-        model = SimulatorModel_old
+        model = SimulatorModel
 
     sim_check, _ = load_wandb_checkpoint(check, device)
 
@@ -467,7 +480,7 @@ if __name__ == "__main__":
     flag = common_p.type_of_int
 
     logger = WandbLogger(
-        vocab=speak_vocab,
+        vocab=list_vocab,
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
