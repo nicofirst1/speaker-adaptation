@@ -26,6 +26,7 @@ class SimulatorModel(nn.Module):
         dropout_prob,
         domain,
         device,
+        embed_temp=0.1,
     ):
         super().__init__()
         self.vocab_size = vocab_size
@@ -35,6 +36,7 @@ class SimulatorModel(nn.Module):
         self.attention_dim = att_dim
         self.device = device
         self.domain = domain
+        self.embed_temp = embed_temp
 
         self.dropout = nn.Dropout(dropout_prob)
 
@@ -222,8 +224,7 @@ class SimulatorModel(nn.Module):
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance
 
-        embd_temp=0.001
-        embeds_out = 1 -embeds_out * embd_temp
+        embeds_out = 1 - embeds_out * self.embed_temp
 
         embeds = utt_out * embeds_out
         dot = torch.bmm(separate_images, embeds.view(batch_size, self.hidden_dim, 1))

@@ -38,59 +38,6 @@ from src.models.speaker.SpeakerModelEC import SpeakerModelEC
 from src.wandb_logging import WandbLogger
 
 
-def generate_ood_table(
-    df: pd.DataFrame, s_iter: int, domain: List[str], list_domain: str, sim_domain: str
-) -> wandb.Table:
-    rows = []
-    columns = [
-        "listener domain",
-        "simulator domain",
-        "target domain",
-        "golden acc",
-        "original acc",
-        "adapted acc",
-    ]
-    ood_accs = {d: 0 for d in domain}
-    for d in sorted(ood_accs.keys()):
-        # filter out target with this domain
-        ood_df = df[df["target domain"] == d]
-
-        # get acc for this domain
-        golden_acc = ood_df["golden_acc"].mean()
-        original_acc = ood_df["original_acc"].mean()
-
-        # adapted accs are a matrix so remove -1, sum and get mean
-        adapt_acc_idx_0 = df.columns.get_loc("adapted_acc_s0")
-        adapt_acc_idx_1 = adapt_acc_idx_0 + s_iter
-
-        adapt_acc = ood_df.iloc[:, adapt_acc_idx_0:adapt_acc_idx_1]
-        adapt_acc = adapt_acc[adapt_acc != -1]
-        adapt_acc = adapt_acc.dropna(axis=1, how="all")
-        adapt_mean = 0
-        idx = 0
-        for index, row in adapt_acc.iterrows():
-            row = row.dropna()
-            adapt_mean += row[-1]
-            idx += 1
-
-        if idx != 0:
-            adapt_mean /= idx
-
-        # append to rows
-        rows.append(
-            [
-                list_domain,
-                sim_domain,
-                d,
-                golden_acc,
-                original_acc,
-                adapt_mean,
-            ]
-        )
-
-    table = wandb.Table(columns=columns, data=rows)
-    return table
-
 
 def predict(
     data: Dict,
@@ -120,6 +67,7 @@ def predict(
     ################################################
     #   Get results with original hypo
     ################################################
+    set_seed(seed)
     # generate hypothesis
     utterance_s, logs, decoder_hid = speak_model.generate_hypothesis(
         context_separate,
@@ -147,7 +95,6 @@ def predict(
         utterance=utterance,
         masks=masks,)
     sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
-    sim_accuracy = torch.eq(sim_preds, targets.squeeze()).double().item()
     original_sim_list_acc = torch.eq(sim_preds, list_preds.squeeze()).double().item()
 
     ################################################
@@ -195,10 +142,6 @@ def predict(
 
         list_out = list_model(utterance, context_separate, masks)
 
-        # get  accuracy
-        list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
-        list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
-        s_accs.append(list_target_accuracy)
 
         sim_accuracy.append(aux["sim_target_accuracy"])
         sim_list_acc.append(aux["sim_list_accuracy"])
@@ -329,6 +272,8 @@ def evaluate(
     sim_list_acc = [x["sim_list_acc"][-1] for x in results]
     initial_sim_list_acc = [x["sim_list_acc"][0] for x in results]
     adapted_acc = [x["adapted_list_target_acc"][-1] for x in results]
+    mean_s=[len(x['adapted_list_target_acc']) for x in results]
+
 
     golden_accs = np.array(golden_acc).mean()
     original_accs = np.array(original_acc).mean()
@@ -337,6 +282,7 @@ def evaluate(
     sim_list_accs = np.array(sim_list_acc).mean()
     initial_sim_list_accs = np.array(initial_sim_list_acc).mean()
     adapted_accs = np.array(adapted_acc).mean()
+    mean_s = np.array(mean_s).mean()
 
     adapt_golden_imporv = adapted_accs - golden_accs
     adapt_original_imporv = adapted_accs - original_accs
@@ -352,6 +298,7 @@ def evaluate(
         adapt_original_imporv=adapt_original_imporv,
         initial_sim_list_accs=initial_sim_list_accs,
         original_sim_list_accs=original_sim_list_accs,
+        mean_s=mean_s,
 
     )
 
@@ -373,6 +320,31 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
 
+
+
+    ###################################
+    ##  LOGGER
+    ###################################
+
+    list_vocab = Vocab(common_p.vocab_file, is_speaker=False)
+
+
+    flag = common_p.type_of_int
+
+    logger = WandbLogger(
+        vocab=list_vocab,
+        opts=vars(common_p),
+        train_logging_step=1,
+        val_logging_step=1,
+        project=f"fast-adaptive-speaker-{common_p.type_of_int}",
+        tags=common_p.tags,
+    )
+
+    metric = common_p.metric
+    sweep_config = wandb.config
+
+    is_sweep = sweep_config._check_locked("adapt_lr")
+
     ##########################
     # LISTENER
     ##########################
@@ -385,6 +357,7 @@ if __name__ == "__main__":
     list_args.reset_paths()
     list_args.__post_init__()
     list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
+
 
     list_model = ListenerModel(
         len(list_vocab),
@@ -472,6 +445,7 @@ if __name__ == "__main__":
         sim_p.dropout_prob,
         common_p.sim_domain,
         device,
+        embed_temp=common_p.embed_temp,
     ).to(device)
 
     if common_p.type_of_int != "untrained":
@@ -480,25 +454,6 @@ if __name__ == "__main__":
     sim_model = sim_model.to(device)
     sim_model = sim_model.eval()
 
-    ###################################
-    ##  LOGGER
-    ###################################
-
-    flag = common_p.type_of_int
-
-    logger = WandbLogger(
-        vocab=list_vocab,
-        opts=vars(common_p),
-        train_logging_step=1,
-        val_logging_step=1,
-        project=f"fast-adaptive-speaker-{common_p.type_of_int}",
-        tags=common_p.tags,
-    )
-
-    metric = common_p.metric
-    sweep_config = wandb.config
-
-    is_sweep = sweep_config._check_locked("adapt_lr")
 
     ###################################
     ##  Get speaker dataloader

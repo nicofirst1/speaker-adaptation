@@ -362,6 +362,7 @@ class SimulatorArguments(Params):
 
     embed_type: Optional[str] = "scratch"
     embed_dim: Optional[int] = 768
+    embed_temp: Optional[int] = 0.1
     mask_oov_embed: Optional[str] = "unk"
     golden_data_perc: Optional[float] = 1.0
 

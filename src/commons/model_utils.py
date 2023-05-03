@@ -6,6 +6,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 import wandb
+from wandb.sdk.lib import RunDisabled
 
 from src.commons.Params import Params
 from src.data.dataloaders import Vocab
@@ -220,15 +221,19 @@ def load_wandb_file(url: str, datadir="") -> str:
 
     new_url = url
     if datadir == "":
-        api = wandb.Api()
+        if isinstance(wandb.alert, RunDisabled):
+
+            api = wandb.Api().artifact
+        else:
+            api=wandb.use_artifact
         try:
-            artifact = api.artifact(url)
+            artifact = api(url)
         except wandb.errors.CommError:
             # try legacy names
             new_url = url.replace("interpreter", "simulator").replace(
                 "Interpreter", "Simulator"
             )
-            artifact = api.artifact(new_url)
+            artifact = api(new_url)
 
         datadir = artifact.download()
 
