@@ -338,7 +338,7 @@ class SpeakerModelEC(nn.Module):
                 )
                 next_token.squeeze(-1)
 
-                if next_token.item() == eos_token and gen_len == 0:
+                if (next_token== eos_token).any() and gen_len == 0:
                     # discourage eos at first step
                     idx = 10
                     while next_token.item() == eos_token and idx > 0:

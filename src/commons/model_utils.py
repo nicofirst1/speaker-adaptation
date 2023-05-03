@@ -173,7 +173,6 @@ def save_model(
     model_type: str,
     epoch: int,
     accuracy: float,
-    optimizer: torch.optim.Optimizer,
     args: Params,
     timestamp: str,
     logger: AbstractWandbLogger,

@@ -95,9 +95,9 @@ class AccuracyEstimator(torch.nn.Module):
         d = [domains[idx] for idx in range(len(domains)) if pos_idx[idx]]
         sim_list_pos_accuracy_dom = (sim_list_pos_accuracy, d)
 
-        list_target_accuracy = list_target_accuracy.sum()
-        sim_list_accuracy = sim_list_accuracy.sum()
-        sim_target_accuracy = sim_target_accuracy.sum()
+        list_target_accuracy = list_target_accuracy.float().mean()
+        sim_list_accuracy = sim_list_accuracy.float().mean()
+        sim_target_accuracy = sim_target_accuracy.float().mean()
         sim_list_neg_accuracy = sim_list_neg_accuracy.sum()
         sim_list_pos_accuracy = sim_list_pos_accuracy.sum()
 

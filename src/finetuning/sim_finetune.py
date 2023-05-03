@@ -21,12 +21,15 @@ from src.commons import (
     save_model,
     set_seed,
     get_simulator_check,
+    get_listener_check,
+    mask_oov_embeds,
 )
 from src.commons.Translator import Translator
 from src.commons.model_utils import get_mask_from_utts
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.FinetuneDataset import FinetuneDataset
 from src.models import SpeakerModelEC
+from src.models.listener.ListenerModel import ListenerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
 from src.wandb_logging import WandbLogger
 
@@ -75,6 +78,8 @@ def normalize_aux(aux, logger, epoch, max_targets=2):
 
     sim_acc = aux["sim_acc"]
     aux["sim_acc"] = np.mean([sum(x) for x in aux["sim_acc"]]) / batch_size
+    aux["sim_list_acc"] = torch.stack(aux['sim_list_acc']).float().mean()
+
 
     # get max targets random ids in range of targets
     if epoch % 10 == 0:
@@ -90,6 +95,7 @@ def get_predictions(
     data: Dict,
     sim_model: SimulatorModel,
     speak_model: SpeakerModelEC,
+    list_model: ListenerModel,
     loss_f: nn.CrossEntropyLoss,
     translator: Translator,
 ) -> Tuple[torch.Tensor, Dict]:
@@ -125,16 +131,20 @@ def get_predictions(
 
     sim_out = sim_out.squeeze(-1)
 
+    list_out = list_model(utterance, context_separate, masks)
+
     # Losses and preds
+    list_preds = torch.argmax(list_out, dim=1)
     sim_preds = torch.argmax(sim_out, dim=1)
     sim_acc = sim_preds.eq(target)
-    loss = loss_f(sim_out, target).mean()
+    sim_list_acc = sim_preds.eq(list_preds)
 
     aux = dict(
         loss=loss.detach().cpu().item(),
         utterance=dec_utt,
         target_id=target_id,
         sim_acc=sim_acc,
+        sim_list_acc=sim_list_acc,
     )
 
     return loss, aux
@@ -261,6 +271,52 @@ def main():
     sim_model = sim_model.to(device)
     sim_model = sim_model.train()
 
+    ##########################
+    # LISTENER
+    ##########################
+
+    list_check = get_listener_check(domain)
+
+    list_checkpoint, _ = load_wandb_checkpoint(
+        list_check,
+        device,
+    )
+    # datadir=join("./artifacts", LISTENER_CHK_DICT[domain].split("/")[-1]))
+    list_args = list_checkpoint["args"]
+
+    # update list args
+    list_args.device = device
+    list_args.reset_paths()
+
+    # update paths
+    # list_args.__parse_args()
+    list_args.__post_init__()
+    list_vocab = Vocab(list_args.vocab_file, is_speaker=False)
+
+    list_model = ListenerModel(
+        len(list_vocab),
+        list_args.embed_dim,
+        list_args.hidden_dim,
+        img_dim,
+        list_args.attention_dim,
+        list_args.dropout_prob,
+        list_args.train_domain,
+        device=device,
+    ).to(device)
+
+    list_model.load_state_dict(list_checkpoint["model_state_dict"])
+    list_model = list_model.to(device)
+    list_model.eval()
+
+    with torch.no_grad():
+        list_model.embeddings = mask_oov_embeds(
+            list_model.embeddings,
+            list_vocab,
+            domain,
+            replace_token=common_p.mask_oov_embed,
+            data_path=common_p.data_path,
+        )
+
     ###################################
     ##  LOSS AND OPTIMIZER
     ###################################
@@ -360,7 +416,7 @@ def main():
 
             # get datapoints
             loss, aux = get_predictions(
-                data, sim_model, speaker_model, loss_f, translator
+                data, sim_model, speaker_model, list_model, loss_f, translator
             )
 
             auxs.append(aux)
@@ -392,7 +448,7 @@ def main():
                 description=f"evaluating...",
             ):
                 loss, aux = get_predictions(
-                    data, sim_model, speaker_model, loss_f, translator
+                    data, sim_model, speaker_model, list_model, loss_f, translator
                 )
 
                 auxs.append(aux)
@@ -410,7 +466,7 @@ def main():
             )
             logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-        if common_p.sweep_file == "" and epoch > 0 and epoch % 7 == 0:
+        if common_p.sweep_file == "" and epoch > 0 and epoch % 2 == 0:
             save_model(
                 model=sim_model,
                 model_type="sim_ec",

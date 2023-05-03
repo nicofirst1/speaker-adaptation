@@ -52,12 +52,14 @@ SIM_CHECKPOINTS_2FINETUNE = dict(
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel:v1103",
     indoor="",
     outdoor="",
-    vehicles="",
+    vehicles="adaptive-speaker/simulator-pretrain/SimulatorVehicles:v10",
 )
 
 
 
-def get_simulator_check(domain):
+def get_simulator_check(domain, finetune=False):
+    if finetune:
+        return SIM_CHECKPOINTS_2FINETUNE[domain]
     return SIM_CHECKPOINTS[domain]
 
 

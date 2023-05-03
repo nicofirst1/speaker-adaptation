@@ -1,6 +1,7 @@
 import argparse
 import copy
 import os.path
+import random
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -9,12 +10,18 @@ import rich.table
 import torch
 import wandb
 from PIL import Image, ImageDraw, ImageFont
+from torch.utils.data import DataLoader
+
 from src.commons.model_utils import load_wandb_file
 from src.commons.wandb_checkpoints import DATASET_CHK
-from src.data.dataloaders import (AbstractDataset, ListenerDataset,
-                                  SpeakerDataset, SpeakerUttDataset, Vocab)
+from src.data.dataloaders import (
+    AbstractDataset,
+    ListenerDataset,
+    SpeakerDataset,
+    SpeakerUttDataset,
+    Vocab,
+)
 from src.wandb_logging import AbstractWandbLogger
-from torch.utils.data import DataLoader
 
 
 def show_img(data, id2path, split_name, hypo="", idx=-1):
@@ -84,7 +91,6 @@ def get_dataloaders(
     args_copy = copy.deepcopy(args)
     # generate kwargs for different splits
     for split in splits:
-
         # differenciate between seen/unseen/merged tests
         if domain is not None and split == "test":
             if args_copy.test_split != "all":
@@ -187,7 +193,14 @@ def load_wandb_dataset(
 
         # crop the data according to subset size
         if subset_size != -1:
-            dataset.data = {k: v for k, v in dataset.data.items() if k < subset_size}
+            # get subset_size random keys from dataset.data
+            keys = random.sample(list(dataset.data.keys()), subset_size)
+            # create a new dataset with the subset
+            data = {k: dataset.data[k] for k in keys}
+
+            # replace the keys with a new range
+            data = {i: data[k] for i, k in enumerate(data.keys())}
+            dataset.data = data
 
         dl = torch.utils.data.DataLoader(dataset, **load_params)
     except wandb.errors.CommError:

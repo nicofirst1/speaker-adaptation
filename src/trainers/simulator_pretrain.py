@@ -43,9 +43,10 @@ global common_p
 def normalize_aux(aux, data_length, all_domains, max_targets=0):
     aux["loss"] = np.mean(aux["loss"])
 
-    aux["sim_list_accuracy"] = np.sum(aux["sim_list_accuracy"]) / data_length
-    aux["list_target_accuracy"] = np.sum(aux["list_target_accuracy"]) / data_length
-    aux["sim_target_accuracy"] = np.sum(aux["sim_target_accuracy"]) / data_length
+
+    aux["sim_list_accuracy"] = np.mean(aux["sim_list_accuracy"])
+    aux["list_target_accuracy"] = np.mean(aux["list_target_accuracy"])
+    aux["sim_target_accuracy"] = np.mean(aux["sim_target_accuracy"])
     aux["sim_list_neg_accuracy"] = np.sum(aux["sim_list_neg_accuracy"]) / np.sum(
         aux["neg_pred_len"]
     )
@@ -133,11 +134,9 @@ def get_predictions(
 
     # get datapoints
     context_separate = data["separate_images"]
-    context_concat = data["concat_context"]
     utterance = data["speak_utterance"]
     lengths = data["speak_length"]
     targets = data["target"]
-    speak_embds = data["speak_h1embed"]
     max_length_tensor = utterance.shape[1]
     domains = data["domain"]
 
@@ -363,7 +362,7 @@ def main():
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    # logger.watch_model([sim_model],)
+    logger.watch_model([sim_model],)
 
     ###################################
     ##  Get speaker dataloader
@@ -377,6 +376,7 @@ def main():
     training_loader, _, val_loader = get_dataloaders(
         common_p, speak_vocab, data_domain, splits=["train", "val"]
     )
+    common_p.batch_size = bs
 
     translator = Translator(speak_vocab, list_vocab, device=device)
 
@@ -441,8 +441,8 @@ def main():
         sim_model.train()
 
         # randomize order of data
-        speak_train_dl.dataset.randomize_target_location()
-        speak_val_dl.dataset.randomize_target_location()
+        # speak_train_dl.dataset.randomize_target_location()
+        # speak_val_dl.dataset.randomize_target_location()
 
         ###################################
         ##  TRAIN LOOP
@@ -529,7 +529,6 @@ def main():
                 model_type=f"Simulator{domain.capitalize()}",
                 epoch=epoch,
                 accuracy=eval_accuracy,
-                optimizer=optimizer,
                 args=common_p,
                 timestamp=timestamp,
                 logger=logger,
