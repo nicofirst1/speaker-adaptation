@@ -138,6 +138,7 @@ def get_predictions(
     sim_preds = torch.argmax(sim_out, dim=1)
     sim_acc = sim_preds.eq(target)
     sim_list_acc = sim_preds.eq(list_preds)
+    loss= loss_f(sim_out, target).mean()
 
     aux = dict(
         loss=loss.detach().cpu().item(),
@@ -234,6 +235,7 @@ def main():
         check = get_simulator_check(common_p.sim_domain, finetune=True)
     else:
         check = common_p.force_resume_url
+
     sim_check, _ = load_wandb_checkpoint(check, device)
 
     sim_vocab = Vocab(common_p.vocab_file, is_speaker=False)

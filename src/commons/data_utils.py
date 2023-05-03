@@ -1,7 +1,9 @@
 import argparse
+import concurrent
 import copy
 import os.path
 import random
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -10,6 +12,7 @@ import rich.table
 import torch
 import wandb
 from PIL import Image, ImageDraw, ImageFont
+from rich.progress import Progress
 from torch.utils.data import DataLoader
 
 from src.commons.model_utils import load_wandb_file
@@ -158,12 +161,11 @@ def load_wandb_dataset(
     split: str,
     domain: str,
     load_params: Dict,
-    listener_vocab: Vocab,
     speaker_model: torch.nn.Module,
     dataloader: DataLoader,
     logger: AbstractWandbLogger,
+    test_split: Optional[str] = "seen",
     subset_size: Optional[int] = -1,
-    test_split: Optional[str] = "all",
 ) -> DataLoader:
     """
     Load speaker augmented dataset from wandb, if not preset generate it and upload it
@@ -210,7 +212,6 @@ def load_wandb_dataset(
         print(f"Dataset '{file_path}' not found on wandb, generating....")
         dl = speaker_augmented_dataloader(
             dataloader,
-            listener_vocab,
             speaker_model,
             split_name=split,
             load_params=load_params,
@@ -235,9 +236,105 @@ def load_wandb_dataset(
     return dl
 
 
+def augment_data_subset(
+    progress: Progress,
+    task_id: int,
+    data_subset,
+    speak_model: torch.nn.Module,
+) -> List[Dict]:
+    augmented_data = []
+
+    for data in data_subset:
+        target_img_feats = data["target_img_feats"].unsqueeze(0)
+        context_separate = data["separate_images"].unsqueeze(0)
+
+        utterance, _, h0 = speak_model.generate_hypothesis(
+            context_separate, target_img_feats
+        )
+
+        utterance = utterance.squeeze().tolist()
+        h0 = h0.squeeze().tolist()
+
+        if not isinstance(utterance, list):
+            utterance = [utterance]
+
+        data["speak_utterance"] = utterance
+        data["speak_embed"] = h0
+        data["speak_length"] = len(utterance)
+        augmented_data.append(data)
+
+        progress.update(task_id, advance=1)
+
+    return augmented_data
+
+
 def speaker_augmented_dataloader(
     dataloader: DataLoader,
-    listener_vocab: Vocab,
+    speak_model: torch.nn.Module,
+    split_name: str,
+    load_params: Dict,
+) -> DataLoader:
+    if len(dataloader) == 0:
+        print("Empty dataloader")
+        return dataloader
+
+    new_data = copy.deepcopy(dataloader.dataset.data)
+
+    n_threads = 8
+
+    # Convert data dictionary to list of dictionaries
+    new_data = [new_data[idx] for idx in range(len(new_data))]
+
+    # Check if new_data is not empty
+    if len(new_data) == 0:
+        print("No data to process")
+        return dataloader
+
+    # Split the data into subsets
+    data_subsets = np.array_split(new_data, n_threads)
+
+    # Create a shared Progress object
+    progress = Progress()
+    progress.start()
+
+    # Create tasks for each subset
+    tasks = [
+        progress.add_task(
+            f"[cyan]Generating hypothesis for split '{split_name}' (Thread {i + 1})",
+            total=len(subset),
+        )
+        for i, subset in enumerate(data_subsets)
+    ]
+
+    # Use ThreadPoolExecutor to process subsets concurrently
+    with ThreadPoolExecutor(max_workers=n_threads) as executor:
+        future_results = [
+            executor.submit(
+                augment_data_subset, progress, tasks[i], data_subsets[i], speak_model
+            )
+            for i in range(n_threads)
+        ]
+        augmented_data = []
+        for future in concurrent.futures.as_completed(future_results):
+            augmented_data.extend(future.result())
+
+    progress.stop()
+
+    new_dataset = SpeakerUttDataset(augmented_data, dataloader.dataset.domain)
+
+    # check if present
+    dp = next(iter(new_dataset)).keys()
+    assert (
+        "speak_utterance" in dp and "speak_embed" in dp
+    ), "dataloader update did not work"
+
+    dataloader = torch.utils.data.DataLoader(new_dataset, **load_params)
+
+    return dataloader
+
+
+def speaker_augmented_dataloader_old(
+    dataloader: DataLoader,
     speak_model: torch.nn.Module,
     split_name: str,
     load_params: Dict,
@@ -260,23 +357,21 @@ def speaker_augmented_dataloader(
     ):
         # get datapoints
         target_img_feats = data["target_img_feats"]
-        prev_utterance = data["prev_utterance"]
-        prev_utt_lengths = data["prev_length"]
-        visual_context = data["concat_context"]
+        context_separate = data["separate_images"]
 
         # generate hypo with speaker
-        utterance, _, h1 = speak_model.generate_hypothesis(
-            prev_utterance, prev_utt_lengths, visual_context, target_img_feats
+        utterance, _, h0 = speak_model.generate_hypothesis(
+            context_separate, target_img_feats
         )
 
         utterance = utterance.squeeze().tolist()
-        h1 = h1.squeeze().tolist()
+        h0 = h0.squeeze().tolist()
 
         if not isinstance(utterance, list):
             utterance = [utterance]
         # append to new data
         new_data[ii]["speak_utterance"] = utterance
-        new_data[ii]["speak_h1embed"] = h1
+        new_data[ii]["speak_embed"] = h0
         new_data[ii]["speak_length"] = len(utterance)
 
         # show_img(data, dataloader.dataset.img_id2path,f"original_{split_name}", hypo=hypo,idx=ii)
@@ -287,7 +382,7 @@ def speaker_augmented_dataloader(
     # check if present
     dp = next(iter(new_dataset)).keys()
     assert (
-        "speak_utterance" in dp and "speak_h1embed" in dp
+        "speak_utterance" in dp and "speak_embed" in dp
     ), "dataloader update did not work"
 
     dataloader = torch.utils.data.DataLoader(new_dataset, **load_params)

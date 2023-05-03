@@ -284,6 +284,8 @@ def load_wandb_checkpoint(url: str, device: str, datadir="") -> Tuple[Dict, str]
     file = load_wandb_file(url, datadir)
     checkpoint = torch.load(file, map_location=device)
 
+    print(f"Loaded checkpoint from {file}")
+
     return checkpoint, file
 
 

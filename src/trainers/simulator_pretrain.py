@@ -344,7 +344,7 @@ def main():
         sim_model.parameters(), lr=common_p.learning_rate, weight_decay=0.0001
     )
     scheduler = ReduceLROnPlateau(
-        optimizer, "max", patience=2, factor=0.5, verbose=True, threshold=0.5
+        optimizer, "max", patience=3, factor=0.25, verbose=True, threshold=0.5
     )
     loss_f = nn.CrossEntropyLoss(reduction="none")
     acc_estimator = AccuracyEstimator(domain, all_domains=logger.domains)
@@ -396,7 +396,6 @@ def main():
         "train",
         "all",
         load_params,
-        list_vocab,
         speaker_model,
         training_loader,
         logger,
@@ -417,7 +416,6 @@ def main():
         "val",
         "all",
         load_params,
-        list_vocab,
         speaker_model,
         val_loader,
         logger,

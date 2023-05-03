@@ -1,5 +1,6 @@
 import concurrent
 import datetime
+import os
 import random
 import string
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +13,7 @@ import torch
 import wandb
 from torch import nn
 from torch.utils.data import DataLoader
+from rich.progress import Progress
 
 from src.commons import (
     SPEAKER_CHK,
@@ -108,9 +110,7 @@ def predict(
     ##################################
     # Get results for golden captions
     ##################################
-    lengths = [golden_utt_ids.shape[1]]
-    max_length_tensor = golden_utt_ids.shape[1]
-    masks = mask_attn(lengths, max_length_tensor, device)
+    masks = get_mask_from_utts(golden_utt_ids, translator.list_vocab, device)
 
     golden_list_out = list_model(golden_utt_ids, context_separate, masks)
     golden_list_out.squeeze(dim=0)
@@ -121,20 +121,18 @@ def predict(
     #   Get results with original hypo
     ################################################
     # generate hypothesis
-    utterance, logs, decoder_hid = speak_model.generate_hypothesis(
+    utterance_s, logs, decoder_hid = speak_model.generate_hypothesis(
         context_separate,
         target_img_feats,
     )
 
-    utterance = translator.s2l(utterance)
+    utterance = translator.s2l(utterance_s)
 
     history_att = logs["history_att"]
 
     # translate utt to ids and feed to listener
-    lengths = [utterance.shape[1]]
-    max_length_tensor = utterance.shape[1]
 
-    masks = mask_attn(lengths, max_length_tensor, device)
+    masks = get_mask_from_utts(utterance, translator.list_vocab, device)
 
     list_out = list_model(utterance, context_separate, masks)
 
@@ -142,6 +140,15 @@ def predict(
     list_preds = torch.argmax(list_out.squeeze(dim=-1), dim=1)
     list_target_accuracy = torch.eq(list_preds, targets.squeeze()).double().item()
     original_acc = list_target_accuracy
+
+    # get accuracy for sim
+    sim_out = sim_model(
+        separate_images=context_separate,
+        utterance=utterance,
+        masks=masks,)
+    sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
+    sim_accuracy = torch.eq(sim_preds, targets.squeeze()).double().item()
+    original_sim_list_acc = torch.eq(sim_preds, list_preds.squeeze()).double().item()
 
     ################################################
     #   Get results with adapted hypo
@@ -157,26 +164,18 @@ def predict(
     sim_accuracy = []
     sim_list_acc = []
 
+
     # perform loop
     i = 0
     while i < s:
         set_seed(seed)
 
-        if isinstance(sim_model, SimulatorModel_old):
-            sim_out = sim_model(
-                h0,
-                utterance,
-                context_separate,
-                masks,
-            )
-
-        else:
-            sim_out = sim_model(
-                context_separate,
-                utterance,
-                masks,
-                speaker_embeds=h0,
-            )
+        sim_out = sim_model(
+            separate_images=context_separate,
+            utterance=utterance,
+            masks=masks,
+            speaker_embeds=h0,
+        )
 
         # compute loss and perform backprop
         loss = criterion(sim_out, targets)
@@ -187,8 +186,8 @@ def predict(
         s_loss.append(loss.detach().item())
 
         # get modified hypo
-        utterance, dec_logit = speak_model.nucleus_sampling(h0, history_att)
-        utterance = translator.s2l(utterance)
+        utterance_s, dec_logit = speak_model.nucleus_sampling(h0, history_att)
+        utterance = translator.s2l(utterance_s)
 
         # generate utt for list
         # translate utt to ids and feed to listener
@@ -215,15 +214,16 @@ def predict(
     res = dict(
         golden_acc=golden_acc,
         original_acc=original_acc,
+        original_sim_list_acc=original_sim_list_acc,
         adapted_list_target_acc=s_accs,
         sim_accuracy=sim_accuracy,
         sim_list_acc=sim_list_acc,
+
         s_loss=s_loss,
     )
     return res
 
 
-from rich.progress import Progress
 
 
 def evaluate_subset(
@@ -276,7 +276,7 @@ def evaluate(
 
     """
 
-    n_threads = 8
+    n_threads = 1 if common_p.debug else os.cpu_count()//2
 
     # Split the data into subsets
     data_list = list(data_loader)
@@ -324,14 +324,18 @@ def evaluate(
     # normalize results
     golden_acc = [x["golden_acc"] for x in results]
     original_acc = [x["original_acc"] for x in results]
+    original_sim_list_acc = [x["original_sim_list_acc"] for x in results]
     sim_acc = [x["sim_accuracy"][-1] for x in results]
     sim_list_acc = [x["sim_list_acc"][-1] for x in results]
+    initial_sim_list_acc = [x["sim_list_acc"][0] for x in results]
     adapted_acc = [x["adapted_list_target_acc"][-1] for x in results]
 
     golden_accs = np.array(golden_acc).mean()
     original_accs = np.array(original_acc).mean()
+    original_sim_list_accs = np.array(original_sim_list_acc).mean()
     sim_accs = np.array(sim_acc).mean()
     sim_list_accs = np.array(sim_list_acc).mean()
+    initial_sim_list_accs = np.array(initial_sim_list_acc).mean()
     adapted_accs = np.array(adapted_acc).mean()
 
     adapt_golden_imporv = adapted_accs - golden_accs
@@ -346,6 +350,9 @@ def evaluate(
         sim_list_accs=sim_list_accs,
         adapt_golden_imporv=adapt_golden_imporv,
         adapt_original_imporv=adapt_original_imporv,
+        initial_sim_list_accs=initial_sim_list_accs,
+        original_sim_list_accs=original_sim_list_accs,
+
     )
 
     # console.print(metrics)

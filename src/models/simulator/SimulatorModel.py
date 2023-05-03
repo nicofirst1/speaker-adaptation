@@ -222,6 +222,9 @@ class SimulatorModel(nn.Module):
         # dot product between the candidate images and
         # the final multimodal representation of the input utterance
 
+        embd_temp=0.001
+        embeds_out = 1 -embeds_out * embd_temp
+
         embeds = utt_out * embeds_out
         dot = torch.bmm(separate_images, embeds.view(batch_size, self.hidden_dim, 1))
         # [batch, 6, 1]

@@ -48,9 +48,9 @@ SIM_CHECKPOINTS = dict(
 
 SIM_CHECKPOINTS_2FINETUNE = dict(
     all="",
-    food="adaptive-speaker/simulator-pretrain/SimulatorModel:v1078",
+    food="adaptive-speaker/simulator-pretrain/SimulatorFood:v45",
     appliances="adaptive-speaker/simulator-pretrain/SimulatorModel:v1103",
-    indoor="",
+    indoor="adaptive-speaker/simulator-pretrain/SimulatorIndoor:v6",
     outdoor="",
     vehicles="adaptive-speaker/simulator-pretrain/SimulatorVehicles:v10",
 )
