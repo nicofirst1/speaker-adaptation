@@ -27,7 +27,7 @@ from src.commons import (
 )
 from src.commons.Baseline import MeanBaseline
 from src.commons.Translator import Translator
-from src.commons.model_utils import logprobs_from_logits, get_mask_from_utts
+from src.commons.model_utils import logprobs_from_logits, get_mask_from_utts, change2random
 from src.data.dataloaders import Vocab
 from src.data.dataloaders.FinetuneDataset import FinetuneDataset
 from src.models import ListenerModel, SpeakerModelEC
@@ -153,6 +153,7 @@ def get_predictions(
     dec_utt = list_vocab.batch_decode(utterance)
 
     masks = get_mask_from_utts(utterance, translator.list_vocab, device=enc_logits.device)
+
 
     # get outputs
     list_out = list_model(utterance, context_separate, masks)
