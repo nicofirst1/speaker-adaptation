@@ -32,6 +32,8 @@ class FinetuneDataset(Dataset):
         with open(img2dom_file, "r") as file:
             self.img2dom = json.load(file)
 
+
+
         if domain != "all":
             # filter out images not in the domain
             domain_images = []
@@ -42,44 +44,64 @@ class FinetuneDataset(Dataset):
                 k: v for k, v in self.image_features.items() if k in domain_images
             }
 
+        not_present_ids = set(self.img2dom.keys()) - set(self.image_features.keys())
+        print("not present ids", len(not_present_ids))
+        for id in not_present_ids:
+            self.img2dom.pop(id)
+
         self.domain = domain
         self.num_images = num_images
         self.device = device
 
-        self.domain_images = sorted(list(set(self.image_features.keys())))
+        domains = set(self.img2dom.values())
+        domain_images = {dom: [] for dom in domains}
+        for img_id, dom in self.img2dom.items():
+            domain_images[dom].append(img_id)
+
+        self.domain_images = domain_images
 
         self.randomize_data()
 
     def randomize_data(self):
         self.data = []
 
-        for _ in range(self.num_images):
-            # choose 6 random images
-            random_set = numpy.random.choice(self.domain_images, 6)
+        samples_for_domain = self.num_images // len(self.domain_images)
 
-            # randomly choose a target
-            target_index = numpy.random.choice(range(6))
+        for dom in self.domain_images.keys():
+            domain_images = self.domain_images[dom]
 
-            # use image features for target set
-            image_set = [self.image_features[x] for x in random_set]
+            for _ in range(samples_for_domain):
 
-            image_set = torch.as_tensor(image_set, dtype=torch.float32)
-            target_index = torch.as_tensor(target_index, dtype=torch.int64)
+                # choose 6 random images
+                random_set = numpy.random.choice(domain_images, 6)
 
-            # to device
-            image_set = image_set.to(self.device)
-            target_index = target_index.to(self.device)
-            target_id = random_set[target_index]
-            target_img_feat = image_set[target_index]
+                # randomly choose a target
+                target_index = numpy.random.choice(range(6))
 
-            data = dict(
-                image_set=image_set,
-                image_ids=random_set,
-                target_index=target_index,
-                target_id=target_id,
-                target_img_feat=target_img_feat,
-            )
-            self.data.append(data)
+                # use image features for target set
+                image_set = [self.image_features[x] for x in random_set]
+
+                image_set = torch.as_tensor(image_set, dtype=torch.float32)
+                target_index = torch.as_tensor(target_index, dtype=torch.int64)
+
+                # to device
+                image_set = image_set.to(self.device)
+                target_index = target_index.to(self.device)
+                target_id = random_set[target_index]
+                target_img_feat = image_set[target_index]
+
+                data = dict(
+                    image_set=image_set,
+                    image_ids=random_set,
+                    target_index=target_index,
+                    target_id=target_id,
+                    target_img_feat=target_img_feat,
+                    domain=dom,
+                )
+                self.data.append(data)
+
+        # shuffle data
+        numpy.random.shuffle(self.data)
 
     def __getitem__(self, item):
         data = self.data[item]
@@ -87,7 +109,7 @@ class FinetuneDataset(Dataset):
         return data
 
     def __len__(self):
-        return self.num_images
+        return len(self.data)
 
     def get_collate_fn(self):
         """

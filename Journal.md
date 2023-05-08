@@ -1,43 +1,3 @@
-# 03/05/2023
-
-Ok, I've been trying to see what the problem is. I've trying plugging in one of the pretrained models in the sim
-pretrain pipeline to see if the loading is the problem but no. I also tried to see the accuracy on test, and it is the
-same basically as the one on eval. So the problem may tied on how i estimate the accuracy. 
-
-# 02/05/2023
-
-here we go again. Of course I tried using a different domain and now it does not work anymore. This whole thing is a
-rollercoaster of emotions.
-The problem seems to be related to the sim not predicting well enough the listener behavior. I'm now trying with the old
-sim to see if the adaptation pipeline is the problem. Ok, the old sim works, so the problem is the new sim. Again the
-problem seems to be
-related to the sim ability to predict the listener. I'm pretty sure there most be some bug in the data usage. There are
-two possible problems:
-
-- The sim is training with a listener that is not the one used for adaptation (different domains) -> nope.
-- The sim is training with the right listener but on a different split (seen? unseen?) or (all? train? test?).
-
-I finally understood why... I was using the old simulator for testing... I'm so stupid.
-
-# 01/05/2023
-
-New month, same shit.
-I manage to clean all the relevant code and also implement a multi thread adaptation pipeline that is now x2 faster than
-the previous one (thank chatGPT).
-Now the problem seems to be that the code from last time does not really give the same resutls...
-First of all, the adapted accuracy for the old model are 10% more than on the old code... i don't know why, but i
-checked and everything seems to be correct...
-Then, using the updated simulator i get very low adaptation accuracy, I checked and it seems to be tied to the problem
-of correctly predicitng
-the listener behavior. It mught be the case that i need to go back to the ec finetuining.
-Well shit... I just ran an adaptation with a simulator only trained on predicting the list (sim pretraining) and it is
-achieving comparable results to the
-original sim from the uva project. This basically means that the embedding stream does not even need to be trained to
-work...
-Good news for the problem inconsistency in the uva project i spotted last time, but bad news for ec pretrain. I want to
-see if i can get the same
-results woth a finetuned version of the speaker.
-
 # 28/04/2023
 
 I'm probably late in writing this journal but better late than never.
@@ -98,6 +58,111 @@ is better while being also smaller.
 
 Finally i want to confirm that, with a different speaker distribution, i'm still able to do adaptation with a finetuned
 sim.
-Optionally, after all this shit, I will see if i can train both the speaker and the sim together. 
+Optionally, after all this shit, I will see if i can train both the speaker and the sim together.
 
+# 01/05/2023
 
+New month, same shit.
+I manage to clean all the relevant code and also implement a multi thread adaptation pipeline that is now x2 faster than
+the previous one (thank chatGPT).
+Now the problem seems to be that the code from last time does not really give the same resutls...
+First of all, the adapted accuracy for the old model are 10% more than on the old code... i don't know why, but i
+checked and everything seems to be correct...
+Then, using the updated simulator i get very low adaptation accuracy, I checked and it seems to be tied to the problem
+of correctly predicitng
+the listener behavior. It mught be the case that i need to go back to the ec finetuining.
+Well shit... I just ran an adaptation with a simulator only trained on predicting the list (sim pretraining) and it is
+achieving comparable results to the
+original sim from the uva project. This basically means that the embedding stream does not even need to be trained to
+work...
+Good news for the problem inconsistency in the uva project i spotted last time, but bad news for ec pretrain. I want to
+see if i can get the same
+results woth a finetuned version of the speaker.
+
+# 02/05/2023
+
+here we go again. Of course I tried using a different domain and now it does not work anymore. This whole thing is a
+rollercoaster of emotions.
+The problem seems to be related to the sim not predicting well enough the listener behavior. I'm now trying with the old
+sim to see if the adaptation pipeline is the problem. Ok, the old sim works, so the problem is the new sim. Again the
+problem seems to be
+related to the sim ability to predict the listener. I'm pretty sure there most be some bug in the data usage. There are
+two possible problems:
+
+- The sim is training with a listener that is not the one used for adaptation (different domains) -> nope.
+- The sim is training with the right listener but on a different split (seen? unseen?) or (all? train? test?).
+
+I finally understood why... I was using the old simulator for testing... I'm so stupid.
+
+# 03/05/2023
+
+Ok, I've been trying to see what the problem is. I've trying plugging in one of the pretrained models in the sim
+pretrain pipeline to see if the loading is the problem but no. I also tried to see the accuracy on test, and it is the
+same basically as the one on eval. So the problem may tied on how i estimate the accuracy.
+
+Ok, I basically regenerated all the data for sim pretraining, with the new speaker. Even tho the weights are always the
+same, I tought the different architecture can be the reason, even tho i'm not really sure about it. Plus, i'm using a
+smaller model size (64 vs 1024). Even with 64 there is a bit overfit (75 vs 95 on train vs test). I'm now trying with 32
+to see if it is better.
+Still a big overfit (73 vs 93). I will try with 16 now, never heard of a model so small, at leas now training is faster
+lol.
+Still overfit (70 vs 82), at least is a little bit better. I will try with 8 now, but i'm not really sure it will work.
+In any case i will probably go back to 32 and use some dropout. So with 8 the overfit is much better but that bc the
+whole accuracy went down quite a bit (66 vs 74). I will now try 64 with dropout and increased batch size (32 ->64). Much
+better, at least on the overfit side (75 vs 80), i think i'll keep it like this, now let's go back to the original
+problem.
+
+I finally spotted the error... There is no error, simply the double stream architecture fucks up the sim ability to
+predict the listener when i also use the embeddings. At least there is no real bug in the code, but i need to find a way
+to make it work.
+Let's see if adding a temp to the embedding vector helps.
+
+It worksssss, yas!!
+I need to test on other domains tho, cross fingers!
+It works also with other domains!
+
+Now, for the final test. I will finetune a speaker with a listener and then use that with this new sim to see if i can
+get even higher accuracies. If i can then I'm done!
+
+# 04/05/2023
+
+Ok, today is more of a bonus day. The aim is to have the finetuned speaker show higher golden acc improvement than the
+normal one.
+I tried, but it seems like the accuracy is not changed, not even the generated one, which is weird. The finetuned
+speaker, aka ec_speaker, reaches an accuracy of 50% with the listener on the ec dataset, but on the normal dataset it
+stays around 24%.
+I can understand that the distributions between the datasets are different, but this is still weird. Plus, there is one
+thing i need to check, even tho the seed, speaker and list are the same, the generated accuracy for all the runs varies
+sligthly, I'm not sure why, but i'll start with this.
+
+Dataset and model outputs are the same for different runs... Everything is the same, maybe I misread the accuracy.
+I think I found the culript here, the multithreading. It is likely that the threads are working differently depending on
+the amount of computation the pc is doing a the time, so the order of the batches is not the same. I'll try to run two
+consecutive runs with one thread and check if they are the same and how much does it vary from the multithread version.
+In general the std between different runs that are supposed to be the same is 0.5%, which i believe is negligible.
+Indeed, the multithread is the problem, but again, it can be ignored.
+
+Anyway, the problem is still there, the ec_speaker does not improve the golden accuracy.  
+I tried evaluating the new speaker and compare it with the old (on test... i know it's illegal, but it was fast). The
+ec_speaker seems to perform better... I'm kind of puzzled here. I will try with a better evaluation pipeline, but it is
+still very weird.
+
+So, testing with the val split resulted in 24% vs 23% fine-tuned vs normal. I don't understand, might it be because the
+distribution of images is much different?
+Maybe i should take into account that the distribution tends to have images from the same domain. Maybe that is also why
+the list is so good (40% ood) right from the start.
+
+I think i found the problem, during finetuning i forgot to specify the data domain, so i was finetuning on data only
+coming from the same domain. I will try again now.
+
+# 05/05/2023
+
+Now the finetuning is using the right data, but the results are not encouraging. The speaker is not improving the
+listener accuracy. I will try with some experiments while doing my german exercises, let's see.
+
+# 08/05/2023
+
+It looks like the eval results oscillate between comopletely random (16%) and twice the normal accuracy (30%). I'm not,
+sure why this is...
+The data does not change during the epochs, I will check the domain accuracies, maybe everytime there is a focus on one
+domain only? No, a peak does not correlate to one domain increase only, usually it correlates to multiple actually.
