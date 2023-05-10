@@ -201,7 +201,7 @@ def save_model(
     }
     save_dict.update(kwargs)
     torch.save(save_dict, file_name, pickle_protocol=5)
-    logger.save_model(file_name,model_type, epoch, args)
+    logger.save_model(file_name, model_type, epoch, args)
 
     print("Model saved and logged to wandb")
 
@@ -222,10 +222,9 @@ def load_wandb_file(url: str, datadir="") -> str:
     new_url = url
     if datadir == "":
         if isinstance(wandb.alert, RunDisabled):
-
             api = wandb.Api().artifact
         else:
-            api=wandb.use_artifact
+            api = wandb.use_artifact
         try:
             artifact = api(url)
         except wandb.errors.CommError:
@@ -329,13 +328,21 @@ def logprobs_from_logits(logits, labels):
     """
     taken from https://github.com/lvwerra/trl/blob/d1c75293287483883f42f79b253d96315662bb1b/trl/core.py#L91
     """
+
     logp = torch.log_softmax(logits, dim=-1)
+
     if logp.ndim > 2:
         logp = logp.permute(1, 0, 2)
         labels = labels.unsqueeze(-1)
 
     logpy = torch.gather(logp, -1, labels).squeeze(-1)
-    return logpy
+    mask = (labels != 0).squeeze(-1)
+    length = mask.sum(dim=1)
+
+    logpy2 = logpy * mask.squeeze(-1)
+    logpy3 = logpy2.sum(dim=-1) / length
+
+    return logpy3
 
 
 def standardize(tensor: torch.Tensor) -> torch.Tensor:

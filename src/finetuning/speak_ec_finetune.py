@@ -11,7 +11,6 @@ from PIL import Image
 from PIL import ImageDraw
 from torch import nn, optim
 from torch.distributions import Categorical
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 from src.commons import (
@@ -107,6 +106,7 @@ def normalize_aux(aux, logger: WandbLogger, epoch, max_targets=2):
         enc = [x.mean(dim=0) for x in aux["enc_log_probs"] if x.size(0) > 0]
         enc = [x for x in enc if x.size(0) > 0]
         enc = torch.stack(enc)
+        enc = enc.mean(dim=0)
 
     aux["enc_log_probs"] = enc
 
@@ -163,7 +163,7 @@ def get_predictions(
     dec_logits = model_params["decoder_logits"]
 
     utterance = copy.deepcopy(hypos)
-    utterance=translator.s2l(utterance)
+    utterance = translator.s2l(utterance)
     dec_utt = list_vocab.batch_decode(utterance)
 
     masks = get_mask_from_utts(
@@ -173,42 +173,34 @@ def get_predictions(
     # get outputs
     list_out = list_model(utterance, context_separate, masks)
     list_out = list_out.squeeze(-1)
-    list_logprobs =torch.log_softmax(list_out, dim=-1)
 
     # Losses and preds
     list_preds = torch.argmax(list_out, dim=1)
     list_acc = list_preds.eq(target)
-    list_loss = loss_f(list_out, target).mean()
+    list_loss = loss_f(list_out, target)
+    weighted_list_loss = list_loss.mean() * common_p.list_loss_weight
 
-    bs = baseline.predict(list_loss.detach())
-    if common_p.logits_to_use == "enc":
-        enc_log_probs = logprobs_from_logits(
-            enc_logits, model_params["encoder_ids"].squeeze(dim=0)
-        )
+    # baseline
+    bs = baseline.predict(list_loss.mean().detach())
+    bs_diff = list_loss.detach() - bs
 
-        policy_loss = (list_loss.detach() - bs) * enc_log_probs
-        distr = Categorical(logits=enc_logits)
-    elif common_p.logits_to_use == "dec":
-        #dec_log_probs = logprobs_from_logits(dec_logits, hypos)
-
-        policy_loss = (list_loss.detach() - bs) * (dec_logits)
-    else:
-        joint_log_probs = logprobs_from_logits(enc_logits[..., :-1] * dec_logits, hypos)
-        policy_loss = (list_loss.detach() - bs) * joint_log_probs
-        distr = Categorical(logits=joint_log_probs)
-
-    policy_loss = policy_loss
+    # dec loss
+    dec_log_probs = logprobs_from_logits(dec_logits, hypos)
+    policy_loss = (bs_diff * dec_log_probs).mean()
     weighted_policy_loss = policy_loss * common_p.policy_loss_weight
 
-    entropy = model_params['entropy']
+    # entropy loss
+
+    distr = Categorical(logits=dec_logits)
+    entropy = distr.entropy()
     entropy_loss = -entropy.mean()
     weighted_entropy_loss = entropy_loss * common_p.entropy_loss_weight
 
-    weighted_list_loss = list_loss * common_p.list_loss_weight
-
     loss = weighted_policy_loss + weighted_entropy_loss + weighted_list_loss
 
-    baseline.update(list_loss.detach())
+    list_loss = list_loss.mean()
+    if speak_model.training:
+        baseline.update(list_loss.detach())
 
     aux = dict(
         loss=loss.detach().cpu().item(),
@@ -286,6 +278,7 @@ def main():
     set_seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+    torch.set_deterministic_debug_mode(True)
 
     ###################################
     ##  LOGGER
@@ -392,18 +385,8 @@ def main():
     ##  LOSS AND OPTIMIZER
     ###################################
 
-    optimizer = optim.AdamW(
-        speaker_model.parameters(), lr=common_p.learning_rate, weight_decay=1e-4
-    )
-    scheduler = ReduceLROnPlateau(
-        optimizer,
-        "max",
-        patience=7,
-        factor=0.2,
-        verbose=True,
-        threshold=0.05,
-        threshold_mode="abs",
-    )
+    optimizer = optim.AdamW(speaker_model.parameters(), lr=common_p.learning_rate)
+
     loss_f = nn.CrossEntropyLoss(reduction="none")
 
     ###################################
@@ -419,24 +402,24 @@ def main():
     else:
         raise ValueError(f"metric of value '{metric}' not recognized")
 
-    logger.watch_model([speaker_model], log_freq=1000)
+    logger.watch_model([speaker_model], log_freq=100)
 
     ###################################
     ##  Get  dataloader
     ###################################
 
     print("Loading train data...")
-    # need batchsize =1 for generating the new dataloaders
 
     data_domain = common_p.data_domain
     common_p.data_domain = data_domain
 
     dataset = FinetuneDataset(
         domain=data_domain,
-        num_images=common_p.episodes * common_p.batch_size,
+        num_images=common_p.episodes,
         device=device,
         vectors_file=common_p.vectors_file,
         img2dom_file=common_p.img2dom_file,
+        seed=42,
     )
     dataloader_train = DataLoader(
         dataset,
@@ -446,10 +429,11 @@ def main():
 
     dataset = FinetuneDataset(
         domain=data_domain,
-        num_images=common_p.episodes * common_p.batch_size,
+        num_images=common_p.episodes,
         device=device,
         vectors_file=common_p.vectors_file,
         img2dom_file=common_p.img2dom_file,
+        seed=41,
     )
     dataloader_eval = DataLoader(
         dataset,
@@ -476,7 +460,9 @@ def main():
             loss_f,
             split="initial_eval",
         )
-        normalize_aux(initial_aux, logger, -1)
+        normalize_aux(initial_aux, logger, 0)
+
+        initial_aux['speak_embeds']=speaker_model.embedding.weight.mean().detach().cpu().numpy()
 
         eval_accuracy, eval_loss = initial_aux["list_acc"], initial_aux["loss"]
 
@@ -555,26 +541,22 @@ def main():
 
             eval_accuracy, eval_loss = aux["list_acc"], aux["loss"]
 
-            scheduler.step(eval_accuracy)
-
             print(
                 f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f}% "
             )
             logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
 
-            for k in initial_aux.keys():
+            aux_diff = {}
+            aux_diff['speak_embeds'] = speaker_model.embedding.weight.mean().detach().cpu().numpy()
+            for k in aux.keys():
                 try:
-                    aux[k] -= initial_aux[k]
+                    aux_diff[k] = aux[k] - initial_aux[k]
                 except:
-                    del aux[k]
+                    pass
 
-                if "img" in k:
-                    del aux[k]
+            logger.on_eval_end(aux_diff, list_domain=data_domain, modality="diff_eval")
 
-            logger.on_eval_end(aux, list_domain=data_domain, modality="diff_eval")
-
-
-        if common_p.sweep_file == "" and epoch > 0 and epoch % 2 == 0:
+        if common_p.sweep_file == "" and epoch > 0 and epoch % 5 == 0:
             save_model(
                 model=speaker_model,
                 model_type=f"speaker_ec_{domain}",
