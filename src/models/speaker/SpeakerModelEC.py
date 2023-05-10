@@ -13,11 +13,12 @@ class TemperatureSampler:
     ## Sampler with Temperature
     """
 
-    def __init__(self, temperature: float = 1.0):
+    def __init__(self, temperature: float = 1.0, deterministic: bool = False):
         """
         :param temperature: is the temperature to sample with
         """
         self.temperature = temperature
+        self.deterministic = deterministic
 
     def __call__(self, logits: torch.Tensor):
         """
@@ -27,8 +28,12 @@ class TemperatureSampler:
         # Create a categorical distribution with temperature adjusted logits
         dist = Categorical(logits=logits / self.temperature)
 
-        # Sample
-        return dist.sample()
+        if self.deterministic:
+            # Sample from the distribution
+            return torch.argmax(dist.probs, dim=-1)
+        else:
+            # Sample
+            return dist.sample()
 
 
 class SpeakerModelEC(nn.Module):
@@ -63,7 +68,7 @@ class SpeakerModelEC(nn.Module):
         self.dropout_prob = dropout_prob
         self.device = device
 
-        self.sampler = TemperatureSampler(temperature=sampler_temp)
+        self.sampler = TemperatureSampler(temperature=sampler_temp, deterministic=True)
 
         # attention over encoder steps
         self.attention_dim = attention_dim

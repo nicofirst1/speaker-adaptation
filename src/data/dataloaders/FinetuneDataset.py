@@ -1,9 +1,10 @@
 import json
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import numpy
 import torch
 from torch.utils.data import Dataset
+
 
 
 class FinetuneDataset(Dataset):
@@ -24,7 +25,10 @@ class FinetuneDataset(Dataset):
         device,
         vectors_file: str,
         img2dom_file: str,
+            seed=42,
     ):
+
+        self.seed = seed
         with open(vectors_file, "r") as file:
             self.image_features = json.load(file)
 
@@ -58,11 +62,19 @@ class FinetuneDataset(Dataset):
         for img_id, dom in self.img2dom.items():
             domain_images[dom].append(img_id)
 
+        domain_images = {dom: sorted(imgs) for dom, imgs in domain_images.items()}
+        # transform to orderdict
+        domain_images = OrderedDict(sorted(domain_images.items(), key=lambda t: t[0]))
+
+
         self.domain_images = domain_images
 
         self.randomize_data()
 
     def randomize_data(self):
+
+        torch.manual_seed(self.seed)
+        numpy.random.seed(self.seed)
         self.data = []
 
         samples_for_domain = self.num_images // len(self.domain_images)
