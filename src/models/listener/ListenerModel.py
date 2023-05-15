@@ -144,10 +144,15 @@ class ListenerModel(nn.Module):
 
         # mask pads so that no attention is paid to them (with -inf)
         masks = masks.bool()
-        outputs_att = outputs_att.masked_fill_(masks, float("-inf"))
+        outputs_att = outputs_att.masked_fill_(masks, -1e10)
 
         # final attention weights
         att_weights = self.softmax(outputs_att)
+
+        # replace nans with zeros
+        att_weights = torch.where(
+            torch.isnan(att_weights), torch.zeros_like(att_weights), att_weights
+        )
 
         # encoder context representation
         attended_hids = (mm_reps * att_weights).sum(dim=1)

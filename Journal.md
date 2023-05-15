@@ -166,3 +166,17 @@ It looks like the eval results oscillate between comopletely random (16%) and tw
 sure why this is...
 The data does not change during the epochs, I will check the domain accuracies, maybe everytime there is a focus on one
 domain only? No, a peak does not correlate to one domain increase only, usually it correlates to multiple actually.
+
+Well well well... I implemented a way to check the difference between acc before train and after train, and it seems
+that the whole thing does not work. I have no idea why, i suspect the loss function is wrong but i don't know how to fix
+it tho. I think i will mostly focus on the other part for now.
+
+# 10/05/2023
+
+So, I was trying to debug and noticed that with lr = 0 the loss is not constant... Actually it seems to show a periodic
+pattern with period 10 (epochs). I have no idea why this is but maybe i should check data.
+I think I might have found the problem, nucleus sampling is a stochastic process, so it is always slightly different
+even
+when i give the same inputs. Plus i set the seed to pic always the same images every 10 epochs, thus the
+periodicity. Very cool debugging round, but i havent still solved the problem. Should i start with making the sampling
+deterministic perhaps? 

@@ -339,6 +339,9 @@ def logprobs_from_logits(logits, labels):
     mask = (labels != 0).squeeze(-1)
     length = mask.sum(dim=1)
 
+    # replace zero with one
+    length = torch.where(length == 0, torch.tensor(1).to(length.device), length)
+
     logpy2 = logpy * mask.squeeze(-1)
     logpy3 = logpy2.sum(dim=-1) / length
 

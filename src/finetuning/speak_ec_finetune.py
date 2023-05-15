@@ -59,7 +59,7 @@ def add_image(aux, list_acc, logger, max_targets=2):
         color = "green" if la else "red"
         # add a green rectangle to the image if la is 1
         draw = ImageDraw.Draw(img)
-        draw.rectangle(((0, 0), (img.width, img.height)), outline=color)
+        draw.rectangle(((0, 0), (img.width, img.height)), outline=color, width=2)
 
         # convert to wandb.Image
         img_orig = wandb.Image(img, caption=utt)
@@ -222,41 +222,6 @@ def get_predictions(
     return loss, aux
 
 
-def evaluate(
-    data_loader: DataLoader,
-    speak_model: SpeakerModelEC,
-    list_model: ListenerModel,
-    translator,
-    baseline: MeanBaseline,
-    loss_f: torch.nn.Module,
-    split: str,
-) -> Dict:
-    """
-    Evaluate model on either in/out_domain dataloader
-    :param data_loader:
-    :param model:
-    :param in_domain: when out_domain also estimate per domain accuracy
-    :return:
-    """
-
-    auxs = []
-
-    for data in rich.progress.track(
-        data_loader,
-        total=len(data_loader),
-        description=f"evaluating '{split}' split...",
-    ):
-        loss, aux = get_predictions(
-            data, list_model, speak_model, loss_f, translator, baseline
-        )
-
-        auxs.append(aux)
-
-    aux = merge_dict(auxs)
-
-    return aux
-
-
 def main():
     lt.monkey_patch()
 
@@ -346,14 +311,17 @@ def main():
             data_path=common_p.data_path,
         )
 
+    # remove grad from list model
+    for param in list_model.parameters():
+        param.requires_grad = False
+
     ##########################
     # SPEAKER
     ##########################
 
     speak_check, _ = load_wandb_checkpoint(
-        SPEAKER_CHK,
-        device,
-    )  # datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1]))
+        SPEAKER_CHK, device, datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1])
+    )
     # load args
     speak_p = speak_check["args"]
     speak_p.reset_paths()
@@ -451,18 +419,26 @@ def main():
         speaker_model.eval()
 
         print(f"\nEvaluation")
-        initial_aux = evaluate(
+        initial_aux = []
+
+        for data in rich.progress.track(
             dataloader_eval,
-            speaker_model,
-            list_model,
-            translator,
-            baseline,
-            loss_f,
-            split="initial_eval",
-        )
+            total=len(dataloader_eval),
+            description=f"Initial Evaluation...",
+        ):
+            loss, aux = get_predictions(
+                data, list_model, speaker_model, loss_f, translator, baseline
+            )
+
+            initial_aux.append(aux)
+
+        initial_aux = merge_dict(initial_aux)
+
         normalize_aux(initial_aux, logger, 0)
 
-        initial_aux['speak_embeds']=speaker_model.embedding.weight.mean().detach().cpu().numpy()
+        initial_aux["speak_embeds"] = (
+            speaker_model.embedding.weight.mean().detach().cpu().numpy()
+        )
 
         eval_accuracy, eval_loss = initial_aux["list_acc"], initial_aux["loss"]
 
@@ -470,6 +446,9 @@ def main():
         logger.on_eval_end(
             initial_aux, list_domain=data_domain, modality="initial_eval"
         )
+    aux['enc_log_probs']=torch.as_tensor(aux['enc_log_probs'])
+    aux['dec_log_probs']=torch.as_tensor(aux['dec_log_probs'])
+    exit(0)
 
     ###################################
     ##  START OF TRAINING LOOP
@@ -508,7 +487,7 @@ def main():
 
             # optimizer
             loss.backward()
-            # nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=1.0)
+            # nn.utils.clip_grad_value_(speaker_model.parameters(), clip_value=2.0)
             optimizer.step()
 
         aux = merge_dict(auxs)
@@ -528,33 +507,43 @@ def main():
             speaker_model.eval()
 
             print(f"\nEvaluation")
-            aux = evaluate(
+            auxs = []
+
+            for data in rich.progress.track(
                 dataloader_eval,
-                speaker_model,
-                list_model,
-                translator,
-                baseline,
-                loss_f,
-                split="eval",
-            )
-            normalize_aux(aux, logger, epoch)
+                total=len(dataloader_eval),
+                description=f"Evaluating...",
+            ):
+                loss, aux = get_predictions(
+                    data, list_model, speaker_model, loss_f, translator, baseline
+                )
 
-            eval_accuracy, eval_loss = aux["list_acc"], aux["loss"]
+                auxs.append(aux)
 
-            print(
-                f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f}% "
-            )
-            logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
+        aux = merge_dict(auxs)
+        normalize_aux(aux, logger, epoch)
 
-            aux_diff = {}
-            aux_diff['speak_embeds'] = speaker_model.embedding.weight.mean().detach().cpu().numpy()
-            for k in aux.keys():
-                try:
-                    aux_diff[k] = aux[k] - initial_aux[k]
-                except:
-                    pass
+        eval_accuracy, eval_loss = aux["list_acc"], aux["loss"]
 
-            logger.on_eval_end(aux_diff, list_domain=data_domain, modality="diff_eval")
+        print(f"Evaluation loss {eval_loss:.6f}, accuracy {eval_accuracy * 100:.3f}% ")
+        logger.on_eval_end(aux, list_domain=data_domain, modality="eval")
+
+        # Estimate diff with initial eval phase
+        aux_diff = {}
+        aux_diff["speak_embeds"] = (
+            speaker_model.embedding.weight.mean().detach().cpu().numpy()
+        )
+        for k in aux.keys():
+            try:
+                aux_diff[k] = aux[k] - initial_aux[k]
+            except:
+                pass
+
+        logger.on_eval_end(aux_diff, list_domain=data_domain, modality="diff_eval")
+
+        ###################################
+        ##  SAVE MODEL AND EARLY STOPPING
+        ###################################
 
         if common_p.sweep_file == "" and epoch > 0 and epoch % 5 == 0:
             save_model(

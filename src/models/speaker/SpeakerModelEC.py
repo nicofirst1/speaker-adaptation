@@ -250,12 +250,14 @@ class SpeakerModelEC(nn.Module):
         decoder_hid = self.linear_dec(
             torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
         )
+        decoder_hid= self.dropout(decoder_hid)
         decoder_hid = self.tanh(decoder_hid)
 
         if decoder_hid.ndim == 1:
             decoder_hid = decoder_hid.unsqueeze(0)
 
         history_att = self.lin2att_hist(outputs)
+        history_att = self.dropout(history_att)
 
         model_params = dict(
             embeds_words=embeds_words,
@@ -308,9 +310,11 @@ class SpeakerModelEC(nn.Module):
             decoder_embeds = self.embedding(decoder_input)
             decoder_embeds = decoder_embeds.squeeze(1)
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
+            h1= self.dropout(h1)
 
             h1_att = torch.cat((h1, history_att), dim=-1)
             dec_logit = self.lin2voc(h1_att)
+            dec_logit= self.dropout(dec_logit)
             dec_logits[gen_len] = dec_logit
 
             word_pred = F.softmax(
@@ -336,6 +340,9 @@ class SpeakerModelEC(nn.Module):
                 sorted_log_probs = torch.log(sorted_probs)
                 sorted_log_probs[~nucleus] = float("-inf")
 
+                #replace nans with -inf
+                sorted_log_probs[torch.isnan(sorted_log_probs)] = float("-inf")
+
                 sampled_sorted_indexes = self.sampler(sorted_log_probs)
                 next_token = sorted_indices.gather(
                     -1, sampled_sorted_indexes.unsqueeze(-1)
@@ -345,7 +352,7 @@ class SpeakerModelEC(nn.Module):
                 if (next_token == eos_token).any() and gen_len == 0:
                     # discourage eos at first step
                     idx = 10
-                    while next_token.item() == eos_token and idx > 0:
+                    while (next_token == eos_token).any() and idx > 0:
                         sampled_sorted_indexes = self.sampler(sorted_log_probs)
                         next_token = sorted_indices.gather(
                             -1, sampled_sorted_indexes.unsqueeze(-1)
@@ -399,15 +406,5 @@ class SpeakerModelEC(nn.Module):
         )
         dec_logits[eos_mask, :] = 0
 
-        # sum and normalize logits
-        # dec_logits= F.normalize(dec_logits, p=2, dim=0)
-        # dec_logits = dec_logits.sum(0)
-
-        # for idx in range(len(eos_idxs)):
-        #     dec_logits[idx,:] = dec_logits[idx,:] / eos_idxs[idx]
-        #
-
-        # dec_logits=torch.matmul(dec_logits, self.embedding.weight)
-        # dec_logits = F.normalize(dec_logits, p=2, dim=-1)
 
         return completed_sentences, dec_logits
