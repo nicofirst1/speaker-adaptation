@@ -320,7 +320,8 @@ def main():
     ##########################
 
     speak_check, _ = load_wandb_checkpoint(
-        SPEAKER_CHK, device, datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1])
+        SPEAKER_CHK, device,
+        #datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1])
     )
     # load args
     speak_p = speak_check["args"]
@@ -448,7 +449,6 @@ def main():
         )
     aux['enc_log_probs']=torch.as_tensor(aux['enc_log_probs'])
     aux['dec_log_probs']=torch.as_tensor(aux['dec_log_probs'])
-    exit(0)
 
     ###################################
     ##  START OF TRAINING LOOP
