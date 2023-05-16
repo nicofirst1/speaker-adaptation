@@ -113,6 +113,7 @@ class Params:
     vectors_file: Optional[str] = "vectors.json"
 
     sweep_file: Optional[str] = ""
+    sweep_id: Optional[str] = ""
     test_split: Optional[str] = "seen"
 
     ############################################

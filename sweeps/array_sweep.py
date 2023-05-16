@@ -27,9 +27,14 @@ if __name__ == "__main__":
 
     # add train domain
     sweep_config["parameters"].update(for_update)
-    sweepid = wandb.sweep(
-        sweep_config, project=sweep_config["project"], entity="adaptive-speaker"
-    )
+    kwargs = dict(project=sweep_config["project"], entity="adaptive-speaker")
+
+    if common_p.sweep_id == "":
+        sweepid = wandb.sweep(
+            sweep_config, **kwargs
+        )
+    else:
+        sweepid = common_p.sweep_id
 
     cuda_devices = torch.cuda.device_count()
     if cuda_devices == 0:
@@ -37,7 +42,7 @@ if __name__ == "__main__":
     procs = []
     for i in range(cuda_devices):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
-        proc = mp.Process(target=wandb.agent, args=(sweepid,))
+        proc = mp.Process(target=wandb.agent, args=(sweepid,), kwargs=kwargs)
         procs.append(proc)
         proc.start()
 

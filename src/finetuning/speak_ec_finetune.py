@@ -1,5 +1,6 @@
 import copy
 import datetime
+import gc
 from typing import Dict, Tuple
 
 import lovely_tensors as lt
@@ -59,7 +60,7 @@ def add_image(aux, list_acc, logger, max_targets=2):
         color = "green" if la else "red"
         # add a green rectangle to the image if la is 1
         draw = ImageDraw.Draw(img)
-        draw.rectangle(((0, 0), (img.width, img.height)), outline=color, width=2)
+        draw.rectangle(((0, 0), (img.width, img.height)), outline=color, width=4)
 
         # convert to wandb.Image
         img_orig = wandb.Image(img, caption=utt)
@@ -358,6 +359,14 @@ def main():
 
     loss_f = nn.CrossEntropyLoss(reduction="none")
 
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0=10,
+        T_mult=2,
+        verbose=True,
+
+    )
+
     ###################################
     ## RESUME AND EARLYSTOPPING
     ###################################
@@ -465,6 +474,8 @@ def main():
         auxs = []
 
         speaker_model.train()
+        dataloader_train.dataset.randomize_data(seed=epoch)
+        scheduler.step()
 
         # torch.enable_grad()
         ###################################
@@ -545,13 +556,12 @@ def main():
         ##  SAVE MODEL AND EARLY STOPPING
         ###################################
 
-        if common_p.sweep_file == "" and epoch > 0 and epoch % 5 == 0:
+        if common_p.sweep_file == "" and epoch > 0 and epoch % 400 == 0:
             save_model(
                 model=speaker_model,
                 model_type=f"speaker_ec_{domain}",
                 epoch=epoch,
                 accuracy=eval_accuracy,
-                optimizer=optimizer,
                 args=common_p,
                 timestamp=timestamp,
                 logger=logger,
@@ -566,6 +576,17 @@ def main():
         logger.on_train_end({}, epoch_id=epoch)
         print("\n\n")
 
+    save_model(
+        model=speaker_model,
+        model_type=f"speaker_ec_{domain}",
+        epoch=epoch,
+        accuracy=eval_accuracy,
+        args=common_p,
+        timestamp=timestamp,
+        logger=logger,
+        loss=eval_loss,
+    )
+
 
 if __name__ == "__main__":
     try:
@@ -573,3 +594,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Keyboard Interrupt, finishing run")
         wandb.finish()
+    finally:
+        print("Clearing GPU memory")
+        torch.cuda.empty_cache()
+        gc.collect()

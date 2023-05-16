@@ -18,11 +18,11 @@ class EarlyStopping:
         """
 
         if problem_formulation == "max":
-            self.comparison = operator.le
+            self.comparison = operator.lt
             self.best_metric = sys.float_info.min
 
         else:
-            self.comparison = operator.ge
+            self.comparison = operator.gt
             self.best_metric = sys.float_info.max
 
         self.max_patient = max_patient
