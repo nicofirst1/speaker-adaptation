@@ -38,18 +38,19 @@ class TemperatureSampler:
 
 class SpeakerModelEC(nn.Module):
     def __init__(
-        self,
-        vocab,
-        embedding_dim,
-        hidden_dim,
-        img_dim,
-        dropout_prob,
-        attention_dim,
-        sampler_temp,
-        max_len,
-        top_k,
-        top_p,
-        device,
+            self,
+            vocab,
+            embedding_dim,
+            hidden_dim,
+            img_dim,
+            dropout_prob,
+            attention_dim,
+            sampler_temp,
+            max_len,
+            top_k,
+            top_p,
+            device,
+            deterministic: bool = False,
     ):
         super().__init__()
         self.vocab = vocab
@@ -68,7 +69,7 @@ class SpeakerModelEC(nn.Module):
         self.dropout_prob = dropout_prob
         self.device = device
 
-        self.sampler = TemperatureSampler(temperature=sampler_temp, deterministic=True)
+        self.sampler = TemperatureSampler(temperature=sampler_temp, deterministic=deterministic)
 
         # attention over encoder steps
         self.attention_dim = attention_dim
@@ -148,9 +149,9 @@ class SpeakerModelEC(nn.Module):
             ll.weight.data.uniform_(-0.1, 0.1)
 
     def generate_hypothesis(
-        self,
-        visual_context: torch.Tensor,
-        target_img_feats: torch.Tensor,
+            self,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
     ) -> Tuple[str, Dict, torch.Tensor]:
         """
         Generate an hypothesis (natural language sentence) based on the current output
@@ -175,9 +176,9 @@ class SpeakerModelEC(nn.Module):
         return hypos, model_params, decoder_hid
 
     def partial_forward(
-        self,
-        visual_context: torch.Tensor,
-        target_img_feats: torch.Tensor,
+            self,
+            visual_context: torch.Tensor,
+            target_img_feats: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, Dict]:
         batch_size = visual_context.shape[0]
 
@@ -250,7 +251,7 @@ class SpeakerModelEC(nn.Module):
         decoder_hid = self.linear_dec(
             torch.cat((batch_out_hidden[0], batch_out_hidden[1]), dim=1)
         )
-        decoder_hid= self.dropout(decoder_hid)
+        decoder_hid = self.dropout(decoder_hid)
         decoder_hid = self.tanh(decoder_hid)
 
         if decoder_hid.ndim == 1:
@@ -270,9 +271,9 @@ class SpeakerModelEC(nn.Module):
         return decoder_hid, history_att, model_params
 
     def nucleus_sampling(
-        self,
-        decoder_hid,
-        history_att,
+            self,
+            decoder_hid,
+            history_att,
     ):
         """Filter a distribution using top-k and/or nucleus (top-p) filtering
         Args:
@@ -289,8 +290,11 @@ class SpeakerModelEC(nn.Module):
 
         sos_token = torch.tensor(self.vocab["<sos>"]).to(self.device)
         eos_token = torch.tensor(self.vocab["<eos>"]).to(self.device)
+        pad_token = torch.tensor(self.vocab["<pad>"]).to(self.device)
+
         sos_token = sos_token.repeat((batch_size, 1))
         eos_token = eos_token.repeat((batch_size, 1))
+        pad_token = pad_token.repeat((batch_size, 1))
 
         # multiple copies of the decoder
         h1, c1 = decoder_hid, decoder_hid
@@ -310,12 +314,20 @@ class SpeakerModelEC(nn.Module):
             decoder_embeds = self.embedding(decoder_input)
             decoder_embeds = decoder_embeds.squeeze(1)
             h1, c1 = self.lstm_decoder(decoder_embeds, hx=(h1, c1))
-            h1= self.dropout(h1)
+            h1 = self.dropout(h1)
 
             h1_att = torch.cat((h1, history_att), dim=-1)
             dec_logit = self.lin2voc(h1_att)
-            dec_logit= self.dropout(dec_logit)
+            dec_logit = self.dropout(dec_logit)
+
+
+
             dec_logits[gen_len] = dec_logit
+
+            if gen_len == 0:
+                # discourage eos and pad at the first step
+                dec_logit[:, eos_token] = dec_logit.mean() - dec_logit.std()
+                dec_logit[:, pad_token] = dec_logit.mean() - dec_logit.std()
 
             word_pred = F.softmax(
                 dec_logit,
@@ -329,6 +341,8 @@ class SpeakerModelEC(nn.Module):
                     word_pred, dim=-1, descending=True
                 )
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                eos_idx = torch.where(sorted_indices == eos_token)[1][0]
+                pad_idx = torch.where(sorted_indices == pad_token)[1][0]
 
                 # Remove tokens with cumulative probability above the threshold
                 nucleus = cumulative_probs < self.top_p
@@ -337,10 +351,15 @@ class SpeakerModelEC(nn.Module):
                     [nucleus.new_ones(nucleus.shape[:-1] + (1,)), nucleus[..., :-1]],
                     dim=-1,
                 )
+
+                if nucleus.sum() == 1 and gen_len == 0 and (nucleus[eos_idx] or nucleus[pad_idx]):
+                    # if only one token is available (eos) at the start, extend to next token
+                    nucleus[:3] = True
+
                 sorted_log_probs = torch.log(sorted_probs)
                 sorted_log_probs[~nucleus] = float("-inf")
 
-                #replace nans with -inf
+                # replace nans with -inf
                 sorted_log_probs[torch.isnan(sorted_log_probs)] = float("-inf")
 
                 sampled_sorted_indexes = self.sampler(sorted_log_probs)
@@ -349,16 +368,25 @@ class SpeakerModelEC(nn.Module):
                 )
                 next_token.squeeze(-1)
 
-                if (next_token == eos_token).any() and gen_len == 0:
-                    # discourage eos at first step
-                    idx = 10
-                    while (next_token == eos_token).any() and idx > 0:
-                        sampled_sorted_indexes = self.sampler(sorted_log_probs)
-                        next_token = sorted_indices.gather(
-                            -1, sampled_sorted_indexes.unsqueeze(-1)
-                        )
-                        next_token.squeeze(-1)
-                        idx -= 1
+                # idx = 100
+                # if ((next_token == eos_token).any() or (next_token == pad_token).any()) and gen_len == 0:
+                #
+                #     # find index of eos in sorted indices
+                #
+                #     # discourage eos at first step
+                #     while (next_token == eos_token).any() and idx > 0:
+                #         # scale down the probs of eos
+                #         sorted_log_probs[eos_idx] = sorted_log_probs[eos_idx] * 2
+                #
+                #         sampled_sorted_indexes = self.sampler(sorted_log_probs)
+                #         next_token = sorted_indices.gather(
+                #             -1, sampled_sorted_indexes.unsqueeze(-1)
+                #         )
+                #         next_token.squeeze(-1)
+                #         idx -= 1
+                # if idx == 0 and (next_token == eos_token).any():
+                #     # if still eos, then raise error
+                #     raise ValueError("eos token sampled at first step")
 
             decoder_input = next_token
 
@@ -371,7 +399,7 @@ class SpeakerModelEC(nn.Module):
             if len(idx) > 0:
                 # normalize logit
                 for i in idx:
-                    eos_mask[gen_len + 1 :, i] = 1
+                    eos_mask[gen_len + 1:, i] = 1
 
             if eos_mask[gen_len + 1].all():
                 break
@@ -405,6 +433,5 @@ class SpeakerModelEC(nn.Module):
             eos_mask.T, self.vocab["<pad>"]
         )
         dec_logits[eos_mask, :] = 0
-
 
         return completed_sentences, dec_logits
