@@ -180,3 +180,8 @@ even
 when i give the same inputs. Plus i set the seed to pic always the same images every 10 epochs, thus the
 periodicity. Very cool debugging round, but i havent still solved the problem. Should i start with making the sampling
 deterministic perhaps? 
+
+# 15/05/2023
+I found a weird error. The nucleus sampling (or more generally the hypothesis generation) act differently when the batchsize changes...
+This code has more holes than a scolapasta.
+No wait, of course the batchsize has an effect, the whole backprop changes with different batchsizes... I'm an idiot.
