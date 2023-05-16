@@ -28,7 +28,7 @@ SPEAKER_CHK = "adaptive-speaker/speaker/SpeakerModel_no_hist:v105"
 
 SPEAKER_CHK_EC = dict(
     all="adaptive-speaker/ec_pretrain/SpeakerModelEC:v94",
-    food = "adaptive-speaker/ec_pretrain/SpeakerModelEC:v138",
+    food = "adaptive-speaker/speak_ec_finetune/speaker_ec_food:v5",
     appliances = "adaptive-speaker/ec_pretrain/speaker_ec:v9",
 )
 

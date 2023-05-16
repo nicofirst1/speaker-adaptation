@@ -1,37 +1,24 @@
 early_terminate:
   eta: 3
-  min_iter: 80
+  min_iter: 2
   type: hyperband
-method: bayes
+method: grid
 metric:
   goal: maximize
   name: diff_eval/list_acc
-  target: 1.0
 project: ec-sweep
 
 parameters:
     learning_rate:
         distribution: q_uniform
-        max: 1e-3
-        min: 1e-5
-        q:   1e-5
+        max: 1e-5
+        min: 1e-6
+        q:   1e-6
 
 
     train_domain:
         value: all
 
-    policy_loss_weight:
-      distribution: q_uniform
-      max: 1.0
-      min: 0.5
-      q: 0.1
-
-
-    dropout_prob:
-      distribution: q_uniform
-      max: 0.9
-      min: 0.0
-      q: 0.1
 
 
 

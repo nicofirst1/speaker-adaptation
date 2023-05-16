@@ -71,7 +71,10 @@ class FinetuneDataset(Dataset):
 
         self.randomize_data()
 
-    def randomize_data(self):
+    def randomize_data(self, seed=None):
+
+        if seed is not None:
+            self.seed = seed
 
         torch.manual_seed(self.seed)
         numpy.random.seed(self.seed)
