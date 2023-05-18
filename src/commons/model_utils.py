@@ -19,7 +19,7 @@ def set_seed(seed: int):
 
 
 def mask_attn(
-    actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
+        actual_num_tokens: torch.Tensor, max_num_tokens: int, device: torch.device
 ) -> torch.Tensor:
     """
     Maske attention function
@@ -38,7 +38,7 @@ def mask_attn(
     for n in range(len(actual_num_tokens)):
         # items to be masked are TRUE
         mask = [False] * actual_num_tokens[n] + [True] * (
-            max_num_tokens - actual_num_tokens[n]
+                max_num_tokens - actual_num_tokens[n]
         )
 
         masks.append(mask)
@@ -49,7 +49,7 @@ def mask_attn(
 
 
 def get_mask_from_utts(
-    utts: torch.Tensor, vocab: Vocab, device: torch.device
+        utts: torch.Tensor, vocab: Vocab, device: torch.device
 ) -> torch.Tensor:
     """
     Return a mask for the utterances, where the padding is masked
@@ -93,7 +93,7 @@ def hypo2utterance(hypo: str, vocab):
 
 
 def get_domain_accuracy(
-    accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+        accuracy: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:accuracy for all the domains in 'all_domains:
@@ -132,7 +132,7 @@ def get_domain_accuracy(
 
 
 def get_domain_mrr(
-    ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
+        ranks: torch.Tensor, domains: torch.Tensor, all_domains: List[str]
 ) -> Dict[str, float]:
     """
     Return a dict of domain:mrr for all the domains in 'all_domains:
@@ -170,14 +170,14 @@ def get_domain_mrr(
 
 
 def save_model(
-    model: torch.nn.Module,
-    model_type: str,
-    epoch: int,
-    accuracy: float,
-    args: Params,
-    timestamp: str,
-    logger: AbstractWandbLogger,
-    **kwargs,
+        model: torch.nn.Module,
+        model_type: str,
+        epoch: int,
+        accuracy: float,
+        args: Params,
+        timestamp: str,
+        logger: AbstractWandbLogger,
+        **kwargs,
 ):
     """
     Save model in torch and wandb
@@ -348,11 +348,29 @@ def logprobs_from_logits(logits, labels):
     return logpy3
 
 
+def compare_model_weights(model1: torch.nn.Module, model2: torch.nn.Module):
+    params1 = model1.state_dict()
+    params2 = model2.state_dict()
+
+    msg = ""
+    for k in params1.keys():
+        if not torch.equal(params1[k], params2[k]):
+            msg += f"{k} is different:\n"
+            # print mean and std of the difference
+            msg += f"\tmean: {torch.mean(params1[k] - params2[k])}\n"
+            msg += f"\tstd: {torch.std(params1[k] - params2[k])}\n"
+            msg += "----\n"
+    if msg != "":
+        print(msg)
+
+
 def standardize(tensor: torch.Tensor) -> torch.Tensor:
     """
     Standardizes a tensor
     """
-    return (tensor - tensor.mean()) / tensor.std()
+    tensor = tensor - tensor.mean()
+    tensor = tensor / tensor.std()
+    return tensor
 
 
 def change2random(tensor: torch.Tensor) -> torch.Tensor:
