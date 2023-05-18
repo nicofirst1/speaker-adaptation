@@ -60,6 +60,7 @@ class Params:
     policy_loss_weight: Optional[float] = 0.5
     sim_loss_weight: Optional[float] = 0.5
     list_loss_weight: Optional[float] = 1.0
+    kl_loss_weight: Optional[float] = 1.0
     sampler_temp: Optional[float] = 1.0
     use_finetuned_speaker: Optional[bool] = False
 

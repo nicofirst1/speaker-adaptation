@@ -179,9 +179,61 @@ I think I might have found the problem, nucleus sampling is a stochastic process
 even
 when i give the same inputs. Plus i set the seed to pic always the same images every 10 epochs, thus the
 periodicity. Very cool debugging round, but i havent still solved the problem. Should i start with making the sampling
-deterministic perhaps? 
+deterministic perhaps?
 
 # 15/05/2023
-I found a weird error. The nucleus sampling (or more generally the hypothesis generation) act differently when the batchsize changes...
+
+I found a weird error. The nucleus sampling (or more generally the hypothesis generation) act differently when the
+batchsize changes...
 This code has more holes than a scolapasta.
 No wait, of course the batchsize has an effect, the whole backprop changes with different batchsizes... I'm an idiot.
+
+# 16/05/2023
+
+So, it worked. I managed to get an improved accuracy of 15% on the listener. I tested this model with the simulator and
+the results are mixed.
+On one hand the original (speaker generated) accuracy is much higher, which of course means a decreased improvement when
+coupled with the sim (from 8.5% to -0.2%). On the other hand, the golden improvement is higher (from 5% to 6%). overall
+the sim seems to have difficulties predicting the list behavior with the finetuned speaker utterances since they diverse
+very much form the original ones. Indeed i have a drop in sim-list-acc from 71% to 45%. This would require a retraining
+of the sim but it is useless sine i would be training on jibberish. I think this part should be considered done and just
+a comparison with the sim. In theory i should add a kl regularization to the speaker to make it more similar to the
+original distribution.
+PFfffff, let's try uff.
+Soooo, I think i managed to implement the kl loss correclty. I'm not super sure. Anyhow, the speak finetuned with this
+additional loss has a 10% improvement on list accuracy, which is not bad. However the adaptive pipeline has both
+original and golden improv negative. Which is super weird since it means that the speak distribution has changed more
+than before...
+
+# 18/05/2023
+
+Ok, i've been focusing on this for way too long. Even tho i managed to finetune the speaker, the results with the
+simulator are not what i want. It is time to move on.
+I think i should really focus more on the online adaptation, since it seems to be the most important point of concern
+for the reviewers.
+I am not really sure how to tackle it, since it involves learning to predict the listener behavior on the fly.
+Is it imitation learning? I don't think so, since i don't have a dataset of the listener behavior.
+I need to figure out how to smartly use the setting i have, let's do some brainstorming.
+
+So, i have a setting with a domain specific listener is interacting with a speaker. Since the listener is domain
+specific there should be some kind of accuracy loss when interacting, which is what i want to address with the sim. In
+my case the sim is untrained, it starts as a randomly initialized nn. I have already shown how the split architecture
+does not need any kind of training on the embedding side, if this holds true, it means that i will start with a
+completely uninitialized sim. I bet this will not really work, but it can be my starting point. What i was thinking
+about is the fact that i have control over the speaker generation. So if i teach the sim to change the speaker
+generationg part then i can use the backprop to learn the direction of improvement for the listener. This is probably
+easier to learn at the same time how to modify the sim embeddings and how to predic the listener. So, step 2 should be
+having a sim that is very good at changing the speaker caption is a particular direction and then pair it with a
+listener and do some kind of meta learning. It reminds me a bit of adversarial attack (maybe i just have a fixation on
+this), but hear me out: if i have a sim that is good at changing the speaker caption in a particular direction, then i
+can randomly change and observe the list behavior. If the list behavior is good, then i can reinforce the sim, if it is
+bad, then i can punish it. This is a bit like the adversarial attack, but instead of having a fixed target, i have a
+target that is changing over time. I think this is a good idea, i will try to implement it. (omg the last two sentences
+are generated with code completion and they sound exactly as i would have written them, this is scary).
+
+Ok so to recap:
+1. build a pipeline where frozen speak and list are interacting and the sim is trying to both predict the list and to
+   change the speak caption in a particular direction. 
+2. Pretrain the sim to stear the speak caption in a particular direction. and then pair it with the listener as said above. 
+
+I can do it!

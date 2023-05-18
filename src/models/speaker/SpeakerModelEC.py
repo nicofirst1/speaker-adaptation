@@ -15,7 +15,7 @@ class TemperatureSampler:
 
     def __init__(self, temperature: float = 1.0, deterministic: bool = False):
         """
-        :param temperature: is the temperature to sample with
+        :param temperature: at high temperatures, everything is uniform, at low temperatures below 1, small differences are magnified. The temperature is always greater than 0.
         """
         self.temperature = temperature
         self.deterministic = deterministic
@@ -320,8 +320,6 @@ class SpeakerModelEC(nn.Module):
             dec_logit = self.lin2voc(h1_att)
             dec_logit = self.dropout(dec_logit)
 
-
-
             dec_logits[gen_len] = dec_logit
 
             if gen_len == 0:
@@ -341,8 +339,6 @@ class SpeakerModelEC(nn.Module):
                     word_pred, dim=-1, descending=True
                 )
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-                eos_idx = torch.where(sorted_indices == eos_token)[1][0]
-                pad_idx = torch.where(sorted_indices == pad_token)[1][0]
 
                 # Remove tokens with cumulative probability above the threshold
                 nucleus = cumulative_probs < self.top_p
@@ -351,10 +347,6 @@ class SpeakerModelEC(nn.Module):
                     [nucleus.new_ones(nucleus.shape[:-1] + (1,)), nucleus[..., :-1]],
                     dim=-1,
                 )
-
-                if nucleus.sum() == 1 and gen_len == 0 and (nucleus[eos_idx] or nucleus[pad_idx]):
-                    # if only one token is available (eos) at the start, extend to next token
-                    nucleus[:3] = True
 
                 sorted_log_probs = torch.log(sorted_probs)
                 sorted_log_probs[~nucleus] = float("-inf")
@@ -367,26 +359,6 @@ class SpeakerModelEC(nn.Module):
                     -1, sampled_sorted_indexes.unsqueeze(-1)
                 )
                 next_token.squeeze(-1)
-
-                # idx = 100
-                # if ((next_token == eos_token).any() or (next_token == pad_token).any()) and gen_len == 0:
-                #
-                #     # find index of eos in sorted indices
-                #
-                #     # discourage eos at first step
-                #     while (next_token == eos_token).any() and idx > 0:
-                #         # scale down the probs of eos
-                #         sorted_log_probs[eos_idx] = sorted_log_probs[eos_idx] * 2
-                #
-                #         sampled_sorted_indexes = self.sampler(sorted_log_probs)
-                #         next_token = sorted_indices.gather(
-                #             -1, sampled_sorted_indexes.unsqueeze(-1)
-                #         )
-                #         next_token.squeeze(-1)
-                #         idx -= 1
-                # if idx == 0 and (next_token == eos_token).any():
-                #     # if still eos, then raise error
-                #     raise ValueError("eos token sampled at first step")
 
             decoder_input = next_token
 

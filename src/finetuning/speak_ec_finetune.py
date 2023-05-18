@@ -10,8 +10,9 @@ import torch
 import wandb
 from PIL import Image
 from PIL import ImageDraw
-from torch import nn, optim
-from torch.distributions import Categorical
+from torch import nn, optim, functional
+from torch.distributions import Categorical, kl_divergence
+from torch.nn.functional import pad, kl_div
 from torch.utils.data import DataLoader
 
 from src.commons import (
@@ -78,9 +79,11 @@ def normalize_aux(aux, logger: WandbLogger, epoch, max_targets=2):
     aux["policy_loss"] = np.mean(aux["policy_loss"])
     aux["list_loss"] = np.mean(aux["list_loss"])
     aux["entropy_loss"] = np.mean(aux["entropy_loss"])
+   # aux["kl_loss"] = np.mean(aux["kl_loss"])
     aux["weighted_policy_loss"] = np.mean(aux["weighted_policy_loss"])
     aux["weighted_entropy_loss"] = np.mean(aux["weighted_entropy_loss"])
     aux["weighted_list_loss"] = np.mean(aux["weighted_list_loss"])
+    #aux["weighted_kl_loss"] = np.mean(aux["weighted_kl_loss"])
 
     # unfold the list of domains
     domains = [x for y in aux["domains"] for x in y]
@@ -136,12 +139,13 @@ def normalize_aux(aux, logger: WandbLogger, epoch, max_targets=2):
 
 
 def get_predictions(
-    data: Dict,
-    list_model: ListenerModel,
-    speak_model: SpeakerModelEC,
-    loss_f: nn.CrossEntropyLoss,
-    translator: Translator,
-    baseline: MeanBaseline,
+        data: Dict,
+        list_model: ListenerModel,
+        speak_model: SpeakerModelEC,
+        loss_f: nn.CrossEntropyLoss,
+        translator: Translator,
+        baseline: MeanBaseline,
+        speaker_model_original: SpeakerModelEC,
 ) -> Tuple[torch.Tensor, Dict]:
     """
     Extract data, get list/sim out, estimate losses and create log dict
@@ -157,6 +161,11 @@ def get_predictions(
     target_img_feat = data["target_img_feat"]
 
     hypos, model_params, _ = speak_model.generate_hypothesis(
+        context_separate, target_img_feat
+    )
+
+    # get the original speaker model
+    original_hypos, original_model_params, _ = speaker_model_original.generate_hypothesis(
         context_separate, target_img_feat
     )
 
@@ -190,14 +199,19 @@ def get_predictions(
     policy_loss = (bs_diff * dec_log_probs).mean()
     weighted_policy_loss = policy_loss * common_p.policy_loss_weight
 
-    # entropy loss
+    # kl loss
+    dec_logits_original =logprobs_from_logits(original_model_params["decoder_logits"], original_hypos)
+    kl_loss =  kl_div(dec_log_probs, dec_logits_original, reduction="batchmean", log_target=True)
+    weighted_kl_loss = kl_loss * common_p.kl_loss_weight
 
+
+    # entropy loss
     distr = Categorical(logits=dec_logits)
     entropy = distr.entropy()
     entropy_loss = -entropy.mean()
     weighted_entropy_loss = entropy_loss * common_p.entropy_loss_weight
 
-    loss = weighted_policy_loss + weighted_entropy_loss + weighted_list_loss
+    loss = weighted_policy_loss + weighted_entropy_loss + weighted_list_loss + weighted_kl_loss
 
     list_loss = list_loss.mean()
     if speak_model.training:
@@ -208,9 +222,11 @@ def get_predictions(
         policy_loss=policy_loss.detach().cpu().item(),
         list_loss=list_loss.detach().cpu().item(),
         entropy_loss=entropy_loss.detach().cpu().item(),
+        kl_loss=kl_loss.detach().cpu().item(),
         weighted_policy_loss=weighted_policy_loss.detach().cpu().item(),
         weighted_entropy_loss=weighted_entropy_loss.detach().cpu().item(),
         weighted_list_loss=weighted_list_loss.detach().cpu().item(),
+        weighted_kl_loss=weighted_kl_loss.detach().cpu().item(),
         baseline=bs.detach().cpu().item(),
         utterance=dec_utt,
         target_id=target_id,
@@ -232,10 +248,10 @@ def main():
 
     common_p = parse_args("speak")
     domain = common_p.train_domain
-
+    #torch.autograd.set_detect_anomaly(True)
     device = (
         torch.device("cuda")
-        if torch.cuda.is_available() and common_p.device != "cpu"
+        if torch.cuda.is_available() and common_p.device != "cpu" and not common_p.debug
         else torch.device("cpu")
     )
 
@@ -322,7 +338,7 @@ def main():
 
     speak_check, _ = load_wandb_checkpoint(
         SPEAKER_CHK, device,
-        #datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1])
+        # datadir=join("./artifacts", SPEAKER_CHK.split("/")[-1])
     )
     # load args
     speak_p = speak_check["args"]
@@ -346,10 +362,18 @@ def main():
         common_speak_p.top_k,
         common_speak_p.top_p,
         device=device,
+        deterministic=True,
     ).to(device)
 
     speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
     speaker_model = speaker_model.to(device)
+
+    # clone the model
+    speaker_model_original = copy.deepcopy(speaker_model)
+    speaker_model_original.eval()
+    # freese the original
+    for param in speaker_model_original.parameters():
+        param.requires_grad = False
 
     ###################################
     ##  LOSS AND OPTIMIZER
@@ -432,12 +456,12 @@ def main():
         initial_aux = []
 
         for data in rich.progress.track(
-            dataloader_eval,
-            total=len(dataloader_eval),
-            description=f"Initial Evaluation...",
+                dataloader_eval,
+                total=len(dataloader_eval),
+                description=f"Initial Evaluation...",
         ):
             loss, aux = get_predictions(
-                data, list_model, speaker_model, loss_f, translator, baseline
+                data, list_model, speaker_model, loss_f, translator, baseline, speaker_model_original
             )
 
             initial_aux.append(aux)
@@ -456,8 +480,8 @@ def main():
         logger.on_eval_end(
             initial_aux, list_domain=data_domain, modality="initial_eval"
         )
-    aux['enc_log_probs']=torch.as_tensor(aux['enc_log_probs'])
-    aux['dec_log_probs']=torch.as_tensor(aux['dec_log_probs'])
+    aux['enc_log_probs'] = torch.as_tensor(aux['enc_log_probs'])
+    aux['dec_log_probs'] = torch.as_tensor(aux['dec_log_probs'])
 
     ###################################
     ##  START OF TRAINING LOOP
@@ -465,7 +489,7 @@ def main():
 
     t = datetime.datetime.now()
     timestamp = (
-        str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
+            str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
     for epoch in range(common_p.epochs):
@@ -483,15 +507,15 @@ def main():
         ###################################
 
         for data in rich.progress.track(
-            dataloader_train,
-            total=len(dataloader_train),
-            description=f"Training epoch {epoch}",
+                dataloader_train,
+                total=len(dataloader_train),
+                description=f"Training epoch {epoch}",
         ):
             optimizer.zero_grad()
 
             # get datapoints
             loss, aux = get_predictions(
-                data, list_model, speaker_model, loss_f, translator, baseline
+                data, list_model, speaker_model, loss_f, translator, baseline, speaker_model_original
             )
 
             auxs.append(aux)
@@ -521,12 +545,12 @@ def main():
             auxs = []
 
             for data in rich.progress.track(
-                dataloader_eval,
-                total=len(dataloader_eval),
-                description=f"Evaluating...",
+                    dataloader_eval,
+                    total=len(dataloader_eval),
+                    description=f"Evaluating...",
             ):
                 loss, aux = get_predictions(
-                    data, list_model, speaker_model, loss_f, translator, baseline
+                    data, list_model, speaker_model, loss_f, translator, baseline, speaker_model_original
                 )
 
                 auxs.append(aux)

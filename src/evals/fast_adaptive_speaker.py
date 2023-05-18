@@ -199,7 +199,7 @@ def evaluate(
     split: str,
     adapt_lr: float = 0.1,
     s: int = 1,
-) -> pd.DataFrame:
+) :
     """
     Perform evaluation of given split
     Parameters
@@ -219,7 +219,14 @@ def evaluate(
 
     """
 
-    n_threads = 1 if common_p.debug else os.cpu_count()//2
+    if common_p.debug:
+        n_threads = 1
+    elif common_p.device == torch.device("cpu"):
+        n_threads = os.cpu_count()//2
+    elif common_p.device == torch.device("cuda"):
+        n_threads = torch.cuda.device_count()
+    else:
+        raise ValueError(f"Unknown device {common_p.device}")
 
     # Split the data into subsets
     data_list = list(data_loader)
@@ -319,7 +326,7 @@ if __name__ == "__main__":
     set_seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True)
+    torch.use_deterministic_algorithms(True,warn_only=True)
 
 
 
@@ -415,6 +422,7 @@ if __name__ == "__main__":
         common_speak_p.top_k,
         common_speak_p.top_p,
         device=device,
+        deterministic=False,
     )
 
     speaker_model.load_state_dict(speak_check["model_state_dict"], strict=False)
