@@ -163,6 +163,8 @@ class SpeakerModelEC(nn.Module):
         decoder_hid : torch.Tensor = the decoder hidden output, used for simulator train
         """
 
+        #todo: somewhere in here there is a grad accumulation problem that is causing the memory leak
+
         decoder_hid, history_att, model_params = self.partial_forward(
             visual_context, target_img_feats
         )

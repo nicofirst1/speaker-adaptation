@@ -23,12 +23,14 @@ from src.commons import (
     EarlyStopping,
 )
 from src.commons.Translator import Translator
-from src.commons.model_utils import get_mask_from_utts, save_model, merge_dict, compare_model_weights
+from src.commons.model_utils import get_mask_from_utts, save_model, merge_dict, compare_model_weights, LeakFinder
 from src.data.dataloaders import Vocab
 from src.models import ListenerModel
 from src.models.simulator.SimulatorModel import SimulatorModel
 from src.models.speaker.SpeakerModelEC import SpeakerModelEC
 from src.wandb_logging import WandbLogger
+
+global cudaper
 
 
 def normalize_aux(aux, data_length, all_domains, max_targets=0):
@@ -38,11 +40,10 @@ def normalize_aux(aux, data_length, all_domains, max_targets=0):
     aux["sim_list_acc"] = np.mean(aux["sim_list_acc"])
     aux["adapted_list_target_acc"] = np.mean(aux["adapted_list_target_acc"])
     aux["sim_target_acc"] = np.mean(aux["sim_accuracy"])
-    aux["original_sim_list_acc"] = np.mean(aux["original_sim_list_acc"]) / data_length
     aux["original_acc"] = np.mean(aux["original_acc"]) / data_length
-    aux["golden_acc"] = np.mean(aux["golden_acc"]) / data_length
 
     del aux["sim_accuracy"]
+
 
 
 def predict(
@@ -55,62 +56,49 @@ def predict(
         adapt_lr: float,
         s: int,
 ):
+
+
     ## extract data
     context_separate = data["separate_images"]
     target_img_feats = data["target_img_feats"]
     targets = data["target"]
-    golden_utt_ids = data["utterance"]
 
-    ##################################
-    # Get results for golden captions
-    ##################################
-    masks = get_mask_from_utts(golden_utt_ids, translator.list_vocab, device)
 
-    golden_list_out = list_model(golden_utt_ids, context_separate, masks)
-    golden_list_out.squeeze(dim=0)
-    golden_acc = torch.argmax(golden_list_out.squeeze(dim=-1), dim=1)
-    golden_acc = torch.eq(golden_acc, targets.squeeze()).sum().double().item()
 
     ################################################
     #   Get results with original hypo
     ################################################
     set_seed(seed)
     # generate hypothesis
-    utterance_s, logs, decoder_hid = speak_model.generate_hypothesis(
-        context_separate,
-        target_img_feats,
-    )
+    with torch.no_grad():
+        utterance_s, logs, decoder_hid = speak_model.generate_hypothesis(
+            context_separate,
+            target_img_feats,
+        )
 
-    utterance = translator.s2l(utterance_s)
+        utterance = translator.s2l(utterance_s)
 
-    history_att = logs["history_att"]
+        history_att = logs["history_att"]
 
-    # translate utt to ids and feed to listener
+        # translate utt to ids and feed to listener
 
-    masks = get_mask_from_utts(utterance, translator.list_vocab, device)
+        masks = get_mask_from_utts(utterance, translator.list_vocab, device)
 
-    list_out = list_model(utterance, context_separate, masks)
+        list_out = list_model(utterance, context_separate, masks)
 
-    # get  accuracy
-    list_preds = torch.argmax(list_out, dim=1)
-    list_target_accuracy = torch.eq(list_preds.squeeze(dim=-1), targets.squeeze()).sum().double().item()
-    original_acc = list_target_accuracy
+        # # get  accuracy
+        list_preds = torch.argmax(list_out, dim=1)
+        list_target_accuracy = torch.eq(list_preds.squeeze(dim=-1), targets.squeeze()).sum().double().item()
+        original_acc = list_target_accuracy
 
-    # get accuracy for sim
-    sim_out = sim_model(
-        separate_images=context_separate,
-        utterance=utterance,
-        masks=masks, )
-    sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
-    original_sim_list_acc = torch.eq(sim_preds, list_preds.squeeze()).sum().double().item()
 
-    # loss for sim-list
+
 
     ################################################
     #   Get results with adapted hypo
     ################################################
     # decoder_hid = normalize(decoder_hid)
-    h0 = decoder_hid.clone().detach().requires_grad_(True)
+    h0 = decoder_hid.clone().requires_grad_(True)
     h0_optimizer = torch.optim.Adam([h0], lr=adapt_lr)
     h0_optimizer.zero_grad()
 
@@ -126,6 +114,7 @@ def predict(
     i = 0
     while i < s:
         set_seed(seed)
+        h0_optimizer.zero_grad()
 
         sim_out = sim_model(
             separate_images=context_separate,
@@ -143,22 +132,22 @@ def predict(
 
         s_loss.append(loss.detach().item())
 
-        # get modified hypo
-        utterance_s, dec_logit = speak_model.nucleus_sampling(h0, history_att)
-        utterance = translator.s2l(utterance_s)
+        with torch.no_grad():
+            # get modified hypo
+            utterance_s, dec_logit = speak_model.nucleus_sampling(h0, history_att)
+            utterance = translator.s2l(utterance_s)
 
-        # generate utt for list
-        # translate utt to ids and feed to listener
-        masks = get_mask_from_utts(utterance, translator.list_vocab, device)
+            # generate utt for list
+            # translate utt to ids and feed to listener
+            masks = get_mask_from_utts(utterance, translator.list_vocab, device)
 
-        list_out = list_model(utterance, context_separate, masks)
-        list_preds = torch.argmax(list_out, dim=1)
+            list_out = list_model(utterance, context_separate, masks)
+            list_preds = torch.argmax(list_out, dim=1)
 
-        sim_accuracy.append(aux["sim_target_accuracy"])
-        sim_list_acc.append(aux["sim_list_accuracy"])
-        s_accs.append(aux["list_target_accuracy"])
+            sim_accuracy.append(aux["sim_target_accuracy"])
+            sim_list_acc.append(aux["sim_list_accuracy"])
+            s_accs.append(aux["list_target_accuracy"])
 
-        s_loss.append(loss.detach().item())
 
         # break if listener gets it right
         if aux["sim_target_accuracy"]:
@@ -166,17 +155,16 @@ def predict(
         i += 1
 
     res = dict(
-        golden_acc=golden_acc,
         original_acc=original_acc,
-        original_sim_list_acc=original_sim_list_acc,
         adapted_list_target_acc=s_accs,
         sim_accuracy=sim_accuracy,
         sim_list_acc=sim_list_acc,
         domains=data["domain"],
-        sim_list_loss=sim_list_loss,
+        sim_list_loss=sim_list_loss.detach().item(),
 
         s_loss=s_loss,
     )
+
     return res, sim_list_loss
 
 
@@ -350,13 +338,13 @@ if __name__ == "__main__":
             str(t.date()) + "-" + str(t.hour) + "-" + str(t.minute) + "-" + str(t.second)
     )
 
+
     for epoch in range(common_p.epochs):
         print("Epoch : ", epoch)
 
         auxs = []
 
         sim_model.train()
-
 
         ###################################
         ##  TRAIN LOOP
@@ -367,8 +355,8 @@ if __name__ == "__main__":
                 total=len(train_dl_all),
                 description=f"Training epoch {epoch}",
         ):
-            optimizer.zero_grad()
 
+            optimizer.zero_grad()
             # get datapoints
             aux, loss = predict(
                 data,
@@ -426,7 +414,6 @@ if __name__ == "__main__":
             auxs.append(aux)
 
         compare_model_weights(sim_model, sim_model_copy)
-
 
         aux = merge_dict(auxs)
         normalize_aux(
