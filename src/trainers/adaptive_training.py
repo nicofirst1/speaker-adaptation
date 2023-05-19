@@ -34,12 +34,12 @@ global cudaper
 
 
 def normalize_aux(aux, data_length):
-    aux["s_loss"] = np.mean(aux["s_loss"])
+    aux["s_loss"] = np.mean(aux["s_loss"]).mean()
     aux["sim_list_loss"] = np.mean(aux["sim_list_loss"])
 
-    aux["sim_list_acc"] = np.mean(aux["sim_list_acc"])
-    aux["adapted_list_target_acc"] = np.mean(aux["adapted_list_target_acc"])
-    aux["sim_target_acc"] = np.mean(aux["sim_accuracy"])
+    aux["sim_list_acc"] = np.mean([x[-1] for x in aux["sim_list_acc"]])
+    aux["adapted_list_target_acc"] = np.mean([x[-1] for x in aux["adapted_list_target_acc"]])
+    aux["sim_target_acc"] = np.mean([x[-1] for x in aux["sim_accuracy"]]).mean()
     aux["original_acc"] = np.mean(aux["original_acc"]) / data_length
 
     del aux["sim_accuracy"]
@@ -418,7 +418,7 @@ if __name__ == "__main__":
 
         aux = merge_dict(auxs)
         normalize_aux(
-            aux, len(val_dl_all.dataset.data), all_domains=logger.domains
+            aux, len(val_dl_all.dataset.data)
         )
 
         eval_accuracy, eval_loss = aux["sim_list_acc"], aux["sim_list_loss"]
