@@ -232,8 +232,22 @@ target that is changing over time. I think this is a good idea, i will try to im
 are generated with code completion and they sound exactly as i would have written them, this is scary).
 
 Ok so to recap:
+
 1. build a pipeline where frozen speak and list are interacting and the sim is trying to both predict the list and to
-   change the speak caption in a particular direction. 
-2. Pretrain the sim to stear the speak caption in a particular direction. and then pair it with the listener as said above. 
+   change the speak caption in a particular direction.
+2. Pretrain the sim to stear the speak caption in a particular direction. and then pair it with the listener as said
+   above.
 
 I can do it!
+
+# 19/05/2023
+
+Ok, so i managed to implement the first step (even tho i should debug it more) and test it with the fast adaptation
+script. Good news: it is better than an untrained model (adapted acc 31 vs 40), but it is worse than the old mode (40 vs
+47). I mean, it is a good new tho, it is working while being trained in an online fashion, so nothing to worry about.
+I'm unsure how to proceed tho. On one hand, I could keep this online training and just add a rl pretraining of the sim
+as listed yesterday. On the other hand i can try to train both at the same time as i did month ago. When i tried it back
+in the days it didnt' work since the architecture was different (shared weights), but now it is not the case anymore and
+it might be interesting to check if it works. Before that i should maybe debug the whole thing first. I mean, if step 2
+doesn't work at least i addressed the issues in the original paper. 
+Note to self, changing the embed temp deos not change anything.

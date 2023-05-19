@@ -93,7 +93,9 @@ def predict(
     sim_out = sim_model(
         separate_images=context_separate,
         utterance=utterance,
-        masks=masks,)
+        masks=masks,
+       # speaker_embeds=decoder_hid,
+    )
     sim_preds = torch.argmax(sim_out.squeeze(dim=-1), dim=1)
     original_sim_list_acc = torch.eq(sim_preds, list_preds.squeeze()).double().item()
 
@@ -344,7 +346,7 @@ if __name__ == "__main__":
         opts=vars(common_p),
         train_logging_step=1,
         val_logging_step=1,
-        project=f"fast-adaptive-speaker-{common_p.type_of_int}",
+        project=f"fast-adaptive-speaker",
         tags=common_p.tags,
     )
 

@@ -156,7 +156,7 @@ class SimulatorModel_old(nn.Module):
     def forward(
         self,
         speaker_embeds: torch.Tensor,
-        utterances: torch.Tensor,
+        utterance: torch.Tensor,
         separate_images: torch.Tensor,
         masks: torch.Tensor,
     ):
@@ -166,7 +166,7 @@ class SimulatorModel_old(nn.Module):
         @param visual_context: concatenation of 6 images in the context
         @param masks: attention mask for pad tokens
         """
-        utterances = utterances.to(self.device)
+        utterance = utterance.to(self.device)
         separate_images = separate_images.to(self.device)
         visual_context = to_concat_context(separate_images)
 
@@ -179,14 +179,14 @@ class SimulatorModel_old(nn.Module):
         projected_context = standardize(projected_context)
 
         # utterance representations are processed
-        utt_out = self.utterance_forward(utterances, projected_context, masks)
+        utt_out = self.utterance_forward(utterance, projected_context, masks)
         embeds_out = self.embeds_forward(speaker_embeds, projected_context)
 
         #################
         # visual context
         #################
 
-        batch_size = utterances.shape[0]
+        batch_size = utterance.shape[0]
 
         # image features per image in context are processed
         separate_images = self.dropout(separate_images)
