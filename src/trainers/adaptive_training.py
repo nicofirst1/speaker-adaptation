@@ -99,8 +99,7 @@ def predict(
     ################################################
     # decoder_hid = normalize(decoder_hid)
     h0 = decoder_hid.clone().requires_grad_(True)
-    params=list(sim_model.parameters() )+[h0]
-    h0_optimizer = torch.optim.Adam(params, lr=adapt_lr)
+    h0_optimizer = torch.optim.Adam([h0], lr=adapt_lr)
     h0_optimizer.zero_grad()
 
     # repeat for s interations
@@ -123,10 +122,10 @@ def predict(
             masks=masks,
             speaker_embeds=h0,
         )
-        sim_list_loss = criterion(sim_out, list_preds)
+        sim_list_loss += criterion(sim_out, list_preds)
 
         # compute loss and perform backprop
-        loss = criterion(sim_out, targets) +sim_list_loss
+        loss = criterion(sim_out, targets)
         aux = acc_estimator(sim_out, targets, list_out, data["domain"])
         loss.backward(retain_graph=True)
         h0_optimizer.step()
@@ -373,9 +372,9 @@ if __name__ == "__main__":
             auxs.append(aux)
 
             # # optimizer
-            #loss.backward()
+            loss.backward()
             # nn.utils.clip_grad_value_(sim_model.parameters(), clip_value=1.0)
-            #optimizer.step()
+            optimizer.step()
 
         aux = merge_dict(auxs)
         normalize_aux(aux, len(train_dl_all.dataset.data))

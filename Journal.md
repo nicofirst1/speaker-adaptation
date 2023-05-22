@@ -249,5 +249,8 @@ I'm unsure how to proceed tho. On one hand, I could keep this online training an
 as listed yesterday. On the other hand i can try to train both at the same time as i did month ago. When i tried it back
 in the days it didnt' work since the architecture was different (shared weights), but now it is not the case anymore and
 it might be interesting to check if it works. Before that i should maybe debug the whole thing first. I mean, if step 2
-doesn't work at least i addressed the issues in the original paper. 
+doesn't work at least i addressed the issues in the original paper.
 Note to self, changing the embed temp deos not change anything.
+
+Before going on with step 2 i wanted to try something in the middle. Right now i'm training the sim to predict the list
+but not to stir h0. I just want to see if that works or not. 

@@ -369,6 +369,10 @@ def standardize(tensor: torch.Tensor) -> torch.Tensor:
     Standardizes a tensor
     """
 
+    # if all zeros return zeros
+    if tensor.std() == 0:
+        return tensor
+
     tensor = tensor - tensor.mean()
     tensor = tensor / tensor.std()
     return tensor
@@ -417,8 +421,8 @@ class LeakFinder:
         Set the batch number
         """
 
-        if batch>0:
-            batch-=1
+        if batch > 0:
+            batch -= 1
 
         self.batch = batch
         self.step = 0
@@ -479,7 +483,6 @@ class LeakFinder:
 
         if not self.verbose and self.batch % self.predict_every != 0:
             return
-
 
         # estimate per step diff
         diffs = []
