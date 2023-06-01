@@ -1,6 +1,6 @@
 # Speaking the Language of Your Listener
 
-This repository contains the code for the paper "Speaking the Language of Your Listener: Audience-Aware Adaptation via Plug-and-Play Theory of Mind", where we model a visually grounded referential
+This repository contains the code for the paper "Speaking the Language of Your Listener: Audience-Aware Adaptation via Plug-and-Play Theory of Mind" (to appear in Findings of ACL 2023), where we model a visually grounded referential
 game between a knowledgeable speaker and a listener with more limited visual and linguistic experience. We propose an
 adaptation mechanism for the speaker, building on plug-and-play approaches to controlled language generation, where
 utterance generation is steered on the fly by a simulator without finetuning the speaker's underlying language model.
@@ -128,10 +128,12 @@ in the `src/models` directory of the repository.
 If you find this repository helpful in your research, consider citing our work:
 
 ```bib
-@inproceedings{author2023title,
-  title={Title of your Paper},
-  author={Author, A. and Coauthor, B.},
-  booktitle={Conference},
-  year={2023}
+@misc{takmaz2023speaking,
+      title={Speaking the Language of Your Listener: Audience-Aware Adaptation via Plug-and-Play Theory of Mind}, 
+      author={Ece Takmaz and Nicolo' Brandizzi and Mario Giulianelli and Sandro Pezzelle and Raquel Fernández},
+      year={2023},
+      eprint={2305.19933},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
 }
 ```
