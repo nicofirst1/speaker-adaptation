@@ -1,3 +1,6 @@
+![Image Alt Text](./assets/poster.svg)
+
+
 # Speaking the Language of Your Listener
 
 This repository contains the code for the paper ["Speaking the Language of Your Listener: Audience-Aware Adaptation via Plug-and-Play Theory of Mind"](https://arxiv.org/abs/2305.19933) (to appear in Findings of ACL 2023), where we model a visually grounded referential
